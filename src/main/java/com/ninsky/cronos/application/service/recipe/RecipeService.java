@@ -1,0 +1,240 @@
+package com.ninsky.cronos.application.service.recipe;
+
+
+import com.ninsky.cronos.application.request.recipe.CreateRecipeRequest;
+import com.ninsky.cronos.application.request.recipe.UpdateRecipeRequest;
+import com.ninsky.cronos.application.response.recipe.*;
+import com.ninsky.cronos.application.service.storage.CloudStorageService;
+import com.ninsky.cronos.domain.entity.auth.User;
+import com.ninsky.cronos.domain.entity.core.Allergen;
+import com.ninsky.cronos.domain.entity.core.MeasurementUnit;
+import com.ninsky.cronos.domain.entity.core.RawMaterial;
+import com.ninsky.cronos.domain.entity.recipes.Recipe;
+import com.ninsky.cronos.domain.entity.recipes.RecipeFile;
+import com.ninsky.cronos.domain.entity.recipes.RecipeFixedCost;
+import com.ninsky.cronos.domain.entity.recipes.RecipeIngredient;
+import com.ninsky.cronos.infrastructure.exception.ResourceNotFoundException;
+import com.ninsky.cronos.infrastructure.persistence.auth.UserRepository;
+import com.ninsky.cronos.infrastructure.persistence.core.MeasurementUnitRepository;
+import com.ninsky.cronos.infrastructure.persistence.core.RawMaterialRepository;
+import com.ninsky.cronos.infrastructure.persistence.recipe.RecipeRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.*;
+import java.util.stream.Collectors;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class RecipeService {
+    private final RecipeRepository recipeRepository;
+    private final UserRepository userRepository;
+    private final RawMaterialRepository rawMaterialRepository;
+    private final MeasurementUnitRepository unitRepository;
+    private final CloudStorageService cloudStorageService;
+
+    @Transactional(readOnly = true)
+    public RecipeDetailResponse getRecipeById(String username, UUID recipeId) {
+        log.info("Retrieving rich details from the recipe {} for: {}", recipeId, username);
+
+        User user = userRepository.findByUsername(username).orElseThrow();
+        Recipe recipe = recipeRepository.findByIdAndUserId(recipeId, user.getId()).orElseThrow(() -> new ResourceNotFoundException("Receta no encontrada o sin acceso"));
+
+        Set<UUID> materialIds = recipe.getIngredients().stream().map(RecipeIngredient::getRawMaterialId).collect(Collectors.toSet());
+        Set<Long> unitIds = recipe.getIngredients().stream().map(RecipeIngredient::getUnitId).collect(Collectors.toSet());
+
+        // Access the database once via the catalog and quickly build a dictionary (map) in memory
+        Map<UUID, RawMaterial> materialsMap = rawMaterialRepository.findAllById(materialIds).stream().collect(Collectors.toMap(RawMaterial::getId, m -> m));
+        Map<Long, MeasurementUnit> unitsMap = unitRepository.findAllById(unitIds).stream().collect(Collectors.toMap(MeasurementUnit::getId, u -> u));
+
+        List<RecipeIngredientDto> ingredientsDto = recipe.getIngredients().stream().map(ing -> {
+
+            RawMaterial material = materialsMap.get(ing.getRawMaterialId());
+            MeasurementUnit unit = unitsMap.get(ing.getUnitId());
+
+            boolean hasAllergen = false;
+            List<String> allergenNames = new ArrayList<>();
+
+            if (material != null && material.getAllergens() != null && !material.getAllergens().isEmpty()) {
+                hasAllergen = true;
+                allergenNames = material.getAllergens().stream()
+                        .map(Allergen::getName)
+                        .toList();
+            }
+
+            return RecipeIngredientDto.builder().id(ing.getId()).rawMaterialName(material != null ? material.getName() : "Desconocido")
+                    .hasAllergen(hasAllergen).allergenNames(allergenNames).unitName(unit != null ? unit.getName() : "N/A")
+                    .quantity(ing.getQuantity()).displayOrder(ing.getDisplayOrder()).isOptional(ing.isOptional()).notes(ing.getNotes())
+                    .costPerUnit(ing.getCostPerUnit()).totalCost(ing.getTotalCost()).build();
+        }).toList();
+        List<RecipeFixedCostDto> fixedCostsDto = recipe.getFixedCosts().stream().filter(RecipeFixedCost::isActive).map(fc -> RecipeFixedCostDto.builder().id(fc.getId())
+                        .userFixedCostName(fc.getName()).description(fc.getDescription())
+                        .type(fc.getType()).defaultAmount(fc.getRate()).calculationMethod(fc.getCalculationMethod())
+                        .timeInMinutes(fc.getTimeInMinutes()).percentage(fc.getPercentage())
+                        .calculatedCost(fc.getCalculatedAmount() != null ? fc.getCalculatedAmount() : BigDecimal.ZERO)
+                        .isActive(fc.isActive()).build())
+                .toList();
+
+        return RecipeDetailResponse.builder().id(recipe.getId()).name(recipe.getName())
+                .description(recipe.getDescription()).categoryId(recipe.getCategoryId())
+                .yieldQuantity(recipe.getYieldQuantity()).yieldUnit(recipe.getYieldUnit())
+                .preparationTimeMinutes(recipe.getPreparationTimeMinutes())
+                .bakingTimeMinutes(recipe.getBakingTimeMinutes())
+                .coolingTimeMinutes(recipe.getCoolingTimeMinutes())
+                .instructions(recipe.getInstructions())
+                .storageInstructions(recipe.getStorageInstructions())
+                .shelfLifeDays(recipe.getShelfLifeDays())
+                .status(recipe.getStatus()).isActive(recipe.isActive())
+                .needsRecalculation(recipe.isNeedsRecalculation())
+                .currentVersion(recipe.getCurrentVersion())
+                .createdAt(recipe.getCreatedAt()).updatedAt(recipe.getUpdatedAt())
+                .ingredients(ingredientsDto).fixedCosts(fixedCostsDto)
+                .build();
+    }
+
+    @Transactional
+    public RecipeResponse createRecipe(String username, CreateRecipeRequest request) {
+        log.info("Creating a new recipe for the user: {}", username);
+
+        User user = userRepository.findByUsername(username).orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
+
+        Recipe recipe = Recipe.builder().name(request.name()).description(request.description())
+                .user(user).categoryId(request.categoryId())
+                .yieldQuantity(request.yieldQuantity())
+                .yieldUnit(request.yieldUnit()).preparationTimeMinutes(request.preparationTimeMinutes())
+                .bakingTimeMinutes(request.bakingTimeMinutes())
+                .coolingTimeMinutes(request.coolingTimeMinutes())
+                .instructions(request.instructions()).storageInstructions(request.storageInstructions())
+                .shelfLifeDays(request.shelfLifeDays()).status("DRAFT")
+                .isActive(true).needsRecalculation(true).currentVersion(1).build();
+
+        recipe = recipeRepository.save(recipe);
+        return mapToResponse(recipe);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<RecipeResponse> getMyRecipes(String username, Pageable pageable, String search) {
+        log.info("Retrieving page-by-page results for: {}", username);
+        User user = userRepository.findByUsername(username).orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
+
+        Page<Recipe> recipes;
+        if (search != null && !search.trim().isEmpty()) {
+            recipes = recipeRepository.findByUserIdAndNameContainingIgnoreCase(user.getId(), search, pageable);
+        } else {
+            recipes = recipeRepository.findByUserId(user.getId(), pageable);
+        }
+
+        return recipes.map(this::mapToResponse);
+    }
+
+    @Transactional
+    public RecipeResponse updateRecipe(String username, UUID recipeId, UpdateRecipeRequest request) {
+        log.info("Updating recipe {} for user: {}", recipeId, username);
+        User user = userRepository.findByUsername(username).orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
+
+        Recipe recipe = recipeRepository.findByIdAndUserId(recipeId, user.getId()).orElseThrow(() -> new ResourceNotFoundException("Receta no encontrada o no tienes permisos para editarla"));
+
+        boolean yieldChanged = mapFieldsToUpdate(request, recipe);
+
+        if (yieldChanged) {
+            log.info("A change in performance has been detected in recipe {}. Marking for recalculation.", recipeId);
+            recipe.setNeedsRecalculation(true);
+        }
+
+        recipe = recipeRepository.save(recipe);
+        return mapToResponse(recipe);
+    }
+
+    @Transactional(readOnly = true)
+    public List<SimpleRecipeResponse> searchSimpleRecipes(String username, String searchTerm) {
+        log.info("User {} is searching for simple recipes. Search term: '{}'", username, searchTerm);
+        User user = userRepository.findByUsername(username).orElseThrow();
+
+        List<Recipe> recipes;
+        if (searchTerm == null || searchTerm.trim().isEmpty()) {
+            recipes = recipeRepository.findTop15ByUserIdOrderByUpdatedAtDesc(user.getId());
+        } else {
+            recipes = recipeRepository.findTop15ByUserIdAndNameContainingIgnoreCase(user.getId(), searchTerm.trim());
+        }
+
+        log.debug("Found {} simple recipes matching the criteria for user {}", recipes.size(), user.getId());
+
+        return recipes.stream().map(recipe -> {
+            String imageUrl = recipe.getFiles().stream().filter(RecipeFile::isPrimary).findFirst()
+                    .map(file -> cloudStorageService.generateSignedUrl(file.getFilePath(), 60))
+                    .orElse(null);
+
+            return SimpleRecipeResponse.builder().id(recipe.getId()).name(recipe.getName())
+                    .description(recipe.getDescription()).primaryImageUrl(imageUrl)
+                    .totalCost(recipe.getTotalCost()).build();
+        }).toList();
+    }
+
+    /*private BigDecimal calculateBaseFixedCost(RecipeFixedCost fixedCost) {
+        if (fixedCost.getRate() == null) return BigDecimal.ZERO;
+
+        return switch (fixedCost.getCalculationMethod()) {
+            case "HOURLY_RATE" -> {
+                int minutes = fixedCost.getTimeInMinutes() != null ? fixedCost.getTimeInMinutes() : 0;
+                // Cost = (Minutes / 60) * Hourly Rate
+                yield BigDecimal.valueOf(minutes).divide(BigDecimal.valueOf(60), 6, RoundingMode.HALF_UP).multiply(fixedCost.getRate()).setScale(2, RoundingMode.HALF_UP);
+            }
+            case "PERCENTAGE" -> {
+                BigDecimal pct = fixedCost.getPercentage() != null ? fixedCost.getPercentage() : BigDecimal.ZERO;
+                // Cost = Base Amount * (Percentage / 100)
+                yield fixedCost.getRate().multiply(pct.divide(BigDecimal.valueOf(100), 6, RoundingMode.HALF_UP)).setScale(2, RoundingMode.HALF_UP);
+            }
+            default -> fixedCost.getRate().setScale(2, RoundingMode.HALF_UP); // PER_UNIT y FIXED_PER_BATCH
+        };
+    }*/
+
+    private boolean mapFieldsToUpdate(UpdateRecipeRequest request, Recipe recipe) {
+        boolean requiresRecalculation = false;
+
+        if (request.name() != null) recipe.setName(request.name());
+        if (request.description() != null) recipe.setDescription(request.description());
+
+        // Check if the QUANTITY of output has changed
+        if (request.yieldQuantity() != null) {
+            if (recipe.getYieldQuantity() == null || recipe.getYieldQuantity().compareTo(request.yieldQuantity()) != 0) {
+                requiresRecalculation = true;
+            }
+            recipe.setYieldQuantity(request.yieldQuantity());
+        }
+
+        // Check whether the unit of measurement has changed (e.g., from “cakes” to “slices”)
+        if (request.yieldUnit() != null) {
+            if (!request.yieldUnit().equals(recipe.getYieldUnit())) {
+                requiresRecalculation = true;
+            }
+            recipe.setYieldUnit(request.yieldUnit());
+        }
+
+        if (request.status() != null) recipe.setStatus(request.status());
+        if (request.categoryId() != null) recipe.setCategoryId(request.categoryId());
+        if (request.preparationTimeMinutes() != null) recipe.setPreparationTimeMinutes(request.preparationTimeMinutes());
+        if (request.bakingTimeMinutes() != null) recipe.setBakingTimeMinutes(request.bakingTimeMinutes());
+        if (request.coolingTimeMinutes() != null) recipe.setCoolingTimeMinutes(request.coolingTimeMinutes());
+        if (request.instructions() != null) recipe.setInstructions(request.instructions());
+        if (request.storageInstructions() != null) recipe.setStorageInstructions(request.storageInstructions());
+        if (request.shelfLifeDays() != null) recipe.setShelfLifeDays(request.shelfLifeDays());
+
+        return requiresRecalculation;
+    }
+
+    private RecipeResponse mapToResponse(Recipe recipe) {
+        return RecipeResponse.builder().id(recipe.getId()).name(recipe.getName())
+                .description(recipe.getDescription()).yieldQuantity(recipe.getYieldQuantity())
+                .yieldUnit(recipe.getYieldUnit()).status(recipe.getStatus())
+                .isActive(recipe.isActive()).needsRecalculation(recipe.isNeedsRecalculation())
+                .currentVersion(recipe.getCurrentVersion()).createdAt(recipe.getCreatedAt())
+                .updatedAt(recipe.getUpdatedAt()).build();
+    }
+}

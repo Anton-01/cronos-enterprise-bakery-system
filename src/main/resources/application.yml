@@ -1,0 +1,156 @@
+spring:
+  application:
+    name: Cronos Bakery System
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/cronos_bakery_system_nisnky}
+    username: ${DB_USERNAME:cronos_admin_user_bakery-system}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 1
+    baseline-description: "Baseline of existing hand-maintained schema"
+    locations: classpath:db/migration
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        use_sql_comments: true
+        order_inserts: true
+        order_updates: true
+        jdbc:
+          batch_size: 20
+          time_zone: America/Mexico_City
+  mail:
+    host: smtp.sendgrid.net
+    port: 587
+    username: apikey
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
+  messages:
+    basename: i18n/messages
+    encoding: UTF-8
+    fallback-to-system-locale: false
+  web:
+    locale: es
+    locale-resolver: accept-header
+    resources:
+      add-mappings: false
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: "dummy-client-id-local-dev.apps.googleusercontent.com"
+            client-secret: "dummy-client-secret-local-dev"
+            scope:
+              - email
+              - profile
+  jackson:
+    date-format: "yyyy-MM-dd HH:mm:ss"
+    time-zone: America/Mexico_City
+    serialization:
+      write-dates-as-timestamps: false
+
+app:
+  frontend:
+    url: http://localhost:4200
+    urlSharePublicRecipe: ${app.frontend.url}/shared/recipe/
+    urlSharePublicQuote: ${app.frontend.url}/cronos/cotizaciones/ver/
+  cache:
+    unit-types:
+      ttl: 60
+      max-size: 500
+  mail:
+    sender-address: "no-reply@antonlogic.com"
+
+server:
+  port: 9191
+  servlet:
+    context-path: /api/v1
+  error:
+    include-message: always
+    include-binding-errors: always
+
+# JWT Configuration
+jwt:
+  secret: ${JWT_SECRET}
+  access-token-expiration: 900000      # 15 minutes
+  refresh-token-expiration: 604800000  # 7 days
+  issuer: auth-service
+
+# Security Configuration
+security:
+  # Account Lockout
+  account-lockout:
+    max-attempts: 5
+    lockout-duration-minutes: 60
+    increment-factor: 2  # Incremento exponencial
+    max-lockout-duration-hours: 24
+
+  # Rate Limiting
+  rate-limit:
+    login:
+      capacity: 10
+      refill-tokens: 10
+      refill-duration-seconds: 60
+    register:
+      capacity: 5
+      refill-tokens: 5
+      refill-duration-seconds: 300
+    refresh:
+      capacity: 20
+      refill-tokens: 20
+      refill-duration-seconds: 60
+
+  # Password Policy
+  password:
+    min-length: 8
+    max-length: 128
+    require-uppercase: true
+    require-lowercase: true
+    require-digit: true
+    require-special-char: true
+    history-count: 5  # No reutilizar ?ltimas 5 contrase?as
+
+  # Two-Factor Authentication
+  two-factor:
+    issuer: Enterprise Auth Service
+    qr-code-width: 250
+    qr-code-height: 250
+    window-size: 3  # Ventana de tiempo para c?digos v?lidos
+
+# Logging
+logging:
+  level:
+    root: INFO
+    com.ninsky.cronos: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: INFO
+  file:
+    name: logs/cronos-ninsky.log
+  logback:
+    rolling-policy:
+      max-file-size: 10MB
+      max-history: 30
+
+gcp:
+  project-id: "cronos-ninsky"
+  bucket-name: "cronos-storage-dev"
+  credentials-file: "classpath:credentials/gcp-cronos-key.json"

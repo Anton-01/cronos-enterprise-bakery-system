@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <springProperty scope="context" name="LOG_FILE" source="logging.file.name" defaultValue="logs/cronos-ninsky.log"/>
+    <springProperty scope="context" name="MAX_FILE_SIZE" source="logging.logback.rolling-policy.max-file-size" defaultValue="10MB"/>
+    <springProperty scope="context" name="MAX_HISTORY" source="logging.logback.rolling-policy.max-history" defaultValue="30"/>
+
+    <!-- Structured JSON console appender: every field written by TraceIdFilter / ErrorInterceptorAspect
+         into MDC (traceId, errorCategory, errorCode, executionTimeMs, failedMethod) rides along
+         automatically as top-level JSON fields via LogstashEncoder's default MDC inclusion. -->
+    <appender name="CONSOLE_JSON" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <customFields>{"service":"cronos"}</customFields>
+        </encoder>
+    </appender>
+
+    <appender name="FILE_JSON" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_FILE}</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_FILE}.%d{yyyy-MM-dd}.%i.gz</fileNamePattern>
+            <maxFileSize>${MAX_FILE_SIZE}</maxFileSize>
+            <maxHistory>${MAX_HISTORY}</maxHistory>
+        </rollingPolicy>
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <customFields>{"service":"cronos"}</customFields>
+        </encoder>
+    </appender>
+
+    <!-- Per-logger levels are driven by logging.level.* in application.yml (Spring Boot applies
+         them to these same appenders); this file owns encoding/rolling only. -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE_JSON"/>
+        <appender-ref ref="FILE_JSON"/>
+    </root>
+
+</configuration>

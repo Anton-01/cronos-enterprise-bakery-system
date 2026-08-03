@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <title>Cronos Bakery — Alerta de Seguridad</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+    table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+    img { -ms-interpolation-mode: bicubic; border: 0; display: block; max-width: 100%; }
+    body {
+      margin: 0; padding: 0;
+      background-color: #F7EFF4;
+      font-family: Georgia, 'Times New Roman', serif;
+    }
+
+    .email-wrapper {
+      width: 100%;
+      background-color: #F7EFF4;
+      padding: 44px 16px;
+    }
+    .email-container {
+      max-width: 580px;
+      margin: 0 auto;
+      background-color: #FEFAF7;
+      border-radius: 6px;
+      overflow: hidden;
+      box-shadow: 0 4px 32px rgba(200, 136, 154, 0.12);
+    }
+
+    /* Accent bar — usa un tono ambar suave para distinguir la alerta sin romper la paleta */
+    .accent-bar {
+      height: 5px;
+      background: linear-gradient(90deg, #C7B8DC 0%, #EEC5D0 30%, #E8A87C 60%, #D4856A 100%);
+    }
+
+    /* Header */
+    .email-header {
+      background: linear-gradient(160deg, #F9EEF5 0%, #EDE3F5 60%, #FDF0E8 100%);
+      padding: 38px 48px 30px;
+      text-align: center;
+      border-bottom: 1px solid #EEC5D0;
+    }
+    .brand-icon-circle {
+      width: 52px; height: 52px;
+      background: linear-gradient(135deg, #EEC5D0, #C7B8DC);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 14px;
+    }
+    .brand-name {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 24px; font-weight: normal;
+      letter-spacing: 0.14em; color: #3D2B35;
+      text-transform: uppercase; margin: 0 0 5px; line-height: 1;
+    }
+    .brand-tagline {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 10px; letter-spacing: 0.24em;
+      color: #A08898; text-transform: uppercase; margin: 0;
+    }
+
+    /* Ornament */
+    .ornament-row {
+      padding: 22px 48px 0;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+    }
+    .orn-line { flex: 1; height: 1px; background: linear-gradient(90deg, transparent, #EEC5D0); }
+    .orn-line.r { background: linear-gradient(90deg, #EEC5D0, transparent); }
+    .orn-dot { width: 5px; height: 5px; border-radius: 50%; background-color: #C8889A; flex-shrink: 0; }
+    .orn-dot-sm { width: 3px; height: 3px; border-radius: 50%; background-color: #C7B8DC; flex-shrink: 0; }
+
+    /* Body */
+    .email-body { padding: 38px 48px 36px; }
+
+    .email-label {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 10px; letter-spacing: 0.3em;
+      text-transform: uppercase; color: #C8889A; margin: 0 0 16px;
+    }
+    .email-heading {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 25px; font-weight: normal;
+      color: #3D2B35; margin: 0 0 22px; line-height: 1.4;
+    }
+    .email-heading em { font-style: italic; color: #C8889A; }
+    .email-text {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 15px; line-height: 1.8;
+      color: #5C4452; margin: 0 0 20px;
+    }
+    .email-text strong { color: #3D2B35; }
+
+    /* Alert badge */
+    .alert-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background-color: #FDF0E8;
+      border: 1px solid #E8A87C;
+      border-radius: 20px;
+      padding: 5px 14px 5px 10px;
+      margin-bottom: 24px;
+    }
+    .alert-badge-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background-color: #D4856A;
+      flex-shrink: 0;
+    }
+    .alert-badge-text {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 10px; letter-spacing: 0.22em;
+      text-transform: uppercase; color: #C4714E;
+      margin: 0;
+    }
+
+    /* Detail card */
+    .detail-card {
+      margin: 4px 0 28px;
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid #F0D5C8;
+    }
+    .detail-card-header {
+      background: linear-gradient(130deg, #FAE5D8 0%, #F5D5C5 100%);
+      padding: 14px 22px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .detail-card-header p {
+      margin: 0;
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 11px; letter-spacing: 0.2em;
+      text-transform: uppercase; color: #7A4E38;
+    }
+    .detail-rows { background-color: #FEFAF7; }
+    .detail-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 13px 22px;
+      border-bottom: 1px solid #F5EDE8;
+    }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-icon {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background-color: #FDF0E8;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-top: 1px;
+      font-size: 14px; line-height: 1;
+    }
+    .detail-label {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 9px; letter-spacing: 0.24em;
+      text-transform: uppercase; color: #A08898; margin: 0 0 3px;
+    }
+    .detail-value {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 14px; color: #3D2B35; margin: 0; line-height: 1.4;
+    }
+
+    /* Action block */
+    .action-block {
+      background: linear-gradient(90deg, #F4EBF7, #EAF3EA);
+      border-left: 3px solid #A8C5A0;
+      border-radius: 0 4px 4px 0;
+      padding: 14px 18px;
+      margin: 0 0 28px;
+    }
+    .action-block p {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 13px; color: #7A5E6A; margin: 0; line-height: 1.65;
+    }
+    .action-block p + p { margin-top: 8px; }
+    .action-block strong { color: #3D2B35; }
+
+    /* Warning block */
+    .warning-block {
+      background: linear-gradient(90deg, #FDF0E8, #FAF0E8);
+      border-left: 3px solid #E8A87C;
+      border-radius: 0 4px 4px 0;
+      padding: 14px 18px;
+      margin: 0 0 30px;
+      display: flex; align-items: flex-start; gap: 12px;
+    }
+    .warning-text {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 13px; color: #7A5E6A; margin: 0; line-height: 1.65;
+    }
+    .warning-text strong { color: #C4714E; }
+
+    /* Divider */
+    .section-divider { border: none; border-top: 1px solid #EEC5D0; margin: 28px 0; }
+
+    /* Footer */
+    .email-footer {
+      background: linear-gradient(160deg, #F0E5F2 0%, #E5DFF0 60%, #E4F0E5 100%);
+      border-top: 1px solid #EEC5D0;
+      padding: 28px 48px 32px; text-align: center;
+    }
+    .footer-brand {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 11px; letter-spacing: 0.2em;
+      text-transform: uppercase; color: #C8889A; margin: 0 0 10px;
+    }
+    .footer-text {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 11px; color: #A08898; margin: 0 0 5px; line-height: 1.65;
+    }
+    .footer-text a { color: #A08898; text-decoration: underline; }
+    .footer-sep { color: #C7B8DC; margin: 0 5px; }
+
+    .bottom-accent {
+      height: 5px;
+      background: linear-gradient(90deg, #A8C5A0 0%, #C7B8DC 30%, #EEC5D0 60%, #D4856A 100%);
+    }
+
+    /* Responsive */
+    @media only screen and (max-width: 600px) {
+      .email-wrapper  { padding: 20px 10px; }
+      .email-header   { padding: 28px 22px 22px; }
+      .email-body     { padding: 28px 22px 26px; }
+      .email-footer   { padding: 22px 22px 26px; }
+      .ornament-row   { padding: 16px 22px 0; }
+      .email-heading  { font-size: 21px; }
+      .detail-row     { padding: 12px 16px; }
+      .detail-card-header { padding: 12px 16px; }
+      .warning-block  { flex-direction: column; gap: 6px; }
+    }
+  </style>
+</head>
+
+<body>
+<div class="email-wrapper">
+  <table class="email-container" role="presentation" cellpadding="0" cellspacing="0" width="100%">
+
+    <!-- ░ Top accent bar -->
+    <tr><td><div class="accent-bar"></div></td></tr>
+
+    <!-- ░ Header -->
+    <tr>
+      <td class="email-header">
+        <div class="brand-icon-circle">
+          <svg width="26" height="26" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="13" cy="13" r="11.5" stroke="rgba(255,255,255,0.7)" stroke-width="1"/>
+            <line x1="13" y1="6.5" x2="13" y2="13" stroke="#FEFAF7" stroke-width="1.6" stroke-linecap="round"/>
+            <line x1="13" y1="13" x2="17.5" y2="16" stroke="#FEFAF7" stroke-width="1.4" stroke-linecap="round"/>
+            <circle cx="13" cy="13" r="1.4" fill="#FEFAF7"/>
+            <circle cx="13"  cy="3.5"  r="0.7" fill="rgba(255,255,255,0.5)"/>
+            <circle cx="22.5" cy="13" r="0.7" fill="rgba(255,255,255,0.5)"/>
+            <circle cx="13"  cy="22.5" r="0.7" fill="rgba(255,255,255,0.5)"/>
+            <circle cx="3.5"  cy="13" r="0.7" fill="rgba(255,255,255,0.5)"/>
+          </svg>
+        </div>
+        <p class="brand-name">Cronos Bakery</p>
+        <p class="brand-tagline">Sistema Integral de Gestión Repostera</p>
+      </td>
+    </tr>
+
+    <!-- ░ Ornament divider -->
+    <tr>
+      <td>
+        <div class="ornament-row">
+          <div class="orn-line"></div>
+          <div class="orn-dot-sm"></div>
+          <div class="orn-dot"></div>
+          <div class="orn-dot-sm"></div>
+          <div class="orn-line r"></div>
+        </div>
+      </td>
+    </tr>
+
+    <!-- ░ Body -->
+    <tr>
+      <td class="email-body">
+
+        <!-- Alert badge -->
+        <div class="alert-badge">
+          <div class="alert-badge-dot"></div>
+          <p class="alert-badge-text">Alerta de Seguridad</p>
+        </div>
+
+        <h1 class="email-heading">
+          Nuevo inicio de sesión<br>
+          en tu cuenta de <em>Cronos Bakery</em>
+        </h1>
+
+        <p class="email-text">
+          Hola, <strong th:text="${username}">Usuario</strong>. Hemos detectado un
+          acceso a tu cuenta desde un dispositivo que no habíamos registrado
+          anteriormente. Revisa los detalles a continuación.
+        </p>
+
+        <!-- Detail card -->
+        <div class="detail-card">
+
+          <div class="detail-card-header">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="7" cy="7" r="6" stroke="#C4714E" stroke-width="1.2"/>
+              <line x1="7" y1="3.5" x2="7" y2="7.2" stroke="#C4714E" stroke-width="1.3" stroke-linecap="round"/>
+              <circle cx="7" cy="9.5" r="0.75" fill="#C4714E"/>
+            </svg>
+            <p>Detalles del acceso detectado</p>
+          </div>
+
+          <div class="detail-rows">
+
+            <!-- Dispositivo -->
+            <div class="detail-row">
+              <div class="detail-icon">💻</div>
+              <div>
+                <p class="detail-label">Dispositivo</p>
+                <p class="detail-value" th:text="${deviceName}">Mac OS — Edge</p>
+              </div>
+            </div>
+
+            <!-- Ubicación -->
+            <div class="detail-row">
+              <div class="detail-icon">📍</div>
+              <div>
+                <p class="detail-label">Ubicación</p>
+                <p class="detail-value" th:text="${location}">Morelia, Michoacán, MX</p>
+              </div>
+            </div>
+
+            <!-- IP -->
+            <div class="detail-row">
+              <div class="detail-icon">🌐</div>
+              <div>
+                <p class="detail-label">Dirección IP</p>
+                <p class="detail-value" th:text="${ipAddress}">192.168.1.1</p>
+              </div>
+            </div>
+
+            <!-- Fecha y hora -->
+            <div class="detail-row">
+              <div class="detail-icon">🕒</div>
+              <div>
+                <p class="detail-label">Fecha y Hora</p>
+                <p class="detail-value" th:text="${time}">18/03/2026 14:00:00</p>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- If it was you -->
+        <div class="action-block">
+          <p>✓ &nbsp;<strong>¿Fuiste tú?</strong> No es necesario que hagas nada. Puedes ignorar este correo con total seguridad.</p>
+        </div>
+
+        <!-- Warning -->
+        <div class="warning-block">
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg"
+               style="flex-shrink:0; margin-top:2px;">
+            <path d="M7.5 1.5 L13.5 12.5 H1.5 Z" stroke="#E8A87C" stroke-width="1.2"
+                  stroke-linejoin="round" fill="none"/>
+            <line x1="7.5" y1="5.5" x2="7.5" y2="9" stroke="#E8A87C" stroke-width="1.3" stroke-linecap="round"/>
+            <circle cx="7.5" cy="11" r="0.7" fill="#E8A87C"/>
+          </svg>
+          <p class="warning-text">
+            <strong>¿No reconoces esta actividad?</strong> Cambia tu contraseña de inmediato
+            e informa a tu administrador de sistema. Tu seguridad es nuestra prioridad.
+          </p>
+        </div>
+
+        <hr class="section-divider" />
+
+        <p class="email-text" style="font-size:13px; color:#A08898; margin:0;">
+          Si tienes dudas o necesitas asistencia, contacta al equipo de soporte
+          de <strong style="color:#7A5E6A;">Cronos Bakery</strong>.
+        </p>
+
+      </td>
+    </tr>
+
+    <!-- ░ Footer -->
+    <tr>
+      <td class="email-footer">
+        <p class="footer-brand">Cronos Bakery</p>
+        <p class="footer-text">
+          Este mensaje fue generado automáticamente por la plataforma.<br>
+          Por favor no respondas directamente a este correo.
+        </p>
+        <p class="footer-text" style="margin-top:12px;">
+          <a href="#">Privacidad</a>
+          <span class="footer-sep">·</span>
+          <a href="#">Términos</a>
+          <span class="footer-sep">·</span>
+          <a href="#">Soporte</a>
+        </p>
+        <p class="footer-text" style="margin-top:14px; font-size:10px; color:#C7B8DC;">
+          © <span th:text="${#temporals.format(#temporals.createNow(),'yyyy')}">2026</span>
+          Cronos Bakery. Todos los derechos reservados.
+        </p>
+      </td>
+    </tr>
+
+    <!-- ░ Bottom accent bar -->
+    <tr><td><div class="bottom-accent"></div></td></tr>
+
+  </table>
+</div>
+</body>
+</html>

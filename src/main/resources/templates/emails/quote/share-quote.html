@@ -1,0 +1,489 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+        "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org"
+      dir="ltr" lang="es">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="x-apple-disable-message-reformatting" />
+    <title>Cronos Bakery — Nueva Cotización</title>
+</head>
+
+<body style="margin:0; padding:0; background-color:#F7EFF4;">
+
+<!-- ═══════════════════════════════════════════
+     OUTER WRAPPER
+════════════════════════════════════════════ -->
+<table border="0" width="100%" cellpadding="0" cellspacing="0"
+       role="presentation" align="center"
+       style="background-color:#F7EFF4;">
+    <tbody>
+    <tr>
+        <td align="center" style="padding:44px 16px;">
+
+            <!-- ═══════════════════════════════════════════
+                 CONTAINER  (max 580px)
+            ════════════════════════════════════════════ -->
+            <table border="0" width="100%" cellpadding="0" cellspacing="0"
+                   role="presentation" align="center"
+                   style="max-width:580px; background-color:#FEFAF7;
+                        border-radius:6px; overflow:hidden;">
+                <tbody>
+
+                <!-- ░ TOP ACCENT BAR -->
+                <tr>
+                    <td height="5" style="font-size:0; line-height:0;
+                    background:linear-gradient(90deg,#A8C5A0 0%,#C7B8DC 30%,#EEC5D0 65%,#C8889A 100%);">
+                        &nbsp;
+                    </td>
+                </tr>
+
+                <!-- ░ HEADER -->
+                <tr>
+                    <td align="center"
+                        style="background:linear-gradient(160deg,#F9EEF5 0%,#EDE3F5 60%,#E8F3E9 100%);
+                           padding:38px 48px 30px;
+                           border-bottom:1px solid #EEC5D0;">
+
+                        <!-- brand icon -->
+                        <table border="0" cellpadding="0" cellspacing="0"
+                               role="presentation" align="center"
+                               style="margin:0 auto 14px auto;">
+                            <tbody>
+                            <tr>
+                                <td width="52" height="52" align="center" valign="middle"
+                                    style="width:52px; height:52px;
+                                   background:linear-gradient(135deg,#EEC5D0,#C7B8DC);
+                                   border-radius:50%;">
+                                    <svg width="26" height="26" viewBox="0 0 26 26" fill="none"
+                                         xmlns="http://www.w3.org/2000/svg">
+                                        <circle cx="13" cy="13" r="11.5"
+                                                stroke="rgba(255,255,255,0.7)" stroke-width="1"/>
+                                        <line x1="13" y1="6.5" x2="13" y2="13"
+                                              stroke="#FEFAF7" stroke-width="1.6" stroke-linecap="round"/>
+                                        <line x1="13" y1="13" x2="17.5" y2="16"
+                                              stroke="#FEFAF7" stroke-width="1.4" stroke-linecap="round"/>
+                                        <circle cx="13" cy="13" r="1.4" fill="#FEFAF7"/>
+                                        <circle cx="13"   cy="3.5"  r="0.7" fill="rgba(255,255,255,0.5)"/>
+                                        <circle cx="22.5" cy="13"   r="0.7" fill="rgba(255,255,255,0.5)"/>
+                                        <circle cx="13"   cy="22.5" r="0.7" fill="rgba(255,255,255,0.5)"/>
+                                        <circle cx="3.5"  cy="13"   r="0.7" fill="rgba(255,255,255,0.5)"/>
+                                    </svg>
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+
+                        <!-- brand name -->
+                        <p style="font-family:Georgia,'Times New Roman',serif;
+                             font-size:24px; font-weight:normal;
+                             letter-spacing:0.14em; color:#3D2B35;
+                             text-transform:uppercase;
+                             margin:0 0 5px 0; line-height:1;">
+                            Cronos Bakery
+                        </p>
+                        <p style="font-family:Georgia,'Times New Roman',serif;
+                             font-size:10px; letter-spacing:0.24em;
+                             color:#A08898; text-transform:uppercase; margin:0;">
+                            Sistema Integral de Gestión Repostera
+                        </p>
+                    </td>
+                </tr>
+
+                <!-- ░ ORNAMENT DIVIDER -->
+                <tr>
+                    <td style="padding:22px 48px 0;">
+                        <table border="0" width="100%" cellpadding="0" cellspacing="0"
+                               role="presentation">
+                            <tbody>
+                            <tr>
+                                <td style="background:linear-gradient(90deg,transparent,#EEC5D0);
+                                   height:1px; font-size:0; line-height:0;">&nbsp;</td>
+                                <td width="11" align="center" valign="middle"
+                                    style="padding:0 2px;">
+                                    <div style="width:3px; height:3px; border-radius:50%;
+                                      background-color:#C7B8DC; font-size:0;
+                                      line-height:0; margin:0 auto;">&nbsp;</div>
+                                </td>
+                                <td width="13" align="center" valign="middle"
+                                    style="padding:0 2px;">
+                                    <div style="width:5px; height:5px; border-radius:50%;
+                                      background-color:#C8889A; font-size:0;
+                                      line-height:0; margin:0 auto;">&nbsp;</div>
+                                </td>
+                                <td width="11" align="center" valign="middle"
+                                    style="padding:0 2px;">
+                                    <div style="width:3px; height:3px; border-radius:50%;
+                                      background-color:#C7B8DC; font-size:0;
+                                      line-height:0; margin:0 auto;">&nbsp;</div>
+                                </td>
+                                <td style="background:linear-gradient(90deg,#EEC5D0,transparent);
+                                   height:1px; font-size:0; line-height:0;">&nbsp;</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </td>
+                </tr>
+
+                <!-- ░ BODY -->
+                <tr>
+                    <td style="padding:38px 48px 36px;">
+
+                        <!-- label -->
+                        <p style="font-family:Georgia,'Times New Roman',serif;
+                             font-size:10px; letter-spacing:0.3em;
+                             text-transform:uppercase; color:#C8889A;
+                             margin:0 0 16px 0;">
+                            Nueva Cotizacion
+                        </p>
+
+                        <!-- heading -->
+                        <h1 style="font-family:Georgia,'Times New Roman',serif;
+                              font-size:25px; font-weight:normal; color:#3D2B35;
+                              margin:0 0 22px 0; line-height:1.4;">
+                            Tienes una cotizacion<br/>
+                            esperando por
+                            <em style="font-style:italic; color:#C8889A;"
+                                th:text="${completeName}">ti</em>
+                        </h1>
+
+                        <!-- intro -->
+                        <p style="font-family:Georgia,'Times New Roman',serif;
+                             font-size:15px; line-height:1.8; color:#5C4452;
+                             margin:0 0 20px 0;">
+                            Hola, <strong style="color:#3D2B35;"
+                                          th:text="${clientName}">Cliente</strong>.
+                            <strong style="color:#3D2B35;"
+                                    th:text="${completeName}">El repostero</strong>
+                            ha preparado una cotizacion especialmente para ti.
+                            Revisa los detalles, fotografias de los productos y el
+                            precio final desde el enlace a continuacion.
+                        </p>
+
+
+                        <!-- ══════════════════════════════════
+                             QUOTE CARD
+                        ═══════════════════════════════════ -->
+                        <table border="0" width="100%" cellpadding="0" cellspacing="0"
+                               role="presentation"
+                               style="border:1px solid #D8EDCF; border-radius:6px;
+                                overflow:hidden; margin-bottom:28px;">
+                            <tbody>
+
+                            <!-- card header -->
+                            <tr>
+                                <td style="background:linear-gradient(130deg,#D8EDCF 0%,#C7E0BF 100%);
+                                   padding:16px 22px;">
+                                    <table border="0" width="100%" cellpadding="0"
+                                           cellspacing="0" role="presentation">
+                                        <tbody>
+                                        <tr>
+                                            <!-- icon -->
+                                            <td width="52" valign="middle"
+                                                style="padding-right:12px;">
+                                                <table border="0" cellpadding="0" cellspacing="0"
+                                                       role="presentation">
+                                                    <tbody>
+                                                    <tr>
+                                                        <td width="40" height="40" align="center"
+                                                            valign="middle"
+                                                            style="width:40px; height:40px;
+                                                   background-color:rgba(255,255,255,0.5);
+                                                   border-radius:50%;">
+                                                            <svg width="20" height="20"
+                                                                 viewBox="0 0 20 20" fill="none"
+                                                                 xmlns="http://www.w3.org/2000/svg">
+                                                                <rect x="4" y="2" width="12" height="16"
+                                                                      rx="2" stroke="#4A7A42"
+                                                                      stroke-width="1.3" fill="none"/>
+                                                                <line x1="7" y1="6.5" x2="13" y2="6.5"
+                                                                      stroke="#4A7A42" stroke-width="1.1"
+                                                                      stroke-linecap="round"/>
+                                                                <line x1="7" y1="9.5" x2="13" y2="9.5"
+                                                                      stroke="#4A7A42" stroke-width="1.1"
+                                                                      stroke-linecap="round"/>
+                                                                <line x1="7" y1="12.5" x2="10.5" y2="12.5"
+                                                                      stroke="#4A7A42" stroke-width="1.1"
+                                                                      stroke-linecap="round"/>
+                                                            </svg>
+                                                        </td>
+                                                    </tr>
+                                                    </tbody>
+                                                </table>
+                                            </td>
+                                            <!-- title -->
+                                            <td valign="middle">
+                                                <p style="font-family:Georgia,'Times New Roman',serif;
+                                             font-size:9px; letter-spacing:0.26em;
+                                             text-transform:uppercase; color:#4A7A42;
+                                             margin:0 0 3px 0;">
+                                                    Cotizacion
+                                                </p>
+                                                <p style="font-family:Georgia,'Times New Roman',serif;
+                                             font-size:17px; font-style:italic;
+                                             color:#2A4A24; margin:0;
+                                             font-weight:normal;"
+                                                   th:text="${quoteNumber}">
+                                                    COT-2026-00142
+                                                </p>
+                                            </td>
+                                        </tr>
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+
+                            <!-- detail row: Preparada por -->
+                            <tr>
+                                <td style="padding:14px 22px;
+                                   border-bottom:1px solid #EEF7EB;
+                                   background-color:#FEFAF7;">
+                                    <p style="font-family:Georgia,'Times New Roman',serif;
+                                     font-size:9px; letter-spacing:0.26em;
+                                     text-transform:uppercase; color:#A08898;
+                                     margin:0 0 4px 0;">
+                                        Preparada por
+                                    </p>
+                                    <p style="font-family:Georgia,'Times New Roman',serif;
+                                     font-size:14px; color:#3D2B35;
+                                     margin:0; line-height:1.3;"
+                                       th:text="${completeName}">
+                                        Ana Ramirez
+                                    </p>
+                                </td>
+                            </tr>
+
+                            <!-- detail row: Número de cotización -->
+                            <tr>
+                                <td style="padding:14px 22px;
+                                   border-bottom:1px solid #EEF7EB;
+                                   background-color:#FEFAF7;">
+                                    <p style="font-family:Georgia,'Times New Roman',serif;
+                                     font-size:9px; letter-spacing:0.26em;
+                                     text-transform:uppercase; color:#A08898;
+                                     margin:0 0 6px 0;">
+                                        Numero de cotizacion
+                                    </p>
+                                    <span style="display:inline-block;
+                                       background-color:#EAF3EA;
+                                       border:1px solid #A8C5A0;
+                                       border-radius:20px; padding:3px 12px;
+                                       font-family:Georgia,'Times New Roman',serif;
+                                       font-size:12px; letter-spacing:0.1em;
+                                       color:#4A7A42;"
+                                          th:text="${quoteNumber}">
+                            COT-2026-00142
+                          </span>
+                                </td>
+                            </tr>
+
+                            <!-- detail row: Válida hasta -->
+                            <tr>
+                                <td style="padding:14px 22px;
+                                   background-color:#FEFAF7;">
+                                    <p style="font-family:Georgia,'Times New Roman',serif;
+                                     font-size:9px; letter-spacing:0.26em;
+                                     text-transform:uppercase; color:#A08898;
+                                     margin:0 0 4px 0;">
+                                        Valida hasta
+                                    </p>
+                                    <p style="font-family:Georgia,'Times New Roman',serif;
+                                     font-size:14px; color:#3D2B35;
+                                     margin:0; line-height:1.3;"
+                                       th:text="${validUntil}">
+                                        2026-04-30
+                                    </p>
+                                </td>
+                            </tr>
+
+                            </tbody>
+                        </table>
+                        <!-- ══ END QUOTE CARD ══ -->
+
+
+                        <!-- ══════════════════════════════════
+                             EXPIRY NOTICE
+                        ═══════════════════════════════════ -->
+                        <table border="0" width="100%" cellpadding="0" cellspacing="0"
+                               role="presentation"
+                               style="margin-bottom:28px;">
+                            <tbody>
+                            <tr>
+                                <!-- left color bar -->
+                                <td width="3" style="background-color:#A8C5A0;
+                                             border-radius:3px 0 0 3px;
+                                             font-size:0; line-height:0;">
+                                    &nbsp;
+                                </td>
+                                <!-- content -->
+                                <td style="background:linear-gradient(90deg,#EAF3EA,#F4EBF7);
+                                   padding:14px 16px; border-radius:0 4px 4px 0;">
+                                    <p style="font-family:Georgia,'Times New Roman',serif;
+                                     font-size:13px; color:#7A5E6A;
+                                     margin:0; line-height:1.65;">
+                                        Esta cotizacion estara disponible hasta el
+                                        <strong style="color:#3D2B35;"
+                                                th:text="${validUntil}">2026-04-30</strong>.
+                                        Despues de esa fecha el enlace dejara de ser accesible.
+                                    </p>
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                        <!-- ══ END EXPIRY NOTICE ══ -->
+
+
+                        <!-- ══════════════════════════════════
+                             CTA BUTTON
+                        ═══════════════════════════════════ -->
+                        <table border="0" width="100%" cellpadding="0" cellspacing="0"
+                               role="presentation">
+                            <tbody>
+                            <tr>
+                                <td align="center" style="padding:32px 0 28px;">
+                                    <!--[if mso]>
+                                    <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml"
+                                                 xmlns:w="urn:schemas-microsoft-com:office:word"
+                                                 th:href="${publicQuoteUrl}" href="#"
+                                                 style="height:48px;v-text-anchor:middle;width:220px;"
+                                                 arcsize="50%" strokecolor="#B87A8A" fillcolor="#C8889A">
+                                        <w:anchorlock/>
+                                        <center style="color:#FEFAF7;font-family:Georgia,serif;
+                                           font-size:12px;letter-spacing:3px;">
+                                            VER MI COTIZACION
+                                        </center>
+                                    </v:roundrect>
+                                    <![endif]-->
+                                    <!--[if !mso]><!-->
+                                    <a th:href="${publicQuoteUrl}" href="#"
+                                       target="_blank" rel="noopener noreferrer"
+                                       style="display:inline-block;
+                                    background:linear-gradient(135deg,#C8889A 0%,#B87A8A 100%);
+                                    color:#FEFAF7; text-decoration:none;
+                                    font-family:Georgia,'Times New Roman',serif;
+                                    font-size:12px; letter-spacing:0.22em;
+                                    text-transform:uppercase;
+                                    padding:16px 44px; border-radius:30px;
+                                    line-height:1;">
+                                        Ver mi Cotizacion
+                                    </a>
+                                    <!--<![endif]-->
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                        <!-- ══ END CTA ══ -->
+
+
+                        <!-- ══════════════════════════════════
+                             THANK YOU BLOCK
+                        ═══════════════════════════════════ -->
+                        <table border="0" width="100%" cellpadding="0" cellspacing="0"
+                               role="presentation"
+                               style="margin-bottom:28px;">
+                            <tbody>
+                            <tr>
+                                <td width="3" style="background-color:#C7B8DC;
+                                             border-radius:3px 0 0 3px;
+                                             font-size:0; line-height:0;">
+                                    &nbsp;
+                                </td>
+                                <td style="background:linear-gradient(90deg,#F4EBF7,#EAF3EA);
+                                   padding:14px 16px; border-radius:0 4px 4px 0;">
+                                    <p style="font-family:Georgia,'Times New Roman',serif;
+                                     font-size:13px; color:#7A5E6A;
+                                     margin:0; line-height:1.65;">
+                                        <strong style="color:#3D2B35;">Gracias por tu preferencia.</strong>
+                                        Si tienes alguna pregunta sobre esta cotizacion,
+                                        comunicate directamente con
+                                        <strong style="color:#3D2B35;"
+                                                th:text="${completeName}">el repostero</strong>.
+                                    </p>
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                        <!-- ══ END THANK YOU BLOCK ══ -->
+
+
+                        <!-- divider -->
+                        <hr style="width:100%; border:none;
+                              border-top:1px solid #EEC5D0; margin:28px 0;" />
+
+                        <!-- fallback link -->
+                        <p style="font-family:Georgia,'Times New Roman',serif;
+                             font-size:13px; color:#A08898;
+                             margin:0 0 8px 0; line-height:1.6;">
+                            Si el boton no funciona, copia y pega este enlace en tu navegador:
+                        </p>
+                        <p style="font-family:Georgia,'Times New Roman',serif;
+                             font-size:12px; word-break:break-all; margin:0;">
+                            <a th:href="${publicQuoteUrl}" href="#"
+                               th:text="${publicQuoteUrl}"
+                               style="color:#C8889A;">
+                                https://cronosbakery.com/cotizaciones/publico/abc123xyz
+                            </a>
+                        </p>
+
+                    </td>
+                </tr>
+                <!-- ░ END BODY -->
+
+
+                <!-- ░ FOOTER -->
+                <tr>
+                    <td align="center"
+                        style="background:linear-gradient(160deg,#F0E5F2 0%,#E5DFF0 60%,#E4F0E5 100%);
+                           border-top:1px solid #EEC5D0;
+                           padding:28px 48px 32px;">
+                        <p style="font-family:Georgia,'Times New Roman',serif;
+                             font-size:11px; letter-spacing:0.2em;
+                             text-transform:uppercase; color:#C8889A;
+                             margin:0 0 10px 0;">
+                            Cronos Bakery
+                        </p>
+                        <p style="font-family:Georgia,'Times New Roman',serif;
+                             font-size:11px; color:#A08898;
+                             margin:0 0 5px 0; line-height:1.65;">
+                            Este mensaje fue generado automaticamente por la plataforma.<br/>
+                            Por favor no respondas directamente a este correo.
+                        </p>
+                        <p style="font-family:Georgia,'Times New Roman',serif;
+                             font-size:11px; color:#A08898;
+                             margin:12px 0 0 0; line-height:1.65;">
+                            <a href="#" style="color:#A08898; text-decoration:underline;">Privacidad</a>
+                            <span style="color:#C7B8DC; margin:0 5px;">&middot;</span>
+                            <a href="#" style="color:#A08898; text-decoration:underline;">Terminos</a>
+                            <span style="color:#C7B8DC; margin:0 5px;">&middot;</span>
+                            <a href="#" style="color:#A08898; text-decoration:underline;">Soporte</a>
+                        </p>
+                        <p style="font-family:Georgia,'Times New Roman',serif;
+                             font-size:10px; color:#C7B8DC;
+                             margin:14px 0 0 0; line-height:1.65;">
+                            &copy;
+                            <span th:text="${#temporals.format(#temporals.createNow(),'yyyy')}">2026</span>
+                            Cronos Bakery. Todos los derechos reservados.
+                        </p>
+                    </td>
+                </tr>
+
+                <!-- ░ BOTTOM ACCENT BAR -->
+                <tr>
+                    <td height="5" style="font-size:0; line-height:0;
+                    background:linear-gradient(90deg,#C8889A 0%,#EEC5D0 35%,#C7B8DC 65%,#A8C5A0 100%);">
+                        &nbsp;
+                    </td>
+                </tr>
+
+                </tbody>
+            </table>
+            <!-- ═══ END CONTAINER ═══ -->
+
+        </td>
+    </tr>
+    </tbody>
+</table>
+<!-- ═══ END OUTER WRAPPER ═══ -->
+
+</body>
+</html>

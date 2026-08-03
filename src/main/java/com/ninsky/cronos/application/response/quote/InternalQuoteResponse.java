@@ -1,0 +1,31 @@
+package com.ninsky.cronos.application.response.quote;
+
+import com.ninsky.cronos.domain.entity.enums.QuoteStatus;
+import com.ninsky.cronos.domain.entity.quote.QuoteItem;
+import lombok.Builder;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.UUID;
+
+@Builder
+public record InternalQuoteResponse(
+        UUID id,
+        String quoteNumber,
+        String clientName,
+        String clientEmail,
+        String clientPhone,
+        String clientAddress,
+        String notes,
+        BigDecimal total,
+        BigDecimal taxRate,
+        String currency,
+        QuoteStatus status,
+        int validDays,
+        List<InternalQuoteItemResponse> items,
+        LocalDateTime createdAt,
+        String publicToken,
+        BigDecimal deliveryFee,
+        BigDecimal extraFee,
+        String extraFeeDescription
+) {}
