@@ -1,6 +1,5 @@
-package com.ninsky.cronos.application.request.core;
+package com.ninsky.cronos.application.response.core;
 
-import com.ninsky.cronos.application.response.core.DensityConversionDto;
 import lombok.Builder;
 
 import java.math.BigDecimal;

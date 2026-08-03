@@ -1,4 +1,4 @@
-package com.ninsky.cronos.domain.entity.core;
+package com.ninsky.cronos.infrastructure.persistence.core.entity;
 
 import com.ninsky.cronos.domain.entity.base.AuditableEntity;
 import com.ninsky.cronos.domain.entity.enums.RecordStatus;
@@ -15,7 +15,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @Builder @Entity
 @Table(name = "raw_materials")
-public class RawMaterial extends AuditableEntity {
+public class RawMaterialJpaEntity extends AuditableEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -42,7 +42,7 @@ public class RawMaterial extends AuditableEntity {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "purchase_unit_id", nullable = false)
-    private MeasurementUnit purchaseUnit;
+    private MeasurementUnitJpaEntity purchaseUnit;
 
     @Column(name = "purchase_quantity", nullable = false, precision = 15, scale = 4)
     private BigDecimal purchaseQuantity;
@@ -85,18 +85,10 @@ public class RawMaterial extends AuditableEntity {
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
-            name = "raw_material_allergens", // El nombre exacto de la tabla intermedia en BD
-            joinColumns = @JoinColumn(name = "raw_material_id"), // La llave que apunta a esta clase
-            inverseJoinColumns = @JoinColumn(name = "allergen_id") // La llave que apunta al alérgeno
+            name = "raw_material_allergens",
+            joinColumns = @JoinColumn(name = "raw_material_id"),
+            inverseJoinColumns = @JoinColumn(name = "allergen_id")
     )
     @Builder.Default
-    private Set<Allergen> allergens = new HashSet<>();
-
-    public void addAllergen(Allergen allergen) {
-        this.allergens.add(allergen);
-    }
-
-    public void removeAllergen(Allergen allergen) {
-        this.allergens.remove(allergen);
-    }
+    private Set<AllergenJpaEntity> allergens = new HashSet<>();
 }

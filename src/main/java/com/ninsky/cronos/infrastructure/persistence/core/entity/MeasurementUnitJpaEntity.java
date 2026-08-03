@@ -1,4 +1,4 @@
-package com.ninsky.cronos.domain.entity.core;
+package com.ninsky.cronos.infrastructure.persistence.core.entity;
 
 import com.ninsky.cronos.domain.entity.base.AuditableEntity;
 import com.ninsky.cronos.domain.entity.enums.RecordStatus;
@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 @Builder
 @Entity @Getter @Setter
 @Table(name = "measurement_units")
-public class MeasurementUnit extends AuditableEntity {
+public class MeasurementUnitJpaEntity extends AuditableEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -29,7 +29,7 @@ public class MeasurementUnit extends AuditableEntity {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "unit_type_id", nullable = false)
-    private UnitType unitType;
+    private UnitTypeJpaEntity unitType;
 
     @Column(name = "multiplier_to_base", nullable = false, precision = 20, scale = 10)
     private BigDecimal multiplierToBase;

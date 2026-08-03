@@ -4,14 +4,15 @@ import com.ninsky.cronos.application.request.recipe.RecipeFixedCostRequest;
 import com.ninsky.cronos.application.request.recipe.RecipeIngredientRequest;
 import com.ninsky.cronos.application.service.UnitConversionService;
 import com.ninsky.cronos.domain.entity.auth.User;
-import com.ninsky.cronos.domain.entity.core.MeasurementUnit;
-import com.ninsky.cronos.domain.entity.core.RawMaterial;
+import com.ninsky.cronos.domain.model.core.MeasurementUnit;
+import com.ninsky.cronos.domain.model.core.RawMaterial;
 import com.ninsky.cronos.domain.entity.recipes.*;
+import com.ninsky.cronos.domain.port.core.MeasurementUnitRepositoryPort;
+import com.ninsky.cronos.domain.port.core.RawMaterialRepositoryPort;
+import com.ninsky.cronos.domain.service.core.RawMaterialCostingService;
 import com.ninsky.cronos.infrastructure.exception.BusinessException;
 import com.ninsky.cronos.infrastructure.exception.ResourceNotFoundException;
 import com.ninsky.cronos.infrastructure.persistence.auth.UserRepository;
-import com.ninsky.cronos.infrastructure.persistence.core.MeasurementUnitRepository;
-import com.ninsky.cronos.infrastructure.persistence.core.RawMaterialRepository;
 import com.ninsky.cronos.infrastructure.persistence.recipe.IngredientSubstituteRepository;
 import com.ninsky.cronos.infrastructure.persistence.recipe.RecipeIngredientRepository;
 import com.ninsky.cronos.infrastructure.persistence.recipe.RecipeRepository;
@@ -32,12 +33,13 @@ public class RecipeDetailService {
     private final RecipeRepository recipeRepository;
     private final RecipeIngredientRepository recipeIngredientRepository;
     private final IngredientSubstituteRepository substituteRepository;
-    private final RawMaterialRepository rawMaterialRepository;
+    private final RawMaterialRepositoryPort rawMaterialRepository;
     private final UserRepository userRepository;
     private final UserFixedCostRepository userFixedCostRepository;
-    private final MeasurementUnitRepository unitRepository;
+    private final MeasurementUnitRepositoryPort unitRepository;
 
     private final UnitConversionService unitConversionService;
+    private final RawMaterialCostingService costingService;
 
     @Transactional
     public void addIngredientToRecipe(String username, UUID recipeId, RecipeIngredientRequest request) {
@@ -48,8 +50,7 @@ public class RecipeDetailService {
 
         RawMaterial material = rawMaterialRepository.findById(request.rawMaterialId()).orElseThrow();
         MeasurementUnit recipeUnit = unitRepository.findById(request.unitId()).orElseThrow(() -> new ResourceNotFoundException("Unidad de medida no encontrada"));
-
-        MeasurementUnit purchaseUnit = material.getPurchaseUnit();
+        MeasurementUnit purchaseUnit = unitRepository.findById(material.getPurchaseUnitId()).orElseThrow(() -> new ResourceNotFoundException("Unidad de compra no encontrada"));
 
         // UNIT CONVERSION CALCULATOR
 
@@ -57,15 +58,9 @@ public class RecipeDetailService {
         // The engine determines whether it is linear or requires cross-equivalence.
         BigDecimal quantityInPurchaseUnits = unitConversionService.convert(request.quantity(), recipeUnit, purchaseUnit, material.getId());
 
-        // FINANCIAL CALCULATION WITH DEPRECIATION
-        // Invoice Price (e.g., $180 / 10 kg = $18.00 per kg)
-        BigDecimal costPerPurchasedUnit = material.getUnitCost().divide(material.getPurchaseQuantity(), 6, RoundingMode.HALF_UP);
-
-        // Shrinkage factor (e.g., 100 / 98% = 1.0204)
-        BigDecimal yieldFactor = BigDecimal.valueOf(100).divide(material.getYieldPercentage(), 6, RoundingMode.HALF_UP);
-
-        // Actual Usable Cost (e.g., $18.00 × 1.0204 = $18.3673 per kg)
-        BigDecimal realCostPerPurchasedUnit = costPerPurchasedUnit.multiply(yieldFactor);
+        // FINANCIAL CALCULATION WITH DEPRECIATION (Invoice price / purchase qty, adjusted for yield loss)
+        BigDecimal realCostPerPurchasedUnit = costingService.calculatePurchaseUnitCost(
+                material.getUnitCost(), material.getPurchaseQuantity(), material.getYieldPercentage());
 
         // Total cost for this line (e.g., 0.35 kg required * $18.3673 = $6.43)
         BigDecimal totalCost = quantityInPurchaseUnits.multiply(realCostPerPurchasedUnit).setScale(2, RoundingMode.HALF_UP);
@@ -227,15 +222,14 @@ public class RecipeDetailService {
             // Here are the latest prices from the catalog
             RawMaterial material = rawMaterialRepository.findById(ingredient.getRawMaterialId()).orElseThrow();
             MeasurementUnit recipeUnit = unitRepository.findById(ingredient.getUnitId()).orElseThrow();
-            MeasurementUnit purchaseUnit = material.getPurchaseUnit();
+            MeasurementUnit purchaseUnit = unitRepository.findById(material.getPurchaseUnitId()).orElseThrow();
 
             // Convert Units
             BigDecimal quantityInPurchaseUnits = unitConversionService.convert(ingredient.getQuantity(), recipeUnit, purchaseUnit, material.getId());
 
             // Calculate the new actual cost per unit purchased
-            BigDecimal costPerPurchasedUnit = material.getUnitCost().divide(material.getPurchaseQuantity(), 6, RoundingMode.HALF_UP);
-            BigDecimal yieldFactor = BigDecimal.valueOf(100).divide(material.getYieldPercentage(), 6, RoundingMode.HALF_UP);
-            BigDecimal realCostPerPurchasedUnit = costPerPurchasedUnit.multiply(yieldFactor);
+            BigDecimal realCostPerPurchasedUnit = costingService.calculatePurchaseUnitCost(
+                    material.getUnitCost(), material.getPurchaseQuantity(), material.getYieldPercentage());
 
             // Calculate new totals
             BigDecimal newTotalCost = quantityInPurchaseUnits.multiply(realCostPerPurchasedUnit).setScale(2, RoundingMode.HALF_UP);

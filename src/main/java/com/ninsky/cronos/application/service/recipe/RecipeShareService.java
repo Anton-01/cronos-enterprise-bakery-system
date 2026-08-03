@@ -6,17 +6,17 @@ import com.ninsky.cronos.application.response.recipe.*;
 import com.ninsky.cronos.application.service.mail.MailService;
 import com.ninsky.cronos.application.service.storage.CloudStorageService;
 import com.ninsky.cronos.domain.entity.auth.User;
-import com.ninsky.cronos.domain.entity.core.MeasurementUnit;
-import com.ninsky.cronos.domain.entity.core.RawMaterial;
+import com.ninsky.cronos.domain.model.core.MeasurementUnit;
+import com.ninsky.cronos.domain.model.core.RawMaterial;
 import com.ninsky.cronos.domain.entity.recipes.Recipe;
 import com.ninsky.cronos.domain.entity.recipes.RecipeIngredient;
 import com.ninsky.cronos.domain.entity.recipes.RecipeShare;
 import com.ninsky.cronos.domain.entity.recipes.RecipeShareAccessLog;
+import com.ninsky.cronos.domain.port.core.MeasurementUnitRepositoryPort;
+import com.ninsky.cronos.domain.port.core.RawMaterialRepositoryPort;
 import com.ninsky.cronos.infrastructure.exception.BusinessException;
 import com.ninsky.cronos.infrastructure.exception.ResourceNotFoundException;
 import com.ninsky.cronos.infrastructure.persistence.auth.UserRepository;
-import com.ninsky.cronos.infrastructure.persistence.core.MeasurementUnitRepository;
-import com.ninsky.cronos.infrastructure.persistence.core.RawMaterialRepository;
 import com.ninsky.cronos.infrastructure.persistence.recipe.RecipeRepository;
 import com.ninsky.cronos.infrastructure.persistence.recipe.RecipeShareAccessLogRepository;
 import com.ninsky.cronos.infrastructure.persistence.recipe.RecipeShareRepository;
@@ -43,8 +43,8 @@ public class RecipeShareService {
     private final RecipeRepository recipeRepository;
     private final UserRepository userRepository;
     private final MailService mailService;
-    private final RawMaterialRepository rawMaterialRepository;
-    private final MeasurementUnitRepository unitRepository;
+    private final RawMaterialRepositoryPort rawMaterialRepository;
+    private final MeasurementUnitRepositoryPort unitRepository;
 
     private final CloudStorageService cloudStorageService;
 

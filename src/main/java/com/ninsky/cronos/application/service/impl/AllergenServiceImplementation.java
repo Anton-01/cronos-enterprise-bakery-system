@@ -5,12 +5,12 @@ import com.ninsky.cronos.application.request.status.ChangeStatusRequest;
 import com.ninsky.cronos.application.response.core.AllergenResponse;
 import com.ninsky.cronos.application.response.imports.core.CsvImportResponse;
 import com.ninsky.cronos.application.service.AllergenService;
-import com.ninsky.cronos.domain.entity.core.Allergen;
+import com.ninsky.cronos.domain.model.core.Allergen;
+import com.ninsky.cronos.domain.port.core.AllergenRepositoryPort;
 import com.ninsky.cronos.infrastructure.exception.DuplicateResourceException;
 import com.ninsky.cronos.infrastructure.exception.ResourceNotFoundException;
 import com.ninsky.cronos.infrastructure.exception.SystemResourceException;
 import com.ninsky.cronos.infrastructure.persistence.auth.UserRepository;
-import com.ninsky.cronos.infrastructure.persistence.core.AllergenRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.csv.CSVFormat;
@@ -33,7 +33,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AllergenServiceImplementation implements AllergenService {
 
-    private final AllergenRepository allergenRepository;
+    private final AllergenRepositoryPort allergenRepository;
     private final UserRepository userRepository;
 
     /**
@@ -43,7 +43,7 @@ public class AllergenServiceImplementation implements AllergenService {
     @Override
     public AllergenResponse createAllergen(AllergenRequest request, String username) {
         if (allergenRepository.existsByName(request.name())) {
-            throw new ResourceNotFoundException("Allergen already exists");
+            throw new DuplicateResourceException("Allergen already exists");
         }
 
         Allergen allergen = Allergen.builder().name(request.name().trim())
@@ -98,7 +98,7 @@ public class AllergenServiceImplementation implements AllergenService {
         }
 
         allergen.setName(request.name().trim());
-        allergen.setAlternativeName(request.name().trim());
+        allergen.setAlternativeName(request.alternativeName().trim());
         allergen.setDescription(request.description().trim());
 
         allergen = allergenRepository.save(allergen);

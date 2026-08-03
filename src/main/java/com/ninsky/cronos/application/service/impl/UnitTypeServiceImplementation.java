@@ -4,13 +4,13 @@ import com.ninsky.cronos.application.request.core.UnitTypeRequest;
 import com.ninsky.cronos.application.request.status.ChangeStatusRequest;
 import com.ninsky.cronos.application.response.core.UnitTypeResponse;
 import com.ninsky.cronos.application.service.UnitTypeService;
-import com.ninsky.cronos.domain.entity.core.UnitType;
+import com.ninsky.cronos.domain.model.core.UnitType;
+import com.ninsky.cronos.domain.port.core.MeasurementUnitRepositoryPort;
+import com.ninsky.cronos.domain.port.core.UnitTypeRepositoryPort;
 import com.ninsky.cronos.infrastructure.exception.DataIntegrityViolationException;
 import com.ninsky.cronos.infrastructure.exception.DuplicateResourceException;
 import com.ninsky.cronos.infrastructure.exception.ResourceNotFoundException;
 import com.ninsky.cronos.infrastructure.persistence.auth.UserRepository;
-import com.ninsky.cronos.infrastructure.persistence.core.MeasurementUnitRepository;
-import com.ninsky.cronos.infrastructure.persistence.core.UnitTypeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
@@ -24,8 +24,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class UnitTypeServiceImplementation implements UnitTypeService {
 
-    private final UnitTypeRepository unitTypeRepository;
-    private final MeasurementUnitRepository measurementUnitRepository;
+    private final UnitTypeRepositoryPort unitTypeRepository;
+    private final MeasurementUnitRepositoryPort measurementUnitRepository;
     private final UserRepository userRepository;
 
     /**
@@ -33,7 +33,7 @@ public class UnitTypeServiceImplementation implements UnitTypeService {
      */
     @Transactional
     @Override
-    @CacheEvict(value = "unitTypes", allEntries = true)
+    @CacheEvict(value = "unitTypesSystem", allEntries = true)
     public UnitTypeResponse createUnitType(UnitTypeRequest request) {
         if (unitTypeRepository.existsByName(request.name())) {
             throw new DuplicateResourceException("UnitType already exists in our records.");
@@ -65,7 +65,7 @@ public class UnitTypeServiceImplementation implements UnitTypeService {
      */
     @Transactional
     @Override
-    @CacheEvict(value = "unitTypes", allEntries = true)
+    @CacheEvict(value = "unitTypesSystem", allEntries = true)
     public UnitTypeResponse updateUnitType(String username, Long unitTypeId, UnitTypeRequest request) {
         userRepository.findByUsername(username).orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado o token inválido"));
 
@@ -101,7 +101,7 @@ public class UnitTypeServiceImplementation implements UnitTypeService {
             return new RuntimeException("The Unit Type with ID: " + id + " does not exist or has already been deleted.");
         });
 
-        if (measurementUnitRepository.countByUnitType(unitType) > 0) {
+        if (measurementUnitRepository.countByUnitTypeId(unitType.getId()) > 0) {
             log.info("Deletion failed: UnitType with ID '{}' is already linked to Measurement Units.", id);
             throw new DataIntegrityViolationException(String.format("No es posible eliminar '%s' porque está vinculado a unidades de medida.", unitType.getName()));
         }

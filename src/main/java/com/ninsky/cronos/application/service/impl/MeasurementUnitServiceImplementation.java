@@ -6,19 +6,18 @@ import com.ninsky.cronos.application.request.status.ChangeStatusRequest;
 import com.ninsky.cronos.application.response.core.MeasurementUnitResponse;
 import com.ninsky.cronos.application.service.MeasurementUnitService;
 import com.ninsky.cronos.domain.entity.auth.User;
-import com.ninsky.cronos.domain.entity.core.MeasurementUnit;
-import com.ninsky.cronos.domain.entity.core.UnitType;
+import com.ninsky.cronos.domain.model.core.MeasurementUnit;
+import com.ninsky.cronos.domain.model.core.UnitType;
+import com.ninsky.cronos.domain.port.core.MeasurementUnitRepositoryPort;
+import com.ninsky.cronos.domain.port.core.UnitTypeRepositoryPort;
 import com.ninsky.cronos.infrastructure.exception.DataIntegrityViolationException;
 import com.ninsky.cronos.infrastructure.exception.DuplicateResourceException;
 import com.ninsky.cronos.infrastructure.exception.ResourceNotFoundException;
 import com.ninsky.cronos.infrastructure.persistence.auth.UserRepository;
-import com.ninsky.cronos.infrastructure.persistence.core.MeasurementUnitRepository;
-import com.ninsky.cronos.infrastructure.persistence.core.UnitTypeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.Optional;
@@ -28,8 +27,8 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class MeasurementUnitServiceImplementation implements MeasurementUnitService {
 
-    private final MeasurementUnitRepository measurementUnitRepository;
-    private final UnitTypeRepository unitTypeRepository;
+    private final MeasurementUnitRepositoryPort measurementUnitRepository;
+    private final UnitTypeRepositoryPort unitTypeRepository;
     private final UserRepository userRepository;
 
     /**
@@ -57,14 +56,14 @@ public class MeasurementUnitServiceImplementation implements MeasurementUnitServ
 
         MeasurementUnit unit = MeasurementUnit.builder().codeIdentity(request.codeIdentity())
                 .name(request.name()).namePlural(request.namePlural()).multiplierToBase(request.multiplierToBase())
-                .unitType(unitType).isBaseUnit(request.isBaseUnit()).isSystemDefault(true)
+                .unitTypeId(unitType.getId()).isBaseUnit(request.isBaseUnit()).isSystemDefault(true)
                 .build();
 
         unit = measurementUnitRepository.save(unit);
 
         log.info("MeasurementUnit created: {}, code: {} ", unit.getName(), unit.getCodeIdentity());
 
-        return mapToResponse(unit);
+        return mapToResponse(unit, unitType);
     }
 
 
@@ -135,7 +134,7 @@ public class MeasurementUnitServiceImplementation implements MeasurementUnitServ
         existingUnit.setName(request.name());
         existingUnit.setNamePlural(request.namePlural());
         existingUnit.setMultiplierToBase(request.multiplierToBase());
-        existingUnit.setUnitType(unitType);
+        existingUnit.setUnitTypeId(unitType.getId());
         existingUnit.setBaseUnit(request.isBaseUnit());
         existingUnit.setStatus(request.status());
 
@@ -143,7 +142,7 @@ public class MeasurementUnitServiceImplementation implements MeasurementUnitServ
 
         log.info("MeasurementUnit updated: {}, code: {}", existingUnit.getName(), existingUnit.getCodeIdentity());
 
-        return mapToResponse(existingUnit);
+        return mapToResponse(existingUnit, unitType);
     }
 
     @Transactional
@@ -158,14 +157,20 @@ public class MeasurementUnitServiceImplementation implements MeasurementUnitServ
         }
     }
 
-    private MeasurementUnitResponse mapToResponse(MeasurementUnit unit) {
+    private MeasurementUnitResponse mapToResponse(MeasurementUnit unit, UnitType unitType) {
         return MeasurementUnitResponse.builder()
                 .id(unit.getId()).codeIdentity(unit.getCodeIdentity())
                 .name(unit.getName()).namePlural(unit.getNamePlural())
-                .unitType(unit.getUnitType().getName())
+                .unitType(unitType.getName())
                 .multiplierToBase(unit.getMultiplierToBase())
                 .isBaseUnit(unit.isBaseUnit()).isSystemDefault(unit.isSystemDefault())
                 .status(unit.getStatus().name())
                 .build();
+    }
+
+    private MeasurementUnitResponse mapToResponse(MeasurementUnit unit) {
+        UnitType unitType = unitTypeRepository.findById(unit.getUnitTypeId())
+                .orElseThrow(() -> new ResourceNotFoundException("UnitType not found with id: " + unit.getUnitTypeId()));
+        return mapToResponse(unit, unitType);
     }
 }

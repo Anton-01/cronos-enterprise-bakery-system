@@ -1,6 +1,6 @@
 package com.ninsky.cronos.application.service;
 
-import com.ninsky.cronos.domain.entity.core.MeasurementUnit;
+import com.ninsky.cronos.domain.model.core.MeasurementUnit;
 
 import java.math.BigDecimal;
 import java.util.UUID;

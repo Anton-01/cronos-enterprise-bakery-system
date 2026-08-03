@@ -1,4 +1,4 @@
-package com.ninsky.cronos.domain.entity.core;
+package com.ninsky.cronos.infrastructure.persistence.core.entity;
 
 import com.ninsky.cronos.domain.entity.base.AuditableEntity;
 import com.ninsky.cronos.domain.entity.enums.RecordStatus;
@@ -6,23 +6,19 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder @Entity
-@Getter
-@Setter
-@Table(name = "allergens")
-public class Allergen extends AuditableEntity {
+@Builder @Entity @Getter @Setter
+@Table(name = "categories")
+public class CategoryJpaEntity extends AuditableEntity {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private UUID id;
+    private Long id;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
     private String name;
-
-    private String alternativeName;
 
     private String description;
 

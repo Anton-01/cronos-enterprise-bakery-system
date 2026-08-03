@@ -2,24 +2,24 @@ package com.ninsky.cronos.application.service.impl;
 
 import com.ninsky.cronos.application.request.core.CreateRawMaterialRequest;
 import com.ninsky.cronos.application.request.core.DensityConversionRequest;
-import com.ninsky.cronos.application.request.core.RawMaterialResponse;
 import com.ninsky.cronos.application.request.core.UpdateRawMaterialRequest;
 import com.ninsky.cronos.application.request.status.ChangeStatusRequest;
 import com.ninsky.cronos.application.response.core.DensityConversionDto;
 import com.ninsky.cronos.application.response.core.RawMaterialListResponse;
+import com.ninsky.cronos.application.response.core.RawMaterialResponse;
 import com.ninsky.cronos.application.service.RawMaterialService;
 import com.ninsky.cronos.domain.entity.auth.User;
-import com.ninsky.cronos.domain.entity.core.IngredientConversion;
-import com.ninsky.cronos.domain.entity.core.MeasurementUnit;
-import com.ninsky.cronos.domain.entity.core.RawMaterial;
-import com.ninsky.cronos.domain.entity.recipes.Recipe;
+import com.ninsky.cronos.domain.model.core.IngredientConversion;
+import com.ninsky.cronos.domain.model.core.MeasurementUnit;
+import com.ninsky.cronos.domain.model.core.RawMaterial;
+import com.ninsky.cronos.domain.port.core.IngredientConversionRepositoryPort;
+import com.ninsky.cronos.domain.port.core.MeasurementUnitRepositoryPort;
+import com.ninsky.cronos.domain.port.core.RawMaterialRepositoryPort;
+import com.ninsky.cronos.domain.port.core.RecipeRecalculationPort;
+import com.ninsky.cronos.domain.service.core.RawMaterialCostingService;
 import com.ninsky.cronos.infrastructure.exception.ResourceNotFoundException;
+import com.ninsky.cronos.infrastructure.exception.ValidationException;
 import com.ninsky.cronos.infrastructure.persistence.auth.UserRepository;
-import com.ninsky.cronos.infrastructure.persistence.core.IngredientConversionRepository;
-import com.ninsky.cronos.infrastructure.persistence.core.MeasurementUnitRepository;
-import com.ninsky.cronos.infrastructure.persistence.core.RawMaterialRepository;
-import com.ninsky.cronos.infrastructure.persistence.recipe.RecipeRepository;
-import jakarta.xml.bind.ValidationException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -27,7 +27,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -37,11 +36,18 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class RawMaterialServiceImplementation implements RawMaterialService {
 
-    private final RawMaterialRepository rawMaterialRepository;
-    private final MeasurementUnitRepository measurementUnitRepository;
-    private final IngredientConversionRepository ingredientConversionRepository;
+    // Density conversions are recorded per-user (IngredientConversion.userId), but that column is
+    // Long while User.id is UUID — a pre-existing schema mismatch this phase doesn't touch (it
+    // needs a migration, not a mechanical refactor). Preserving the original hardcoded value rather
+    // than introducing a lossy/incorrect conversion.
+    private static final Long DENSITY_CONVERSION_USER_ID_PLACEHOLDER = 1L;
+
+    private final RawMaterialRepositoryPort rawMaterialRepository;
+    private final MeasurementUnitRepositoryPort measurementUnitRepository;
+    private final IngredientConversionRepositoryPort ingredientConversionRepository;
     private final UserRepository userRepository;
-    private final RecipeRepository recipeRepository;
+    private final RecipeRecalculationPort recipeRecalculationPort;
+    private final RawMaterialCostingService costingService;
 
     @Transactional(readOnly = true)
     @Override
@@ -58,7 +64,7 @@ public class RawMaterialServiceImplementation implements RawMaterialService {
         log.info("Iniciando búsqueda de materia prima con ID: {}", id);
         return rawMaterialRepository.findById(id).map(entity -> {
             log.debug("Materia prima encontrada: {}", entity.getName());
-            return mapToDetailedResponse(entity, 1L);
+            return mapToDetailedResponse(entity, DENSITY_CONVERSION_USER_ID_PLACEHOLDER);
         }).orElseThrow(() -> {
             log.warn("No se encontró la materia prima con ID: {}", id);
             return new ResourceNotFoundException("Materia prima no encontrada con ID: " + id);
@@ -78,17 +84,17 @@ public class RawMaterialServiceImplementation implements RawMaterialService {
                 .orElseThrow(() -> new ResourceNotFoundException("Unidad de compra no encontrada."));
 
         // 3. El Motor de Costos: Calcular el costo real por unidad base (Ej. Costo por 1 Gramo descontando merma)
-        BigDecimal baseUnitCost = calculateBaseUnitCost(
+        BigDecimal baseUnitCost = costingService.calculateBaseUnitCost(
                 request.unitCost(),
                 request.purchaseQuantity(),
-                purchaseUnit,
+                purchaseUnit.getMultiplierToBase(),
                 request.yieldPercentage()
         );
 
         RawMaterial rawMaterial = RawMaterial.builder().name(request.name())
                 .description(request.description()).brand(request.brand())
                 .supplier(request.supplier()).categoryId(request.categoryId())
-                .userId(user.getId()).purchaseUnit(purchaseUnit)
+                .userId(user.getId()).purchaseUnitId(purchaseUnit.getId())
                 .purchaseQuantity(request.purchaseQuantity())
                 .unitCost(request.unitCost()).currency(request.currency())
                 .yieldPercentage(request.yieldPercentage()).baseUnitCost(baseUnitCost)
@@ -110,7 +116,7 @@ public class RawMaterialServiceImplementation implements RawMaterialService {
 
     @Transactional
     @Override
-    public RawMaterialResponse updateRawMaterial(UUID rawMaterialId, UpdateRawMaterialRequest request, String username) throws ValidationException {
+    public RawMaterialResponse updateRawMaterial(UUID rawMaterialId, UpdateRawMaterialRequest request, String username) {
         User user = userRepository.findByUsername(username).orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado o token inválido"));
 
         RawMaterial existingMaterial = rawMaterialRepository.findById(rawMaterialId)
@@ -137,7 +143,8 @@ public class RawMaterialServiceImplementation implements RawMaterialService {
             financialImpactDetected = true;
         }
 
-        BigDecimal newBaseUnitCost = calculateBaseUnitCost(request.unitCost(), request.purchaseQuantity(), purchaseUnit, request.yieldPercentage());
+        BigDecimal newBaseUnitCost = costingService.calculateBaseUnitCost(
+                request.unitCost(), request.purchaseQuantity(), purchaseUnit.getMultiplierToBase(), request.yieldPercentage());
 
         // Actualizar datos de la entidad principal
         existingMaterial.setName(request.name());
@@ -145,7 +152,7 @@ public class RawMaterialServiceImplementation implements RawMaterialService {
         existingMaterial.setBrand(request.brand());
         existingMaterial.setSupplier(request.supplier());
         existingMaterial.setCategoryId(request.categoryId());
-        existingMaterial.setPurchaseUnit(purchaseUnit);
+        existingMaterial.setPurchaseUnitId(purchaseUnit.getId());
         existingMaterial.setPurchaseQuantity(request.purchaseQuantity());
         existingMaterial.setUnitCost(request.unitCost());
         existingMaterial.setCurrency(request.currency());
@@ -154,10 +161,10 @@ public class RawMaterialServiceImplementation implements RawMaterialService {
         existingMaterial.setBaseUnitCost(newBaseUnitCost);
 
         if (financialImpactDetected) {
-            BigDecimal recalculatedBaseUnitCost = calculateBaseUnitCost(
+            BigDecimal recalculatedBaseUnitCost = costingService.calculateBaseUnitCost(
                     existingMaterial.getUnitCost(),
                     existingMaterial.getPurchaseQuantity(),
-                    existingMaterial.getPurchaseUnit(),
+                    purchaseUnit.getMultiplierToBase(),
                     existingMaterial.getYieldPercentage()
             );
             existingMaterial.setBaseUnitCost(recalculatedBaseUnitCost);
@@ -167,12 +174,12 @@ public class RawMaterialServiceImplementation implements RawMaterialService {
 
         // NUEVO: Procesar las conversiones de densidad en el Update
         if (request.densityConversion() != null) {
-            updateDensityConversions(existingMaterial.getId(), request.densityConversion(), 1L);
+            updateDensityConversions(existingMaterial.getId(), request.densityConversion(), DENSITY_CONVERSION_USER_ID_PLACEHOLDER);
         }
 
         if (financialImpactDetected) {
             log.warn("Cambio financiero detectado en {}. Marcando recetas dependientes para recálculo.", existingMaterial.getName());
-            recipeRepository.markRecipesAsNeedingRecalculationByRawMaterialId(existingMaterial.getId());
+            recipeRecalculationPort.markRecipesAsNeedingRecalculation(existingMaterial.getId());
         }
 
         log.info("Insumo actualizado: {}", existingMaterial.getName());
@@ -198,29 +205,30 @@ public class RawMaterialServiceImplementation implements RawMaterialService {
         // 2. Guardar conversión para Tazas (cup)
         if (densityReq.gramsPerCup() != null) {
             MeasurementUnit cupUnit = measurementUnitRepository.findByCodeIdentity("cup").orElseThrow(() -> new IllegalStateException("Unidad 'cup' (Tazas) no encontrada."));
-            createAndSaveConversion(rawMaterialId, cupUnit, gramsUnit, densityReq.gramsPerCup(), 1L);
+            createAndSaveConversion(rawMaterialId, cupUnit, gramsUnit, densityReq.gramsPerCup(), DENSITY_CONVERSION_USER_ID_PLACEHOLDER);
         }
 
         // 3. Guardar conversión para Cucharadas (tbsp)
         if (densityReq.gramsPerTablespoon() != null) {
             MeasurementUnit tbspUnit = measurementUnitRepository.findByCodeIdentity("tbsp").orElseThrow(() -> new IllegalStateException("Unidad 'tbsp' (Cucharadas) no encontrada."));
-            createAndSaveConversion(rawMaterialId, tbspUnit, gramsUnit, densityReq.gramsPerTablespoon(), 1L);
+            createAndSaveConversion(rawMaterialId, tbspUnit, gramsUnit, densityReq.gramsPerTablespoon(), DENSITY_CONVERSION_USER_ID_PLACEHOLDER);
         }
 
         // 4. Guardar conversión para Cucharaditas (tsp)
         if (densityReq.gramsPerTeaspoon() != null) {
             MeasurementUnit tspUnit = measurementUnitRepository.findByCodeIdentity("tsp").orElseThrow(() -> new IllegalStateException("Unidad 'tsp' (Cucharaditas) no encontrada."));
-            createAndSaveConversion(rawMaterialId, tspUnit, gramsUnit, densityReq.gramsPerTeaspoon(), 1L);
+            createAndSaveConversion(rawMaterialId, tspUnit, gramsUnit, densityReq.gramsPerTeaspoon(), DENSITY_CONVERSION_USER_ID_PLACEHOLDER);
         }
     }
 
     private void createAndSaveConversion(UUID materialId, MeasurementUnit volumeUnit, MeasurementUnit massUnit, BigDecimal factor, Long userId) {
-        IngredientConversion conversion = new IngredientConversion();
-        conversion.setIngredientId(materialId);
-        conversion.setVolumeUnit(volumeUnit);
-        conversion.setMassUnit(massUnit);
-        conversion.setFactor(factor);
-        conversion.setUserId(userId);
+        IngredientConversion conversion = IngredientConversion.builder()
+                .ingredientId(materialId)
+                .volumeUnitId(volumeUnit.getId())
+                .massUnitId(massUnit.getId())
+                .factor(factor)
+                .userId(userId)
+                .build();
 
         ingredientConversionRepository.save(conversion);
 
@@ -261,24 +269,6 @@ public class RawMaterialServiceImplementation implements RawMaterialService {
         }
     }
 
-
-    /**
-     * CÁLCULO DE COSTO BASE EXACTO
-     * Fórmula: Costo Total / (Cantidad Compra * Multiplicador * (Rendimiento / 100))
-     */
-    private BigDecimal calculateBaseUnitCost(BigDecimal unitCost, BigDecimal purchaseQuantity, MeasurementUnit purchaseUnit, BigDecimal yieldPercentage) {
-
-        // Calcular la cantidad total en la unidad base del sistema (Ej. 5 Kg -> 5000 Gramos)
-        BigDecimal quantityInBaseUnit = purchaseQuantity.multiply(purchaseUnit.getMultiplierToBase());
-
-        // Aplicar el porcentaje de merma (Ej. 5000g * (85% / 100) = 4250g reales utilizables)
-        BigDecimal yieldFactor = yieldPercentage.divide(new BigDecimal("100"), 6, RoundingMode.HALF_UP);
-        BigDecimal usableQuantityInBaseUnit = quantityInBaseUnit.multiply(yieldFactor);
-
-        // Calcular el costo final por cada unidad base real (Ej. $150 / 4250g = $0.035294 / g)
-        return unitCost.divide(usableQuantityInBaseUnit, 6, RoundingMode.HALF_UP);
-    }
-
     private void validateBusinessRules(BigDecimal quantity, BigDecimal cost, BigDecimal yield) {
         if (quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("La cantidad de compra debe ser estrictamente mayor a cero para evitar división por cero en el costeo.");
@@ -295,7 +285,7 @@ public class RawMaterialServiceImplementation implements RawMaterialService {
         return RawMaterialResponse.builder()
                 .id(material.getId()).name(material.getName()).description(material.getDescription())
                 .brand(material.getBrand()).supplier(material.getSupplier()).categoryId(material.getCategoryId())
-                .purchaseUnitId(material.getPurchaseUnit().getId()).purchaseQuantity(material.getPurchaseQuantity())
+                .purchaseUnitId(material.getPurchaseUnitId()).purchaseQuantity(material.getPurchaseQuantity())
                 .unitCost(material.getUnitCost()).currency(material.getCurrency()).yieldPercentage(material.getYieldPercentage())
                 .minimumStock(material.getMinimumStock())
                 .status(material.getStatus().name())
@@ -313,11 +303,14 @@ public class RawMaterialServiceImplementation implements RawMaterialService {
         BigDecimal tsp = null;
 
         for (IngredientConversion conv : conversions) {
-            String unitCode = conv.getVolumeUnit().getCodeIdentity();
-            switch (unitCode) {
+            String unitCode = measurementUnitRepository.findById(conv.getVolumeUnitId())
+                    .map(MeasurementUnit::getCodeIdentity)
+                    .orElse(null);
+            switch (unitCode == null ? "" : unitCode) {
                 case "cup" -> cup = conv.getFactor();
                 case "tbsp" -> tbsp = conv.getFactor();
                 case "tsp" -> tsp = conv.getFactor();
+                default -> { /* not a known display unit, ignore */ }
             }
         }
 
@@ -334,7 +327,7 @@ public class RawMaterialServiceImplementation implements RawMaterialService {
                 material.getDescription(),
                 material.getBrand(),
                 material.getSupplier(),
-                material.getPurchaseUnit().getId(),
+                material.getPurchaseUnitId(),
                 material.getPurchaseQuantity(),
                 material.getUnitCost(),
                 material.getCurrency(),

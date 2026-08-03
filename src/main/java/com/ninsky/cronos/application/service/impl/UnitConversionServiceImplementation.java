@@ -1,9 +1,13 @@
 package com.ninsky.cronos.application.service.impl;
 
 import com.ninsky.cronos.application.service.UnitConversionService;
-import com.ninsky.cronos.domain.entity.core.IngredientConversion;
-import com.ninsky.cronos.domain.entity.core.MeasurementUnit;
-import com.ninsky.cronos.infrastructure.persistence.core.IngredientConversionRepository;
+import com.ninsky.cronos.domain.model.core.IngredientConversion;
+import com.ninsky.cronos.domain.model.core.MeasurementUnit;
+import com.ninsky.cronos.domain.model.core.UnitType;
+import com.ninsky.cronos.domain.port.core.IngredientConversionRepositoryPort;
+import com.ninsky.cronos.domain.port.core.MeasurementUnitRepositoryPort;
+import com.ninsky.cronos.domain.port.core.UnitTypeRepositoryPort;
+import com.ninsky.cronos.infrastructure.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
@@ -13,7 +17,9 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class UnitConversionServiceImplementation implements UnitConversionService {
-    private final IngredientConversionRepository ingredientConversionRepo;
+    private final IngredientConversionRepositoryPort ingredientConversionRepo;
+    private final MeasurementUnitRepositoryPort measurementUnitRepository;
+    private final UnitTypeRepositoryPort unitTypeRepository;
     private static final int MATH_SCALE = 6;
 
     /**
@@ -33,8 +39,8 @@ public class UnitConversionServiceImplementation implements UnitConversionServic
         }
 
         // 2. Extraer las dimensiones usando tu modelo de BD
-        String fromDimension = fromUnit.getUnitType().getDimension().toUpperCase();
-        String toDimension = toUnit.getUnitType().getDimension().toUpperCase();
+        String fromDimension = unitTypeOf(fromUnit).getDimension().toUpperCase();
+        String toDimension = unitTypeOf(toUnit).getDimension().toUpperCase();
 
         // 3. Enrutamiento automático
         if (fromDimension.equals(toDimension)) {
@@ -56,6 +62,16 @@ public class UnitConversionServiceImplementation implements UnitConversionServic
         );
     }
 
+    private UnitType unitTypeOf(MeasurementUnit unit) {
+        return unitTypeRepository.findById(unit.getUnitTypeId())
+                .orElseThrow(() -> new ResourceNotFoundException("UnitType not found with id: " + unit.getUnitTypeId()));
+    }
+
+    private MeasurementUnit measurementUnitOf(Long id) {
+        return measurementUnitRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("MeasurementUnit not found with id: " + id));
+    }
+
     /**
      * 1. CONVERSIÓN LINEAL (Misma Dimensión)
      */
@@ -72,17 +88,19 @@ public class UnitConversionServiceImplementation implements UnitConversionServic
                                            MeasurementUnit requestedMassUnit, UUID ingredientId) {
 
         IngredientConversion densityRule = getDensityRuleOrThrow(ingredientId);
+        MeasurementUnit ruleVolumeUnit = measurementUnitOf(densityRule.getVolumeUnitId());
+        MeasurementUnit ruleMassUnit = measurementUnitOf(densityRule.getMassUnitId());
 
         // A. Convertir al volumen de la regla
         BigDecimal amountInRuleVolume = convertWithinSameDimension(
-                volumeAmount, requestedVolumeUnit, densityRule.getVolumeUnit());
+                volumeAmount, requestedVolumeUnit, ruleVolumeUnit);
 
         // B. Aplicar factor de equivalencia (Multiplicar)
         BigDecimal massInRuleUnit = amountInRuleVolume.multiply(densityRule.getFactor());
 
         // C. Convertir a la masa solicitada
         return convertWithinSameDimension(
-                massInRuleUnit, densityRule.getMassUnit(), requestedMassUnit);
+                massInRuleUnit, ruleMassUnit, requestedMassUnit);
     }
 
     /**
@@ -92,10 +110,12 @@ public class UnitConversionServiceImplementation implements UnitConversionServic
                                            MeasurementUnit requestedVolumeUnit, UUID ingredientId) {
 
         IngredientConversion densityRule = getDensityRuleOrThrow(ingredientId);
+        MeasurementUnit ruleVolumeUnit = measurementUnitOf(densityRule.getVolumeUnitId());
+        MeasurementUnit ruleMassUnit = measurementUnitOf(densityRule.getMassUnitId());
 
         // A. Convertir a la masa de la regla
         BigDecimal amountInRuleMass = convertWithinSameDimension(
-                massAmount, requestedMassUnit, densityRule.getMassUnit());
+                massAmount, requestedMassUnit, ruleMassUnit);
 
         // B. Aplicar densidad inversa (Dividir)
         if (densityRule.getFactor().compareTo(BigDecimal.ZERO) == 0) {
@@ -105,7 +125,7 @@ public class UnitConversionServiceImplementation implements UnitConversionServic
 
         // C. Convertir al volumen solicitado
         return convertWithinSameDimension(
-                volumeInRuleUnit, densityRule.getVolumeUnit(), requestedVolumeUnit);
+                volumeInRuleUnit, ruleVolumeUnit, requestedVolumeUnit);
     }
 
     /**

@@ -6,11 +6,11 @@ import com.ninsky.cronos.application.request.status.ChangeStatusRequest;
 import com.ninsky.cronos.application.response.core.CategoryResponse;
 import com.ninsky.cronos.application.response.imports.core.CsvImportResponse;
 import com.ninsky.cronos.application.service.CategoryService;
-import com.ninsky.cronos.domain.entity.core.Category;
+import com.ninsky.cronos.domain.model.core.Category;
+import com.ninsky.cronos.domain.port.core.CategoryRepositoryPort;
 import com.ninsky.cronos.infrastructure.exception.DuplicateResourceException;
 import com.ninsky.cronos.infrastructure.exception.ResourceNotFoundException;
 import com.ninsky.cronos.infrastructure.exception.SystemResourceException;
-import com.ninsky.cronos.infrastructure.persistence.core.CategoryRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.csv.CSVFormat;
@@ -32,7 +32,7 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class CategoryServiceImplementation implements CategoryService {
 
-    private final CategoryRepository categoryRepository;
+    private final CategoryRepositoryPort categoryRepository;
 
     /**
      * Creates a new category

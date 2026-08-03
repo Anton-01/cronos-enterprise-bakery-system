@@ -6,17 +6,18 @@ import com.ninsky.cronos.application.request.recipe.UpdateRecipeRequest;
 import com.ninsky.cronos.application.response.recipe.*;
 import com.ninsky.cronos.application.service.storage.CloudStorageService;
 import com.ninsky.cronos.domain.entity.auth.User;
-import com.ninsky.cronos.domain.entity.core.Allergen;
-import com.ninsky.cronos.domain.entity.core.MeasurementUnit;
-import com.ninsky.cronos.domain.entity.core.RawMaterial;
+import com.ninsky.cronos.domain.model.core.Allergen;
+import com.ninsky.cronos.domain.model.core.MeasurementUnit;
+import com.ninsky.cronos.domain.model.core.RawMaterial;
 import com.ninsky.cronos.domain.entity.recipes.Recipe;
 import com.ninsky.cronos.domain.entity.recipes.RecipeFile;
 import com.ninsky.cronos.domain.entity.recipes.RecipeFixedCost;
 import com.ninsky.cronos.domain.entity.recipes.RecipeIngredient;
+import com.ninsky.cronos.domain.port.core.AllergenRepositoryPort;
+import com.ninsky.cronos.domain.port.core.MeasurementUnitRepositoryPort;
+import com.ninsky.cronos.domain.port.core.RawMaterialRepositoryPort;
 import com.ninsky.cronos.infrastructure.exception.ResourceNotFoundException;
 import com.ninsky.cronos.infrastructure.persistence.auth.UserRepository;
-import com.ninsky.cronos.infrastructure.persistence.core.MeasurementUnitRepository;
-import com.ninsky.cronos.infrastructure.persistence.core.RawMaterialRepository;
 import com.ninsky.cronos.infrastructure.persistence.recipe.RecipeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,8 +37,9 @@ import java.util.stream.Collectors;
 public class RecipeService {
     private final RecipeRepository recipeRepository;
     private final UserRepository userRepository;
-    private final RawMaterialRepository rawMaterialRepository;
-    private final MeasurementUnitRepository unitRepository;
+    private final RawMaterialRepositoryPort rawMaterialRepository;
+    private final MeasurementUnitRepositoryPort unitRepository;
+    private final AllergenRepositoryPort allergenRepository;
     private final CloudStorageService cloudStorageService;
 
     @Transactional(readOnly = true)
@@ -54,6 +56,12 @@ public class RecipeService {
         Map<UUID, RawMaterial> materialsMap = rawMaterialRepository.findAllById(materialIds).stream().collect(Collectors.toMap(RawMaterial::getId, m -> m));
         Map<Long, MeasurementUnit> unitsMap = unitRepository.findAllById(unitIds).stream().collect(Collectors.toMap(MeasurementUnit::getId, u -> u));
 
+        Set<UUID> allergenIds = materialsMap.values().stream()
+                .flatMap(m -> m.getAllergenIds().stream())
+                .collect(Collectors.toSet());
+        Map<UUID, String> allergenNamesById = allergenRepository.findAllById(allergenIds).stream()
+                .collect(Collectors.toMap(Allergen::getId, Allergen::getName));
+
         List<RecipeIngredientDto> ingredientsDto = recipe.getIngredients().stream().map(ing -> {
 
             RawMaterial material = materialsMap.get(ing.getRawMaterialId());
@@ -62,10 +70,11 @@ public class RecipeService {
             boolean hasAllergen = false;
             List<String> allergenNames = new ArrayList<>();
 
-            if (material != null && material.getAllergens() != null && !material.getAllergens().isEmpty()) {
+            if (material != null && material.getAllergenIds() != null && !material.getAllergenIds().isEmpty()) {
                 hasAllergen = true;
-                allergenNames = material.getAllergens().stream()
-                        .map(Allergen::getName)
+                allergenNames = material.getAllergenIds().stream()
+                        .map(allergenNamesById::get)
+                        .filter(Objects::nonNull)
                         .toList();
             }
 

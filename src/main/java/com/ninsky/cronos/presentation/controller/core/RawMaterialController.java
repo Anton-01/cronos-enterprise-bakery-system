@@ -1,17 +1,16 @@
 package com.ninsky.cronos.presentation.controller.core;
 
 import com.ninsky.cronos.application.request.core.CreateRawMaterialRequest;
-import com.ninsky.cronos.application.request.core.RawMaterialResponse;
 import com.ninsky.cronos.application.request.core.UpdateRawMaterialRequest;
 import com.ninsky.cronos.application.request.status.ChangeStatusRequest;
 import com.ninsky.cronos.application.response.base.PaginatedResponse;
 import com.ninsky.cronos.application.response.core.ApiResponse;
 import com.ninsky.cronos.application.response.core.RawMaterialListResponse;
+import com.ninsky.cronos.application.response.core.RawMaterialResponse;
 import com.ninsky.cronos.application.service.RawMaterialService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import jakarta.xml.bind.ValidationException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -59,7 +58,7 @@ public class RawMaterialController {
 
     @PutMapping("/{id}")
     @Operation(summary = "Update existing raw material")
-    public ResponseEntity<ApiResponse<RawMaterialResponse>> updateRawMaterial(@Valid @RequestBody UpdateRawMaterialRequest request, @PathVariable UUID id, Authentication authentication) throws ValidationException {
+    public ResponseEntity<ApiResponse<RawMaterialResponse>> updateRawMaterial(@Valid @RequestBody UpdateRawMaterialRequest request, @PathVariable UUID id, Authentication authentication) {
         log.info("Update raw material request for name: {}", request.name());
         RawMaterialResponse response = rawMaterialService.updateRawMaterial(id, request, authentication.getName());
         return ResponseEntity.status(HttpStatus.OK) .body(ApiResponse.success("Raw Material updated successfully", response));

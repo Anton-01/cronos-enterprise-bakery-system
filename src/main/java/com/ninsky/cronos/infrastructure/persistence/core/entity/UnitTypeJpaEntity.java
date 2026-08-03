@@ -1,4 +1,4 @@
-package com.ninsky.cronos.domain.entity.core;
+package com.ninsky.cronos.infrastructure.persistence.core.entity;
 
 import com.ninsky.cronos.domain.entity.base.AuditableEntity;
 import com.ninsky.cronos.domain.entity.enums.RecordStatus;
@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 @SQLDelete(sql = "UPDATE unit_types SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?")
 @SQLRestriction("deleted_at IS NULL")
 @Table(name = "unit_types")
-public class UnitType extends AuditableEntity {
+public class UnitTypeJpaEntity extends AuditableEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

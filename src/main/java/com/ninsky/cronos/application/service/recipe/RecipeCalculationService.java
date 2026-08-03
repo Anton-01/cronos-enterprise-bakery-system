@@ -1,14 +1,14 @@
 package com.ninsky.cronos.application.service.recipe;
 
 import com.ninsky.cronos.application.response.recipe.RecipeCostBreakdown;
-import com.ninsky.cronos.domain.entity.core.RawMaterial;
+import com.ninsky.cronos.domain.model.core.RawMaterial;
 import com.ninsky.cronos.domain.entity.recipes.Recipe;
 import com.ninsky.cronos.domain.entity.recipes.RecipeFixedCost;
 import com.ninsky.cronos.domain.entity.recipes.RecipeIngredient;
 import com.ninsky.cronos.domain.entity.recipes.RecipeSubRecipe;
+import com.ninsky.cronos.domain.port.core.RawMaterialRepositoryPort;
 import com.ninsky.cronos.infrastructure.exception.BusinessException;
 import com.ninsky.cronos.infrastructure.exception.ResourceNotFoundException;
-import com.ninsky.cronos.infrastructure.persistence.core.RawMaterialRepository;
 import com.ninsky.cronos.infrastructure.persistence.recipe.RecipeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,7 +24,7 @@ import java.util.UUID;
 public class RecipeCalculationService {
 
     private final RecipeRepository recipeRepository;
-    private final RawMaterialRepository rawMaterialRepository;
+    private final RawMaterialRepositoryPort rawMaterialRepository;
 
     private static final int SCALE = 6;
     private static final RoundingMode ROUNDING_MODE = RoundingMode.HALF_UP;
