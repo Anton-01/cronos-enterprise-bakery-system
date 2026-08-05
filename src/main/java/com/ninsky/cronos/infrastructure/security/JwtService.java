@@ -28,10 +28,15 @@ public class JwtService {
      * Role/permission names are passed in rather than resolved here — the caller ({@code AuthenticationService})
      * already has them from {@code RoleRepositoryPort}/{@code PermissionRepositoryPort}, so this class stays a
      * pure token builder with no persistence dependency of its own.
+     * {@code sessionId} is nullable (e.g. OAuth2 flows that don't always resolve one) — the blacklist
+     * check in {@code JwtAuthenticationFilter} treats an absent session claim as "not blacklisted",
+     * falling back to the user-level cutoff check only.
      */
-    public String generateAccessToken(User user, List<String> roleNames, List<String> permissionNames) {
+    public String generateAccessToken(User user, UUID sessionId, List<String> roleNames, List<String> permissionNames) {
         Map<String, Object> claims = new HashMap<>();
+        claims.put("jti", UUID.randomUUID().toString());
         claims.put("userId", user.getId().toString());
+        claims.put("sessionId", sessionId != null ? sessionId.toString() : null);
         claims.put("email", user.getEmail());
         claims.put("roles", roleNames);
         // Nota: Solo agregar permisos al JWT si no son cientos, para no exceder el tamaño ideal del header HTTP
@@ -73,6 +78,15 @@ public class JwtService {
     public UUID extractUserId(String token) {
         String userIdStr = extractClaim(token, claims -> claims.get("userId", String.class));
         return userIdStr != null ? UUID.fromString(userIdStr) : null;
+    }
+
+    public UUID extractSessionId(String token) {
+        String sessionIdStr = extractClaim(token, claims -> claims.get("sessionId", String.class));
+        return sessionIdStr != null ? UUID.fromString(sessionIdStr) : null;
+    }
+
+    public Date extractIssuedAt(String token) {
+        return extractClaim(token, Claims::getIssuedAt);
     }
 
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {

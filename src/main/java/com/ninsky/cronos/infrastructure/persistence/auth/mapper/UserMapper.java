@@ -3,6 +3,7 @@ package com.ninsky.cronos.infrastructure.persistence.auth.mapper;
 import com.ninsky.cronos.domain.model.auth.User;
 import com.ninsky.cronos.infrastructure.persistence.auth.entity.RoleJpaEntity;
 import com.ninsky.cronos.infrastructure.persistence.auth.entity.UserJpaEntity;
+import com.ninsky.cronos.infrastructure.security.crypto.BlindIndexService;
 import org.springframework.stereotype.Component;
 
 import java.util.Set;
@@ -10,6 +11,14 @@ import java.util.stream.Collectors;
 
 @Component
 public class UserMapper {
+
+    private static final String EMAIL_FIELD_CONTEXT = "email";
+
+    private final BlindIndexService blindIndexService;
+
+    public UserMapper(BlindIndexService blindIndexService) {
+        this.blindIndexService = blindIndexService;
+    }
 
     public User toDomain(UserJpaEntity entity) {
         if (entity == null) {
@@ -60,6 +69,7 @@ public class UserMapper {
                 .id(domain.getId())
                 .username(domain.getUsername())
                 .email(domain.getEmail())
+                .emailBlindIndex(blindIndexService.hmac(EMAIL_FIELD_CONTEXT, domain.getEmail()))
                 .emailVerified(domain.isEmailVerified())
                 .password(domain.getPassword())
                 .roles(roles)

@@ -15,15 +15,21 @@ import java.util.UUID;
 public interface UserJpaRepository extends JpaRepository<UserJpaEntity, UUID>, JpaSpecificationExecutor<UserJpaEntity> {
 
     Optional<UserJpaEntity> findByUsername(String username);
-    Optional<UserJpaEntity> findByEmail(String email);
+
+    /**
+     * {@code email} is non-deterministic ciphertext (random IV) — lookups go through the
+     * deterministic {@code emailBlindIndex} column instead. See {@code UserRepositoryAdapter},
+     * which computes the blind index from the plaintext argument before calling these.
+     */
+    Optional<UserJpaEntity> findByEmailBlindIndex(String emailBlindIndex);
     boolean existsByUsername(String username);
-    boolean existsByEmail(String email);
+    boolean existsByEmailBlindIndex(String emailBlindIndex);
 
     @Query("SELECT COUNT(u) > 0 FROM UserJpaEntity u WHERE u.username = :username AND u.id != :userId")
     boolean existsByUsernameAndIdNot(@Param("username") String username, @Param("userId") UUID userId);
 
-    @Query("SELECT COUNT(u) > 0 FROM UserJpaEntity u WHERE u.email = :email AND u.id != :userId")
-    boolean existsByEmailAndIdNot(@Param("email") String email, @Param("userId") UUID userId);
+    @Query("SELECT COUNT(u) > 0 FROM UserJpaEntity u WHERE u.emailBlindIndex = :emailBlindIndex AND u.id != :userId")
+    boolean existsByEmailBlindIndexAndIdNot(@Param("emailBlindIndex") String emailBlindIndex, @Param("userId") UUID userId);
 
     @Query("SELECT u FROM UserJpaEntity u WHERE u.accountNonLocked = false AND u.lockedUntil < :now")
     List<UserJpaEntity> findExpiredLockedAccounts(@Param("now") LocalDateTime now);

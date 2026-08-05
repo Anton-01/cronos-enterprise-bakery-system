@@ -12,10 +12,12 @@ import com.ninsky.cronos.domain.model.auth.Role;
 import com.ninsky.cronos.domain.model.auth.User;
 import com.ninsky.cronos.domain.model.auth.UserProfile;
 import com.ninsky.cronos.domain.port.auth.*;
+import com.ninsky.cronos.infrastructure.config.security.JwtConfig;
 import com.ninsky.cronos.infrastructure.exception.BusinessException;
 import com.ninsky.cronos.infrastructure.exception.DuplicateResourceException;
 import com.ninsky.cronos.infrastructure.exception.ResourceNotFoundException;
 import com.ninsky.cronos.infrastructure.exception.UserNotFoundException;
+import com.ninsky.cronos.infrastructure.security.blacklist.TokenBlacklistService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,6 +28,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -45,6 +48,8 @@ public class AdminUserService {
     private final PasswordResetTokenRepositoryPort passwordResetTokenRepository;
     private final MailService mailService;
     private final CloudStorageService fileStorageService;
+    private final TokenBlacklistService tokenBlacklistService;
+    private final JwtConfig jwtConfig;
 
     @Value("${app.frontend.url}")
     private String frontendUrl;
@@ -196,6 +201,7 @@ public class AdminUserService {
         LocalDateTime now = LocalDateTime.now();
         refreshTokenRepository.revokeAllUserTokens(user.getId(), now);
         userSessionRepository.terminateAllUserSessions(user.getId(), now, "ADMIN_FORCED_LOGOUT");
+        tokenBlacklistService.blacklistUser(user.getId(), Duration.ofMillis(jwtConfig.getAccessTokenExpiration()));
     }
 
     @Transactional

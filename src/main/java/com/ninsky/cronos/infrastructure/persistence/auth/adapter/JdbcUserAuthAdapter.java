@@ -2,6 +2,8 @@ package com.ninsky.cronos.infrastructure.persistence.auth.adapter;
 
 import com.ninsky.cronos.domain.model.auth.AuthUserProjection;
 import com.ninsky.cronos.domain.port.auth.UserAuthLookupPort;
+import com.ninsky.cronos.infrastructure.security.crypto.BlindIndexService;
+import com.ninsky.cronos.infrastructure.security.crypto.FieldEncryptionService;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -28,11 +30,19 @@ import java.util.UUID;
 @Repository
 public class JdbcUserAuthAdapter implements UserAuthLookupPort {
 
+    private static final String EMAIL_FIELD_CONTEXT = "email";
+
+    /**
+     * email is non-deterministic ciphertext (random IV per encryption) — the query matches on the
+     * deterministic email_blind_index column instead; the raw email column is only ever read back
+     * here to be decrypted in-process via {@link FieldEncryptionService} (this raw JdbcTemplate query
+     * bypasses the JPA {@code @Convert} converter entirely, so decryption has to happen explicitly).
+     */
     private static final String SELECT_USER = """
             SELECT id, username, email, password, enabled, account_non_locked,
                    account_non_expired, credentials_non_expired, two_factor_enabled, locked_until
             FROM users
-            WHERE username = ? OR email = ?
+            WHERE username = ? OR email_blind_index = ?
             """;
 
     private static final String SELECT_ROLES_AND_PERMISSIONS = """
@@ -45,15 +55,20 @@ public class JdbcUserAuthAdapter implements UserAuthLookupPort {
             """;
 
     private final JdbcTemplate jdbcTemplate;
+    private final FieldEncryptionService fieldEncryptionService;
+    private final BlindIndexService blindIndexService;
 
-    public JdbcUserAuthAdapter(JdbcTemplate jdbcTemplate) {
+    public JdbcUserAuthAdapter(JdbcTemplate jdbcTemplate, FieldEncryptionService fieldEncryptionService, BlindIndexService blindIndexService) {
         this.jdbcTemplate = jdbcTemplate;
+        this.fieldEncryptionService = fieldEncryptionService;
+        this.blindIndexService = blindIndexService;
     }
 
     @Override
     @Cacheable(value = "userAuth", key = "#loginId")
     public Optional<AuthUserProjection> findByUsernameOrEmail(String loginId) {
-        List<Map<String, Object>> rows = jdbcTemplate.queryForList(SELECT_USER, loginId, loginId);
+        String emailBlindIndex = blindIndexService.hmac(EMAIL_FIELD_CONTEXT, loginId);
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(SELECT_USER, loginId, emailBlindIndex);
         if (rows.isEmpty()) {
             return Optional.empty();
         }
@@ -76,7 +91,7 @@ public class JdbcUserAuthAdapter implements UserAuthLookupPort {
         return Optional.of(new AuthUserProjection(
                 id,
                 (String) row.get("username"),
-                (String) row.get("email"),
+                fieldEncryptionService.decrypt((String) row.get("email")),
                 (String) row.get("password"),
                 (boolean) row.get("enabled"),
                 (boolean) row.get("account_non_locked"),

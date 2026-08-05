@@ -2,6 +2,7 @@ package com.ninsky.cronos.domain.entity.quote;
 
 import com.ninsky.cronos.domain.entity.base.AuditableEntity;
 import com.ninsky.cronos.domain.entity.enums.QuoteStatus;
+import com.ninsky.cronos.infrastructure.persistence.crypto.EncryptedStringConverter;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -30,16 +31,20 @@ public class Quote extends AuditableEntity {
     @Column(name = "user_id", nullable = false)
     private UUID userId;
 
-    @Column(name = "client_name", nullable = false, length = 200)
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(name = "client_name", nullable = false, columnDefinition = "TEXT")
     private String clientName;
 
-    @Column(name = "client_email", length = 200)
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(name = "client_email", columnDefinition = "TEXT")
     private String clientEmail;
 
-    @Column(name = "client_phone", length = 50)
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(name = "client_phone", columnDefinition = "TEXT")
     private String clientPhone;
 
-    @Column(name = "client_address", length = 500)
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(name = "client_address", columnDefinition = "TEXT")
     private String clientAddress;
 
     @Column(length = 2000)

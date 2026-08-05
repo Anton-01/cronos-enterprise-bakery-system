@@ -8,6 +8,7 @@ import com.ninsky.cronos.infrastructure.persistence.auth.UserJpaRepository;
 import com.ninsky.cronos.infrastructure.persistence.auth.entity.RoleJpaEntity;
 import com.ninsky.cronos.infrastructure.persistence.auth.entity.UserJpaEntity;
 import com.ninsky.cronos.infrastructure.persistence.auth.mapper.UserMapper;
+import com.ninsky.cronos.infrastructure.security.crypto.BlindIndexService;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.domain.Page;
@@ -28,14 +29,19 @@ import java.util.stream.StreamSupport;
 @Component
 public class UserRepositoryAdapter implements UserRepositoryPort {
 
+    private static final String EMAIL_FIELD_CONTEXT = "email";
+
     private final UserJpaRepository jpaRepository;
     private final RoleJpaRepository roleJpaRepository;
     private final UserMapper mapper;
+    private final BlindIndexService blindIndexService;
 
-    public UserRepositoryAdapter(UserJpaRepository jpaRepository, RoleJpaRepository roleJpaRepository, UserMapper mapper) {
+    public UserRepositoryAdapter(UserJpaRepository jpaRepository, RoleJpaRepository roleJpaRepository,
+                                  UserMapper mapper, BlindIndexService blindIndexService) {
         this.jpaRepository = jpaRepository;
         this.roleJpaRepository = roleJpaRepository;
         this.mapper = mapper;
+        this.blindIndexService = blindIndexService;
     }
 
     @Override
@@ -59,7 +65,7 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
 
     @Override
     public Optional<User> findByEmail(String email) {
-        return jpaRepository.findByEmail(email).map(mapper::toDomain);
+        return jpaRepository.findByEmailBlindIndex(blindIndexService.hmac(EMAIL_FIELD_CONTEXT, email)).map(mapper::toDomain);
     }
 
     @Override
@@ -69,7 +75,7 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
 
     @Override
     public boolean existsByEmail(String email) {
-        return jpaRepository.existsByEmail(email);
+        return jpaRepository.existsByEmailBlindIndex(blindIndexService.hmac(EMAIL_FIELD_CONTEXT, email));
     }
 
     @Override
@@ -79,7 +85,7 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
 
     @Override
     public boolean existsByEmailAndIdNot(String email, UUID userId) {
-        return jpaRepository.existsByEmailAndIdNot(email, userId);
+        return jpaRepository.existsByEmailBlindIndexAndIdNot(blindIndexService.hmac(EMAIL_FIELD_CONTEXT, email), userId);
     }
 
     @Override
@@ -104,10 +110,13 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
                 predicates.add(cb.equal(cb.upper(roles.get("name")), criteria.roleName().toUpperCase()));
             }
             if (StringUtils.hasText(criteria.search())) {
+                // email is ciphertext (non-deterministic, random IV) — substring LIKE is impossible on
+                // it, so the combined search box keeps username substring matching but the email side
+                // becomes exact-match via the blind index (accepted trade-off for encrypting email).
                 String likePattern = "%" + criteria.search().toLowerCase() + "%";
                 predicates.add(cb.or(
                         cb.like(cb.lower(root.get("username")), likePattern),
-                        cb.like(cb.lower(root.get("email")), likePattern)
+                        cb.equal(root.get("emailBlindIndex"), blindIndexService.hmac(EMAIL_FIELD_CONTEXT, criteria.search()))
                 ));
             }
 

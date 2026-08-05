@@ -1,6 +1,8 @@
 package com.ninsky.cronos.infrastructure.persistence.auth.entity;
 
 import com.ninsky.cronos.domain.entity.base.AuditableEntity;
+import com.ninsky.cronos.infrastructure.persistence.crypto.EncryptedLocalDateConverter;
+import com.ninsky.cronos.infrastructure.persistence.crypto.EncryptedStringConverter;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
@@ -30,13 +32,16 @@ public class UserProfileJpaEntity extends AuditableEntity {
     @Column(name = "last_name", length = 100)
     private String lastName;
 
-    @Column(name = "phone_number", length = 20)
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(name = "phone_number", columnDefinition = "TEXT")
     private String phoneNumber;
 
-    @Column(name = "date_of_birth")
+    @Convert(converter = EncryptedLocalDateConverter.class)
+    @Column(name = "date_of_birth", columnDefinition = "TEXT")
     private LocalDate dateOfBirth;
 
-    @Column(length = 10)
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(columnDefinition = "TEXT")
     private String gender;
 
     @Column(length = 500)
@@ -48,22 +53,22 @@ public class UserProfileJpaEntity extends AuditableEntity {
     @Column(name = "cover_picture_url", length = 500)
     private String coverPictureUrl;
 
-    @Column(length = 500) private String address;
-    @Column(length = 100) private String city;
-    @Column(length = 100) private String state;
-    @Column(name = "postal_code", length = 20) private String postalCode;
-    @Column(length = 100) private String country;
+    @Convert(converter = EncryptedStringConverter.class) @Column(columnDefinition = "TEXT") private String address;
+    @Convert(converter = EncryptedStringConverter.class) @Column(columnDefinition = "TEXT") private String city;
+    @Convert(converter = EncryptedStringConverter.class) @Column(columnDefinition = "TEXT") private String state;
+    @Convert(converter = EncryptedStringConverter.class) @Column(name = "postal_code", columnDefinition = "TEXT") private String postalCode;
+    @Convert(converter = EncryptedStringConverter.class) @Column(columnDefinition = "TEXT") private String country;
 
-    @Column(name = "business_name", length = 255) private String businessName;
+    @Convert(converter = EncryptedStringConverter.class) @Column(name = "business_name", columnDefinition = "TEXT") private String businessName;
     @Column(name = "business_type", length = 100) private String businessType;
-    @Column(name = "tax_id", length = 50) private String taxId;
-    @Column(name = "business_address", length = 500) private String businessAddress;
-    @Column(name = "business_city", length = 100) private String businessCity;
-    @Column(name = "business_state", length = 100) private String businessState;
-    @Column(name = "business_postal_code", length = 20) private String businessPostalCode;
-    @Column(name = "business_country", length = 100) private String businessCountry;
-    @Column(name = "business_phone", length = 20) private String businessPhone;
-    @Column(name = "business_email", length = 255) private String businessEmail;
+    @Convert(converter = EncryptedStringConverter.class) @Column(name = "tax_id", columnDefinition = "TEXT") private String taxId;
+    @Convert(converter = EncryptedStringConverter.class) @Column(name = "business_address", columnDefinition = "TEXT") private String businessAddress;
+    @Convert(converter = EncryptedStringConverter.class) @Column(name = "business_city", columnDefinition = "TEXT") private String businessCity;
+    @Convert(converter = EncryptedStringConverter.class) @Column(name = "business_state", columnDefinition = "TEXT") private String businessState;
+    @Convert(converter = EncryptedStringConverter.class) @Column(name = "business_postal_code", columnDefinition = "TEXT") private String businessPostalCode;
+    @Convert(converter = EncryptedStringConverter.class) @Column(name = "business_country", columnDefinition = "TEXT") private String businessCountry;
+    @Convert(converter = EncryptedStringConverter.class) @Column(name = "business_phone", columnDefinition = "TEXT") private String businessPhone;
+    @Convert(converter = EncryptedStringConverter.class) @Column(name = "business_email", columnDefinition = "TEXT") private String businessEmail;
     @Column(name = "business_website", length = 255) private String businessWebsite;
 
     @Column(name = "default_tax_rate", precision = 5, scale = 2)

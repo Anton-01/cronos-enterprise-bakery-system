@@ -28,6 +28,7 @@ import com.ninsky.cronos.infrastructure.persistence.auth.DeviceFingerprintReposi
 import com.ninsky.cronos.infrastructure.persistence.auth.LoginHistoryRepository;
 import com.ninsky.cronos.infrastructure.persistence.auth.SecurityNotificationRepository;
 import com.ninsky.cronos.infrastructure.security.JwtService;
+import com.ninsky.cronos.infrastructure.security.blacklist.TokenBlacklistService;
 import com.ninsky.cronos.infrastructure.util.auth.RequestContextUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -77,6 +78,7 @@ public class AuthenticationService {
     private final RequestContextUtil requestContextUtil;
     private final ApplicationEventPublisher eventPublisher;
     private final SessionManagementService sessionManagementService;
+    private final TokenBlacklistService tokenBlacklistService;
 
     @Transactional
     public LoginResponse login(LoginRequest request) {
@@ -128,7 +130,7 @@ public class AuthenticationService {
             RoleAndPermissionNames grants = resolveRoleAndPermissionNames(user.getRoleIds());
 
             // Generate Tokens (JWT for Access, OPAQUE UUID for Refresh)
-            String accessToken = jwtService.generateAccessToken(user, grants.roleNames(), grants.permissionNames());
+            String accessToken = jwtService.generateAccessToken(user, session.getId(), grants.roleNames(), grants.permissionNames());
             String opaqueRefreshToken = UUID.randomUUID().toString();
 
             saveRefreshToken(user, session, opaqueRefreshToken);
@@ -176,7 +178,7 @@ public class AuthenticationService {
         userSessionRepository.save(session);
 
         RoleAndPermissionNames grants = resolveRoleAndPermissionNames(user.getRoleIds());
-        String newAccessToken = jwtService.generateAccessToken(user, grants.roleNames(), grants.permissionNames());
+        String newAccessToken = jwtService.generateAccessToken(user, session.getId(), grants.roleNames(), grants.permissionNames());
 
         // Refresh Token Rotation (OAuth 2.0 Security Best Practice)
         String newOpaqueRefreshToken = UUID.randomUUID().toString();
@@ -208,6 +210,7 @@ public class AuthenticationService {
                         session.setTerminatedAt(LocalDateTime.now());
                         session.setTerminationReason("USER_LOGOUT");
                         userSessionRepository.save(session);
+                        tokenBlacklistService.blacklistSession(session.getId(), Duration.ofMillis(jwtConfig.getAccessTokenExpiration()));
                     });
                 }
             });
@@ -215,6 +218,7 @@ public class AuthenticationService {
             // Sign out of all user sessions (Global logout)
             refreshTokenRepository.revokeAllUserTokens(user.getId(), LocalDateTime.now());
             userSessionRepository.terminateAllUserSessions(user.getId(), LocalDateTime.now(), "GLOBAL_LOGOUT");
+            tokenBlacklistService.blacklistUser(user.getId(), Duration.ofMillis(jwtConfig.getAccessTokenExpiration()));
         }
     }
 
@@ -260,7 +264,7 @@ public class AuthenticationService {
         UserSession session = createUserSession(user, deviceFingerprint);
 
         RoleAndPermissionNames grants = resolveRoleAndPermissionNames(user.getRoleIds());
-        String accessToken = jwtService.generateAccessToken(user, grants.roleNames(), grants.permissionNames());
+        String accessToken = jwtService.generateAccessToken(user, session.getId(), grants.roleNames(), grants.permissionNames());
         String opaqueRefreshToken = UUID.randomUUID().toString();
 
         saveRefreshToken(user, session, opaqueRefreshToken);

@@ -1,6 +1,7 @@
 package com.ninsky.cronos.infrastructure.persistence.auth.entity;
 
 import com.ninsky.cronos.domain.entity.base.AuditableEntity;
+import com.ninsky.cronos.infrastructure.persistence.crypto.EncryptedStringConverter;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -31,8 +32,18 @@ public class UserJpaEntity extends AuditableEntity {
     @Column(nullable = false, unique = true, length = 100)
     private String username;
 
-    @Column(nullable = false, unique = true, length = 255)
+    /**
+     * Ciphertext, non-deterministic (random IV per encryption) — uniqueness can't be enforced on
+     * this column. Equality lookups (login, existence checks, admin search) go through
+     * {@link #emailBlindIndex} instead; see {@code UserRepositoryAdapter}.
+     */
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String email;
+
+    /** Deterministic HMAC-SHA256 of the normalized email — the actual uniqueness/lookup key. */
+    @Column(name = "email_blind_index", nullable = false, unique = true, length = 44)
+    private String emailBlindIndex;
 
     @Column(name = "email_verified", nullable = false)
     private boolean emailVerified = false;
@@ -60,7 +71,8 @@ public class UserJpaEntity extends AuditableEntity {
     @Column(name = "two_factor_enabled", nullable = false)
     private boolean twoFactorEnabled = false;
 
-    @Column(name = "two_factor_secret", length = 500)
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(name = "two_factor_secret", columnDefinition = "TEXT")
     private String twoFactorSecret;
 
     @Column(name = "failed_login_attempts", nullable = false)
