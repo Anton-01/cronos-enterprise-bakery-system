@@ -2,20 +2,22 @@ package com.ninsky.cronos.application.service.recipe;
 
 import com.ninsky.cronos.application.response.recipe.RecipeCostBreakdown;
 import com.ninsky.cronos.domain.model.core.RawMaterial;
-import com.ninsky.cronos.domain.entity.recipes.Recipe;
-import com.ninsky.cronos.domain.entity.recipes.RecipeFixedCost;
-import com.ninsky.cronos.domain.entity.recipes.RecipeIngredient;
-import com.ninsky.cronos.domain.entity.recipes.RecipeSubRecipe;
+import com.ninsky.cronos.domain.model.recipe.Recipe;
+import com.ninsky.cronos.domain.model.recipe.RecipeFixedCost;
+import com.ninsky.cronos.domain.model.recipe.RecipeIngredient;
+import com.ninsky.cronos.domain.model.recipe.RecipeSubRecipeItem;
 import com.ninsky.cronos.domain.port.core.RawMaterialRepositoryPort;
+import com.ninsky.cronos.domain.port.recipe.RecipeRepositoryPort;
 import com.ninsky.cronos.infrastructure.exception.BusinessException;
 import com.ninsky.cronos.infrastructure.exception.ResourceNotFoundException;
-import com.ninsky.cronos.infrastructure.persistence.recipe.RecipeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 @Slf4j
@@ -23,7 +25,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class RecipeCalculationService {
 
-    private final RecipeRepository recipeRepository;
+    private final RecipeRepositoryPort recipeRepository;
     private final RawMaterialRepositoryPort rawMaterialRepository;
 
     private static final int SCALE = 6;
@@ -41,10 +43,24 @@ public class RecipeCalculationService {
 
         Recipe recipe = recipeRepository.findById(recipeId).orElseThrow(() -> new ResourceNotFoundException("Receta no encontrada"));
 
-        return calculateRecipeCostInternal(recipe, targetYield);
+        return calculateRecipeCostInternal(recipe, targetYield, Set.of());
     }
 
-    private RecipeCostBreakdown calculateRecipeCostInternal(Recipe recipe, BigDecimal targetYield) {
+    /**
+     * {@code ancestorPath} is the set of recipe ids on the current root-to-here descent — checked
+     * before descending further (a circular sub-recipe reference throws instead of recursing
+     * forever) and copied fresh (never mutated in place) before passing to children, so sibling
+     * sub-recipes sharing a common non-circular descendant (a valid diamond, e.g. A contains B and
+     * C, both separately contain D) aren't falsely flagged as cyclic.
+     */
+    private RecipeCostBreakdown calculateRecipeCostInternal(Recipe recipe, BigDecimal targetYield, Set<UUID> ancestorPath) {
+        if (ancestorPath.contains(recipe.getId())) {
+            throw new BusinessException("Referencia circular detectada: la receta '" + recipe.getName()
+                    + "' se contiene a sí misma (directa o indirectamente) a través de sub-recetas.");
+        }
+        Set<UUID> pathWithSelf = new HashSet<>(ancestorPath);
+        pathWithSelf.add(recipe.getId());
+
         BigDecimal originalYield = recipe.getYieldQuantity();
 
         // 1. Determinar el Yield objetivo
@@ -57,7 +73,7 @@ public class RecipeCalculationService {
 
         // 3. Cálculos delegados escalados
         BigDecimal materialsCost = calculateMaterialsCost(recipe, scaleFactor);
-        BigDecimal subRecipesCost = calculateSubRecipesCost(recipe, scaleFactor);
+        BigDecimal subRecipesCost = calculateSubRecipesCost(recipe, scaleFactor, pathWithSelf);
         BigDecimal fixedCosts = calculateFixedCosts(recipe, scaleFactor); // ¡Este ahora usará la versión optimizada!
 
         // 4. Totales finales
@@ -95,14 +111,15 @@ public class RecipeCalculationService {
         return total.setScale(SCALE, ROUNDING_MODE);
     }
 
-    private BigDecimal calculateSubRecipesCost(Recipe recipe, BigDecimal scaleFactor) {
+    private BigDecimal calculateSubRecipesCost(Recipe recipe, BigDecimal scaleFactor, Set<UUID> ancestorPath) {
         BigDecimal total = BigDecimal.ZERO;
 
-        for (RecipeSubRecipe subRecipeRel : recipe.getSubRecipes()) {
-            Recipe childRecipe = subRecipeRel.getSubRecipe();
+        for (RecipeSubRecipeItem subRecipeRel : recipe.getSubRecipes()) {
+            Recipe childRecipe = recipeRepository.findById(subRecipeRel.getSubRecipeId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Sub-receta no encontrada"));
 
             BigDecimal scaledRequiredQuantity = subRecipeRel.getQuantity().multiply(scaleFactor);
-            RecipeCostBreakdown childCost = calculateRecipeCostInternal(childRecipe, scaledRequiredQuantity);
+            RecipeCostBreakdown childCost = calculateRecipeCostInternal(childRecipe, scaledRequiredQuantity, ancestorPath);
             total = total.add(childCost.totalCost());
         }
         return total.setScale(SCALE, ROUNDING_MODE);

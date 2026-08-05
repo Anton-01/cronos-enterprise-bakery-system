@@ -3,11 +3,11 @@ package com.ninsky.cronos.application.service.recipe;
 import com.ninsky.cronos.application.request.recipe.UserFixedCostRequest;
 import com.ninsky.cronos.application.response.recipe.UserFixedCostResponse;
 import com.ninsky.cronos.domain.model.auth.User;
-import com.ninsky.cronos.domain.entity.recipes.UserFixedCost;
+import com.ninsky.cronos.domain.model.recipe.UserFixedCost;
 import com.ninsky.cronos.infrastructure.exception.BusinessException;
 import com.ninsky.cronos.infrastructure.exception.ResourceNotFoundException;
 import com.ninsky.cronos.domain.port.auth.UserRepositoryPort;
-import com.ninsky.cronos.infrastructure.persistence.recipe.UserFixedCostRepository;
+import com.ninsky.cronos.domain.port.recipe.UserFixedCostRepositoryPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -23,7 +23,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class UserFixedCostService {
 
-    private final UserFixedCostRepository fixedCostRepository;
+    private final UserFixedCostRepositoryPort fixedCostRepository;
     private final UserRepositoryPort userRepository;
 
     @Transactional

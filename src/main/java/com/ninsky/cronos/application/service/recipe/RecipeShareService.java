@@ -4,24 +4,25 @@ import com.ninsky.cronos.application.request.core.mail.EmailRequest;
 import com.ninsky.cronos.application.request.recipe.CreateRecipeShareRequest;
 import com.ninsky.cronos.application.response.recipe.*;
 import com.ninsky.cronos.application.service.mail.MailService;
-import com.ninsky.cronos.application.service.storage.CloudStorageService;
+import com.ninsky.cronos.infrastructure.storage.StoragePort;
 import com.ninsky.cronos.domain.model.auth.User;
 import com.ninsky.cronos.domain.model.auth.UserProfile;
 import com.ninsky.cronos.domain.model.core.MeasurementUnit;
 import com.ninsky.cronos.domain.model.core.RawMaterial;
-import com.ninsky.cronos.domain.entity.recipes.Recipe;
-import com.ninsky.cronos.domain.entity.recipes.RecipeIngredient;
-import com.ninsky.cronos.domain.entity.recipes.RecipeShare;
-import com.ninsky.cronos.domain.entity.recipes.RecipeShareAccessLog;
+import com.ninsky.cronos.domain.model.recipe.Recipe;
+import com.ninsky.cronos.domain.model.recipe.RecipeIngredient;
+import com.ninsky.cronos.domain.model.recipe.RecipeShare;
+import com.ninsky.cronos.domain.model.recipe.RecipeShareAccessLog;
 import com.ninsky.cronos.domain.port.auth.UserProfileRepositoryPort;
 import com.ninsky.cronos.domain.port.auth.UserRepositoryPort;
 import com.ninsky.cronos.domain.port.core.MeasurementUnitRepositoryPort;
 import com.ninsky.cronos.domain.port.core.RawMaterialRepositoryPort;
+import com.ninsky.cronos.domain.port.recipe.RecipeFileRepositoryPort;
+import com.ninsky.cronos.domain.port.recipe.RecipeRepositoryPort;
+import com.ninsky.cronos.domain.port.recipe.RecipeShareAccessLogRepositoryPort;
+import com.ninsky.cronos.domain.port.recipe.RecipeShareRepositoryPort;
 import com.ninsky.cronos.infrastructure.exception.BusinessException;
 import com.ninsky.cronos.infrastructure.exception.ResourceNotFoundException;
-import com.ninsky.cronos.infrastructure.persistence.recipe.RecipeRepository;
-import com.ninsky.cronos.infrastructure.persistence.recipe.RecipeShareAccessLogRepository;
-import com.ninsky.cronos.infrastructure.persistence.recipe.RecipeShareRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -40,16 +41,17 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class RecipeShareService {
 
-    private final RecipeShareRepository shareRepository;
-    private final RecipeShareAccessLogRepository accessLogRepository;
-    private final RecipeRepository recipeRepository;
+    private final RecipeShareRepositoryPort shareRepository;
+    private final RecipeShareAccessLogRepositoryPort accessLogRepository;
+    private final RecipeRepositoryPort recipeRepository;
+    private final RecipeFileRepositoryPort recipeFileRepository;
     private final UserRepositoryPort userRepository;
     private final UserProfileRepositoryPort userProfileRepository;
     private final MailService mailService;
     private final RawMaterialRepositoryPort rawMaterialRepository;
     private final MeasurementUnitRepositoryPort unitRepository;
 
-    private final CloudStorageService cloudStorageService;
+    private final StoragePort cloudStorageService;
 
     @Value("${app.frontend.urlSharePublicRecipe}")
     private String frontendUrlSharePublicRecipe;
@@ -77,7 +79,7 @@ public class RecipeShareService {
         String token = UUID.randomUUID().toString().replace("-", "");
         LocalDateTime expiresAt = LocalDateTime.now().plusDays(request.expirationDays());
 
-        RecipeShare share = RecipeShare.builder().recipe(recipe).userId(user.getId()).shareToken(token)
+        RecipeShare share = RecipeShare.builder().recipeId(recipe.getId()).userId(user.getId()).shareToken(token)
                 .recipientEmail(request.recipientEmail()).expiresAt(expiresAt).isRevoked(false).viewsCount(0).build();
 
         share = shareRepository.save(share);
@@ -116,10 +118,11 @@ public class RecipeShareService {
 
 
         share.setViewsCount(share.getViewsCount() + 1);
-        RecipeShareAccessLog logEntry = RecipeShareAccessLog.builder().recipeShare(share).ipAddress(ipAddress).userAgent(userAgent).build();
+        shareRepository.save(share);
+        RecipeShareAccessLog logEntry = RecipeShareAccessLog.builder().recipeShareId(share.getId()).ipAddress(ipAddress).userAgent(userAgent).build();
         accessLogRepository.save(logEntry);
 
-        Recipe recipe = share.getRecipe();
+        Recipe recipe = recipeRepository.findById(share.getRecipeId()).orElseThrow(() -> new ResourceNotFoundException("Receta no encontrada"));
         UserProfile ownerProfile = userProfileRepository.findByUserId(recipe.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("Perfil de usuario no encontrado"));
 
@@ -147,7 +150,7 @@ public class RecipeShareService {
                     .isOptional(ing.isOptional()).build();
         }).toList();
 
-        List<PublicFileDto> files = recipe.getFiles().stream().map(file -> PublicFileDto.builder()
+        List<PublicFileDto> files = recipeFileRepository.findByRecipeIdOrderByCreatedAtDesc(recipe.getId()).stream().map(file -> PublicFileDto.builder()
                 .url(cloudStorageService.generateSignedUrl(file.getFilePath(), 120))
                 .fileType(file.getFileType()).description(file.getDescription())
                 .build()).toList();

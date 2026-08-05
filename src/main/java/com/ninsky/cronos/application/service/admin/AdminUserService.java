@@ -6,7 +6,7 @@ import com.ninsky.cronos.application.request.core.mail.EmailRequest;
 import com.ninsky.cronos.application.request.user.AdminUserCreateRequest;
 import com.ninsky.cronos.application.response.auth.UserResponse;
 import com.ninsky.cronos.application.service.mail.MailService;
-import com.ninsky.cronos.application.service.storage.CloudStorageService;
+import com.ninsky.cronos.infrastructure.storage.StoragePort;
 import com.ninsky.cronos.domain.model.auth.PasswordResetToken;
 import com.ninsky.cronos.domain.model.auth.Role;
 import com.ninsky.cronos.domain.model.auth.User;
@@ -47,7 +47,7 @@ public class AdminUserService {
     private final UserSessionRepositoryPort userSessionRepository;
     private final PasswordResetTokenRepositoryPort passwordResetTokenRepository;
     private final MailService mailService;
-    private final CloudStorageService fileStorageService;
+    private final StoragePort fileStorageService;
     private final TokenBlacklistService tokenBlacklistService;
     private final JwtConfig jwtConfig;
 

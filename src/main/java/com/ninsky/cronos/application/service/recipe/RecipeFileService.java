@@ -1,15 +1,15 @@
 package com.ninsky.cronos.application.service.recipe;
 
 import com.ninsky.cronos.application.response.recipe.RecipeFileResponse;
-import com.ninsky.cronos.application.service.storage.CloudStorageService;
+import com.ninsky.cronos.infrastructure.storage.StoragePort;
 import com.ninsky.cronos.domain.model.auth.User;
-import com.ninsky.cronos.domain.entity.recipes.Recipe;
-import com.ninsky.cronos.domain.entity.recipes.RecipeFile;
+import com.ninsky.cronos.domain.model.recipe.Recipe;
+import com.ninsky.cronos.domain.model.recipe.RecipeFile;
 import com.ninsky.cronos.infrastructure.exception.BusinessException;
 import com.ninsky.cronos.infrastructure.exception.ResourceNotFoundException;
 import com.ninsky.cronos.domain.port.auth.UserRepositoryPort;
-import com.ninsky.cronos.infrastructure.persistence.recipe.RecipeFileRepository;
-import com.ninsky.cronos.infrastructure.persistence.recipe.RecipeRepository;
+import com.ninsky.cronos.domain.port.recipe.RecipeFileRepositoryPort;
+import com.ninsky.cronos.domain.port.recipe.RecipeRepositoryPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,10 +24,10 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class RecipeFileService {
 
-    private final RecipeFileRepository recipeFileRepository;
-    private final RecipeRepository recipeRepository;
+    private final RecipeFileRepositoryPort recipeFileRepository;
+    private final RecipeRepositoryPort recipeRepository;
     private final UserRepositoryPort userRepository;
-    private final CloudStorageService cloudStorageService;
+    private final StoragePort cloudStorageService;
 
     @Transactional
     public RecipeFileResponse uploadRecipeFile(String username, UUID recipeId, MultipartFile file, String description) {
@@ -51,13 +51,15 @@ public class RecipeFileService {
 
         String generatedFileName = gcpFilePath.substring(gcpFilePath.lastIndexOf("/") + 1);
 
-        RecipeFile recipeFile = RecipeFile.builder().recipe(recipe).fileName(generatedFileName)
+        boolean isFirstFile = recipeFileRepository.findByRecipeIdOrderByCreatedAtDesc(recipeId).isEmpty();
+
+        RecipeFile recipeFile = RecipeFile.builder().recipeId(recipe.getId()).fileName(generatedFileName)
                 .originalFileName(file.getOriginalFilename())
                 .filePath(gcpFilePath) // Actual internal path in the GCP Bucket
                 .storageProvider("GCP")
                 .publicUrl(null) // None, because the URL will be dynamic and temporary
                 .fileSize(file.getSize()).fileType(fileCategory)
-                .mimeType(file.getContentType()).isPrimary(recipe.getFiles().isEmpty())
+                .mimeType(file.getContentType()).isPrimary(isFirstFile)
                 .description(description).build();
 
         recipeFile = recipeFileRepository.save(recipeFile);

@@ -4,21 +4,22 @@ package com.ninsky.cronos.application.service.recipe;
 import com.ninsky.cronos.application.request.recipe.CreateRecipeRequest;
 import com.ninsky.cronos.application.request.recipe.UpdateRecipeRequest;
 import com.ninsky.cronos.application.response.recipe.*;
-import com.ninsky.cronos.application.service.storage.CloudStorageService;
+import com.ninsky.cronos.infrastructure.storage.StoragePort;
 import com.ninsky.cronos.domain.model.auth.User;
 import com.ninsky.cronos.domain.model.core.Allergen;
 import com.ninsky.cronos.domain.model.core.MeasurementUnit;
 import com.ninsky.cronos.domain.model.core.RawMaterial;
-import com.ninsky.cronos.domain.entity.recipes.Recipe;
-import com.ninsky.cronos.domain.entity.recipes.RecipeFile;
-import com.ninsky.cronos.domain.entity.recipes.RecipeFixedCost;
-import com.ninsky.cronos.domain.entity.recipes.RecipeIngredient;
+import com.ninsky.cronos.domain.model.recipe.Recipe;
+import com.ninsky.cronos.domain.model.recipe.RecipeFile;
+import com.ninsky.cronos.domain.model.recipe.RecipeFixedCost;
+import com.ninsky.cronos.domain.model.recipe.RecipeIngredient;
 import com.ninsky.cronos.domain.port.core.AllergenRepositoryPort;
 import com.ninsky.cronos.domain.port.core.MeasurementUnitRepositoryPort;
 import com.ninsky.cronos.domain.port.core.RawMaterialRepositoryPort;
+import com.ninsky.cronos.domain.port.recipe.RecipeFileRepositoryPort;
 import com.ninsky.cronos.infrastructure.exception.ResourceNotFoundException;
 import com.ninsky.cronos.domain.port.auth.UserRepositoryPort;
-import com.ninsky.cronos.infrastructure.persistence.recipe.RecipeRepository;
+import com.ninsky.cronos.domain.port.recipe.RecipeRepositoryPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -35,12 +36,13 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class RecipeService {
-    private final RecipeRepository recipeRepository;
+    private final RecipeRepositoryPort recipeRepository;
+    private final RecipeFileRepositoryPort recipeFileRepository;
     private final UserRepositoryPort userRepository;
     private final RawMaterialRepositoryPort rawMaterialRepository;
     private final MeasurementUnitRepositoryPort unitRepository;
     private final AllergenRepositoryPort allergenRepository;
-    private final CloudStorageService cloudStorageService;
+    private final StoragePort cloudStorageService;
 
     @Transactional(readOnly = true)
     public RecipeDetailResponse getRecipeById(String username, UUID recipeId) {
@@ -176,7 +178,8 @@ public class RecipeService {
         log.debug("Found {} simple recipes matching the criteria for user {}", recipes.size(), user.getId());
 
         return recipes.stream().map(recipe -> {
-            String imageUrl = recipe.getFiles().stream().filter(RecipeFile::isPrimary).findFirst()
+            String imageUrl = recipeFileRepository.findByRecipeIdOrderByCreatedAtDesc(recipe.getId()).stream()
+                    .filter(RecipeFile::isPrimary).findFirst()
                     .map(file -> cloudStorageService.generateSignedUrl(file.getFilePath(), 60))
                     .orElse(null);
 
@@ -185,24 +188,6 @@ public class RecipeService {
                     .totalCost(recipe.getTotalCost()).build();
         }).toList();
     }
-
-    /*private BigDecimal calculateBaseFixedCost(RecipeFixedCost fixedCost) {
-        if (fixedCost.getRate() == null) return BigDecimal.ZERO;
-
-        return switch (fixedCost.getCalculationMethod()) {
-            case "HOURLY_RATE" -> {
-                int minutes = fixedCost.getTimeInMinutes() != null ? fixedCost.getTimeInMinutes() : 0;
-                // Cost = (Minutes / 60) * Hourly Rate
-                yield BigDecimal.valueOf(minutes).divide(BigDecimal.valueOf(60), 6, RoundingMode.HALF_UP).multiply(fixedCost.getRate()).setScale(2, RoundingMode.HALF_UP);
-            }
-            case "PERCENTAGE" -> {
-                BigDecimal pct = fixedCost.getPercentage() != null ? fixedCost.getPercentage() : BigDecimal.ZERO;
-                // Cost = Base Amount * (Percentage / 100)
-                yield fixedCost.getRate().multiply(pct.divide(BigDecimal.valueOf(100), 6, RoundingMode.HALF_UP)).setScale(2, RoundingMode.HALF_UP);
-            }
-            default -> fixedCost.getRate().setScale(2, RoundingMode.HALF_UP); // PER_UNIT y FIXED_PER_BATCH
-        };
-    }*/
 
     private boolean mapFieldsToUpdate(UpdateRecipeRequest request, Recipe recipe) {
         boolean requiresRecalculation = false;

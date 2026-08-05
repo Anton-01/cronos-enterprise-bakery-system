@@ -8,9 +8,9 @@ import java.util.UUID;
 @Component
 public class RecipeRecalculationAdapter implements RecipeRecalculationPort {
 
-    private final RecipeRepository recipeRepository;
+    private final RecipeJpaRepository recipeRepository;
 
-    public RecipeRecalculationAdapter(RecipeRepository recipeRepository) {
+    public RecipeRecalculationAdapter(RecipeJpaRepository recipeRepository) {
         this.recipeRepository = recipeRepository;
     }
 

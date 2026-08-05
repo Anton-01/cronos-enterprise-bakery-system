@@ -5,22 +5,23 @@ import com.ninsky.cronos.application.request.quote.CreateQuoteRequest;
 import com.ninsky.cronos.application.request.quote.QuoteItemRequest;
 import com.ninsky.cronos.application.response.quote.*;
 import com.ninsky.cronos.application.service.mail.MailService;
-import com.ninsky.cronos.application.service.storage.CloudStorageService;
+import com.ninsky.cronos.infrastructure.storage.StoragePort;
 import com.ninsky.cronos.domain.model.auth.User;
 import com.ninsky.cronos.domain.model.auth.UserProfile;
 import com.ninsky.cronos.domain.entity.enums.QuoteStatus;
-import com.ninsky.cronos.domain.entity.quote.Quote;
-import com.ninsky.cronos.domain.entity.quote.QuoteAccessLog;
-import com.ninsky.cronos.domain.entity.quote.QuoteItem;
-import com.ninsky.cronos.domain.entity.recipes.Recipe;
-import com.ninsky.cronos.domain.entity.recipes.RecipeFile;
+import com.ninsky.cronos.domain.model.quote.Quote;
+import com.ninsky.cronos.domain.model.quote.QuoteAccessLog;
+import com.ninsky.cronos.domain.model.quote.QuoteItem;
+import com.ninsky.cronos.domain.model.recipe.Recipe;
+import com.ninsky.cronos.domain.model.recipe.RecipeFile;
 import com.ninsky.cronos.domain.port.auth.UserProfileRepositoryPort;
 import com.ninsky.cronos.domain.port.auth.UserRepositoryPort;
+import com.ninsky.cronos.domain.port.quote.QuoteAccessLogRepositoryPort;
+import com.ninsky.cronos.domain.port.quote.QuoteRepositoryPort;
+import com.ninsky.cronos.domain.port.recipe.RecipeFileRepositoryPort;
+import com.ninsky.cronos.domain.port.recipe.RecipeRepositoryPort;
 import com.ninsky.cronos.infrastructure.exception.BusinessException;
 import com.ninsky.cronos.infrastructure.exception.ResourceNotFoundException;
-import com.ninsky.cronos.infrastructure.persistence.quote.QuoteAccessLogRepository;
-import com.ninsky.cronos.infrastructure.persistence.quote.QuoteRepository;
-import com.ninsky.cronos.infrastructure.persistence.recipe.RecipeRepository;
 import jakarta.validation.constraints.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -45,12 +46,13 @@ import java.util.UUID;
 @Slf4j
 public class QuoteService {
 
-    private final QuoteRepository quoteRepository;
-    private final RecipeRepository recipeRepository;
+    private final QuoteRepositoryPort quoteRepository;
+    private final RecipeRepositoryPort recipeRepository;
+    private final RecipeFileRepositoryPort recipeFileRepository;
     private final UserRepositoryPort userRepository;
     private final UserProfileRepositoryPort userProfileRepository;
-    private final CloudStorageService cloudStorageService;
-    private final QuoteAccessLogRepository quoteAccessLogRepository;
+    private final StoragePort cloudStorageService;
+    private final QuoteAccessLogRepositoryPort quoteAccessLogRepository;
     private final MailService mailService;
 
     @Value("${app.frontend.urlSharePublicQuote}")
@@ -102,14 +104,14 @@ public class QuoteService {
                 recipe = recipeRepository.findByIdAndUserId(itemReq.recipeId(), user.getId())
                         .orElseThrow(() -> new BusinessException("Recipe not found or access denied: " + itemReq.recipeId()));
 
-                imagePath = recipe.getFiles().stream().filter(RecipeFile::isPrimary)
+                imagePath = recipeFileRepository.findByRecipeIdOrderByCreatedAtDesc(recipe.getId()).stream().filter(RecipeFile::isPrimary)
                         .findFirst().map(RecipeFile::getFilePath).orElse(null);
             }
 
             // Matemática del Item: Cantidad * Precio Unitario
             BigDecimal itemSubtotal = itemReq.quantity().multiply(itemReq.unitPrice()).setScale(2, RoundingMode.HALF_UP);
 
-            QuoteItem item = QuoteItem.builder().recipe(recipe).productName(itemReq.productName())
+            QuoteItem item = QuoteItem.builder().recipeId(recipe != null ? recipe.getId() : null).productName(itemReq.productName())
                     .productDescription(itemReq.productDescription()).productSize(itemReq.productSize())
                     .imageFilePath(imagePath).quantity(itemReq.quantity())
                     .unitCost(itemReq.unitCost()).profitPercentage(itemReq.profitPercentage())
@@ -146,7 +148,7 @@ public class QuoteService {
 
         List<InternalQuoteItemResponse> itemDtos = quote.getItems().stream().map(item -> InternalQuoteItemResponse.builder()
                         .id(item.getId())
-                        .recipeId(item.getRecipe() != null ? item.getRecipe().getId() : null)
+                        .recipeId(item.getRecipeId())
                         .productName(item.getProductName())
                         .productDescription(item.getProductDescription())
                         .productSize(item.getProductSize())
@@ -212,14 +214,14 @@ public class QuoteService {
                 recipe = recipeRepository.findByIdAndUserId(itemReq.recipeId(), user.getId())
                         .orElseThrow(() -> new BusinessException("Recipe not found or access denied: " + itemReq.recipeId()));
 
-                imagePath = recipe.getFiles().stream().filter(RecipeFile::isPrimary)
+                imagePath = recipeFileRepository.findByRecipeIdOrderByCreatedAtDesc(recipe.getId()).stream().filter(RecipeFile::isPrimary)
                         .findFirst().map(RecipeFile::getFilePath).orElse(null);
             }
 
             // Matemática del Item: Cantidad * Precio Unitario
             BigDecimal itemSubtotal = itemReq.quantity().multiply(itemReq.unitPrice()).setScale(2, RoundingMode.HALF_UP);
 
-            QuoteItem item = QuoteItem.builder().recipe(recipe).productName(itemReq.productName())
+            QuoteItem item = QuoteItem.builder().recipeId(recipe != null ? recipe.getId() : null).productName(itemReq.productName())
                     .productDescription(itemReq.productDescription()).productSize(itemReq.productSize())
                     .imageFilePath(imagePath).quantity(itemReq.quantity())
                     .unitCost(itemReq.unitCost()).profitPercentage(itemReq.profitPercentage())
@@ -264,6 +266,13 @@ public class QuoteService {
         if (quote.isRevoked()) {
             log.warn("Attempt to access revoked quote token: {}", token);
             throw new BusinessException("Esta cotización ya no está disponible. Por favor, contacta a tu repostero.");
+        }
+
+        // Enforced the same way isRevoked already is — previously only computed as a flag and
+        // returned in the response, never actually blocking access to an expired quote's data.
+        if (quote.getValidUntil().isBefore(LocalDateTime.now())) {
+            log.warn("Attempt to access expired quote token: {}", token);
+            throw new BusinessException("Esta cotización ha expirado. Por favor, contacta a tu repostero.");
         }
 
         boolean isExpired = quote.getValidUntil().isBefore(LocalDateTime.now());
@@ -344,7 +353,7 @@ public class QuoteService {
             totalProductCost = totalProductCost.add(itemTotalCost);
 
             itemDtos.add(InternalQuoteItemResponse.builder().id(item.getId())
-                    .recipeId(item.getRecipe() != null ? item.getRecipe().getId() : null)
+                    .recipeId(item.getRecipeId())
                     .productName(item.getProductName()).productSize(item.getProductSize())
                     .quantity(item.getQuantity()).unitCost(item.getUnitCost())
                     .unitPrice(item.getUnitPrice()).subtotal(item.getSubtotal()).build());
@@ -388,7 +397,7 @@ public class QuoteService {
                 .build();
     }
     private void saveAccessLogQuoteAnalytics(Quote quote, String ipAddress, String userAgent) {
-        QuoteAccessLog accessLog = QuoteAccessLog.builder().quote(quote).ipAddress(ipAddress).userAgent(userAgent).build();
+        QuoteAccessLog accessLog = QuoteAccessLog.builder().quoteId(quote.getId()).ipAddress(ipAddress).userAgent(userAgent).build();
         quoteAccessLogRepository.save(accessLog);
     }
 

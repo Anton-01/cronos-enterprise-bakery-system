@@ -6,17 +6,16 @@ import com.ninsky.cronos.application.service.UnitConversionService;
 import com.ninsky.cronos.domain.model.auth.User;
 import com.ninsky.cronos.domain.model.core.MeasurementUnit;
 import com.ninsky.cronos.domain.model.core.RawMaterial;
-import com.ninsky.cronos.domain.entity.recipes.*;
+import com.ninsky.cronos.domain.model.recipe.*;
 import com.ninsky.cronos.domain.port.core.MeasurementUnitRepositoryPort;
 import com.ninsky.cronos.domain.port.core.RawMaterialRepositoryPort;
+import com.ninsky.cronos.domain.port.recipe.IngredientSubstituteRepositoryPort;
+import com.ninsky.cronos.domain.port.recipe.RecipeRepositoryPort;
+import com.ninsky.cronos.domain.port.recipe.UserFixedCostRepositoryPort;
 import com.ninsky.cronos.domain.service.core.RawMaterialCostingService;
 import com.ninsky.cronos.infrastructure.exception.BusinessException;
 import com.ninsky.cronos.infrastructure.exception.ResourceNotFoundException;
 import com.ninsky.cronos.domain.port.auth.UserRepositoryPort;
-import com.ninsky.cronos.infrastructure.persistence.recipe.IngredientSubstituteRepository;
-import com.ninsky.cronos.infrastructure.persistence.recipe.RecipeIngredientRepository;
-import com.ninsky.cronos.infrastructure.persistence.recipe.RecipeRepository;
-import com.ninsky.cronos.infrastructure.persistence.recipe.UserFixedCostRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -30,12 +29,11 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class RecipeDetailService {
 
-    private final RecipeRepository recipeRepository;
-    private final RecipeIngredientRepository recipeIngredientRepository;
-    private final IngredientSubstituteRepository substituteRepository;
+    private final RecipeRepositoryPort recipeRepository;
+    private final IngredientSubstituteRepositoryPort substituteRepository;
     private final RawMaterialRepositoryPort rawMaterialRepository;
     private final UserRepositoryPort userRepository;
-    private final UserFixedCostRepository userFixedCostRepository;
+    private final UserFixedCostRepositoryPort userFixedCostRepository;
     private final MeasurementUnitRepositoryPort unitRepository;
 
     private final UnitConversionService unitConversionService;
@@ -71,7 +69,7 @@ public class RecipeDetailService {
 
         int nextDisplayOrder = recipe.getIngredients().stream().mapToInt(ing -> ing.getDisplayOrder() != null ? ing.getDisplayOrder() : 0).max().orElse(0) + 1;
 
-        RecipeIngredient ingredient = RecipeIngredient.builder().recipe(recipe).rawMaterialId(request.rawMaterialId()).quantity(request.quantity()).unitId(request.unitId())
+        RecipeIngredient ingredient = RecipeIngredient.builder().rawMaterialId(request.rawMaterialId()).quantity(request.quantity()).unitId(request.unitId())
                 .displayOrder(request.displayOrder()).isOptional(request.isOptional()).notes(request.notes())
                 .costPerUnit(costPerRecipeUnit).displayOrder(nextDisplayOrder).totalCost(totalCost).build();
 
@@ -89,7 +87,7 @@ public class RecipeDetailService {
         User user = userRepository.findByUsername(username).orElseThrow();
         Recipe recipe = recipeRepository.findByIdAndUserId(recipeId, user.getId()).orElseThrow(() -> new ResourceNotFoundException("Receta no encontrada o sin acceso"));
 
-        RecipeIngredient recipeIngredient = recipeIngredientRepository.findByIdAndRecipeId(recipeIngredientId, recipeId).orElseThrow(() -> new ResourceNotFoundException("Ingrediente no encontrado en esta receta"));
+        RecipeIngredient recipeIngredient = recipe.findIngredientById(recipeIngredientId).orElseThrow(() -> new ResourceNotFoundException("Ingrediente no encontrado en esta receta"));
 
         // Look up the conversion rule in the user's dictionary
         IngredientSubstitute rule = substituteRepository.findByUserIdAndOriginalIngredientIdAndSubstituteMaterialId(
@@ -118,7 +116,8 @@ public class RecipeDetailService {
 
         recipe.setNeedsRecalculation(true);
 
-        recipeIngredientRepository.save(recipeIngredient);
+        // recipeIngredient is the same in-memory object living inside recipe.getIngredients() —
+        // saving the aggregate root persists the mutated child via cascade, no separate save needed.
         recipeRepository.save(recipe);
 
         log.info("Replacement successful. New calculated value: {}", newQuantity);
@@ -134,7 +133,7 @@ public class RecipeDetailService {
         Recipe recipe = recipeRepository.findByIdAndUserId(recipeId, user.getId()).orElseThrow(() -> new ResourceNotFoundException("Receta no encontrada o sin acceso"));
 
         // Retrieve the master cost from the catalog (verifying that it belongs to this user)
-        UserFixedCost masterCost = userFixedCostRepository.findById(request.userFixedCostId()).filter(cost -> cost.getUserId().equals(user.getId()))
+        UserFixedCost masterCost = userFixedCostRepository.findByIdAndUserId(request.userFixedCostId(), user.getId())
                 .orElseThrow(() -> new BusinessException("El costo fijo seleccionado no existe en tu catálogo."));
 
         BigDecimal appliedPercentage = request.percentage() != null ? request.percentage() : masterCost.getPercentage();
@@ -146,7 +145,7 @@ public class RecipeDetailService {
         }
 
         // Clone the data to the transactional entity (RecipeFixedCost)
-        RecipeFixedCost recipeCost = RecipeFixedCost.builder().recipe(recipe).masterFixedCostId(masterCost.getId())
+        RecipeFixedCost recipeCost = RecipeFixedCost.builder().masterFixedCostId(masterCost.getId())
                 .name(masterCost.getName()).description(masterCost.getDescription())
                 .type(masterCost.getType()).rate(masterCost.getDefaultAmount())
                 .calculationMethod(masterCost.getCalculationMethod()).timeInMinutes(request.timeInMinutes())
@@ -291,7 +290,6 @@ public class RecipeDetailService {
         recipe.setTotalCost(finalTotalCost);
         recipe.setNeedsRecalculation(false);
 
-        recipe.setNeedsRecalculation(false);
         recipeRepository.save(recipe);
         log.info("Synchronization complete. The recipe ingredients now reflect current prices.");
     }

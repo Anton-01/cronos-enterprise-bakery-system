@@ -1,7 +1,6 @@
 package com.ninsky.cronos.application.response.quote;
 
 import com.ninsky.cronos.domain.entity.enums.QuoteStatus;
-import com.ninsky.cronos.domain.entity.quote.QuoteItem;
 import lombok.Builder;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
