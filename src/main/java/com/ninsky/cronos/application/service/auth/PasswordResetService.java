@@ -2,11 +2,12 @@ package com.ninsky.cronos.application.service.auth;
 
 import com.ninsky.cronos.application.request.core.mail.EmailRequest;
 import com.ninsky.cronos.application.service.mail.MailService;
-import com.ninsky.cronos.domain.entity.auth.PasswordResetToken;
-import com.ninsky.cronos.domain.entity.auth.User;
+import com.ninsky.cronos.domain.model.auth.PasswordResetToken;
+import com.ninsky.cronos.domain.model.auth.User;
+import com.ninsky.cronos.domain.port.auth.PasswordResetTokenRepositoryPort;
+import com.ninsky.cronos.domain.port.auth.UserRepositoryPort;
 import com.ninsky.cronos.infrastructure.exception.InvalidTokenException;
-import com.ninsky.cronos.infrastructure.persistence.auth.PasswordResetTokenRepository;
-import com.ninsky.cronos.infrastructure.persistence.auth.UserRepository;
+import com.ninsky.cronos.infrastructure.exception.UserNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,8 +24,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class PasswordResetService {
 
-    private final UserRepository userRepository;
-    private final PasswordResetTokenRepository tokenRepository;
+    private final UserRepositoryPort userRepository;
+    private final PasswordResetTokenRepositoryPort tokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final MailService mailService;
 
@@ -37,7 +38,11 @@ public class PasswordResetService {
 
         userRepository.findByEmail(email).ifPresent(user -> {
             String tokenStr = UUID.randomUUID().toString();
-            PasswordResetToken resetToken = new PasswordResetToken(tokenStr, user, LocalDateTime.now().plusHours(1));
+            PasswordResetToken resetToken = PasswordResetToken.builder()
+                    .token(tokenStr).userId(user.getId())
+                    .expiresAt(LocalDateTime.now().plusHours(1))
+                    .used(false).createdAt(LocalDateTime.now())
+                    .build();
 
             tokenRepository.save(resetToken);
 
@@ -71,7 +76,7 @@ public class PasswordResetService {
         }
 
         // Update password user
-        User user = resetToken.getUser();
+        User user = userRepository.findById(resetToken.getUserId()).orElseThrow(() -> new UserNotFoundException("User not found"));
         user.setPassword(passwordEncoder.encode(newPassword));
         user.setPasswordChangedAt(LocalDateTime.now());
 

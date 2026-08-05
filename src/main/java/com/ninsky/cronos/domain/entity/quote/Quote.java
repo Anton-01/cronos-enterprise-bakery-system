@@ -1,6 +1,5 @@
 package com.ninsky.cronos.domain.entity.quote;
 
-import com.ninsky.cronos.domain.entity.auth.User;
 import com.ninsky.cronos.domain.entity.base.AuditableEntity;
 import com.ninsky.cronos.domain.entity.enums.QuoteStatus;
 import jakarta.persistence.*;
@@ -28,9 +27,8 @@ public class Quote extends AuditableEntity {
     @Column(name = "quote_number", nullable = false, length = 100, unique = true)
     private String quoteNumber;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @Column(name = "user_id", nullable = false)
+    private UUID userId;
 
     @Column(name = "client_name", nullable = false, length = 200)
     private String clientName;

@@ -2,11 +2,11 @@ package com.ninsky.cronos.application.service.recipe;
 
 import com.ninsky.cronos.application.request.recipe.UserFixedCostRequest;
 import com.ninsky.cronos.application.response.recipe.UserFixedCostResponse;
-import com.ninsky.cronos.domain.entity.auth.User;
+import com.ninsky.cronos.domain.model.auth.User;
 import com.ninsky.cronos.domain.entity.recipes.UserFixedCost;
 import com.ninsky.cronos.infrastructure.exception.BusinessException;
 import com.ninsky.cronos.infrastructure.exception.ResourceNotFoundException;
-import com.ninsky.cronos.infrastructure.persistence.auth.UserRepository;
+import com.ninsky.cronos.domain.port.auth.UserRepositoryPort;
 import com.ninsky.cronos.infrastructure.persistence.recipe.UserFixedCostRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,7 +24,7 @@ import java.util.UUID;
 public class UserFixedCostService {
 
     private final UserFixedCostRepository fixedCostRepository;
-    private final UserRepository userRepository;
+    private final UserRepositoryPort userRepository;
 
     @Transactional
     public UserFixedCostResponse createFixedCost(String username, UserFixedCostRequest request) {

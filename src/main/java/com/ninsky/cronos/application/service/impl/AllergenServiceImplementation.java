@@ -10,7 +10,7 @@ import com.ninsky.cronos.domain.port.core.AllergenRepositoryPort;
 import com.ninsky.cronos.infrastructure.exception.DuplicateResourceException;
 import com.ninsky.cronos.infrastructure.exception.ResourceNotFoundException;
 import com.ninsky.cronos.infrastructure.exception.SystemResourceException;
-import com.ninsky.cronos.infrastructure.persistence.auth.UserRepository;
+import com.ninsky.cronos.domain.port.auth.UserRepositoryPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.csv.CSVFormat;
@@ -34,7 +34,7 @@ import java.util.UUID;
 public class AllergenServiceImplementation implements AllergenService {
 
     private final AllergenRepositoryPort allergenRepository;
-    private final UserRepository userRepository;
+    private final UserRepositoryPort userRepository;
 
     /**
      * Creates a new Allergen

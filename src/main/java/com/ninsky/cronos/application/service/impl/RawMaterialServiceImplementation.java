@@ -8,7 +8,7 @@ import com.ninsky.cronos.application.response.core.DensityConversionDto;
 import com.ninsky.cronos.application.response.core.RawMaterialListResponse;
 import com.ninsky.cronos.application.response.core.RawMaterialResponse;
 import com.ninsky.cronos.application.service.RawMaterialService;
-import com.ninsky.cronos.domain.entity.auth.User;
+import com.ninsky.cronos.domain.model.auth.User;
 import com.ninsky.cronos.domain.model.core.IngredientConversion;
 import com.ninsky.cronos.domain.model.core.MeasurementUnit;
 import com.ninsky.cronos.domain.model.core.RawMaterial;
@@ -19,7 +19,7 @@ import com.ninsky.cronos.domain.port.core.RecipeRecalculationPort;
 import com.ninsky.cronos.domain.service.core.RawMaterialCostingService;
 import com.ninsky.cronos.infrastructure.exception.ResourceNotFoundException;
 import com.ninsky.cronos.infrastructure.exception.ValidationException;
-import com.ninsky.cronos.infrastructure.persistence.auth.UserRepository;
+import com.ninsky.cronos.domain.port.auth.UserRepositoryPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -45,7 +45,7 @@ public class RawMaterialServiceImplementation implements RawMaterialService {
     private final RawMaterialRepositoryPort rawMaterialRepository;
     private final MeasurementUnitRepositoryPort measurementUnitRepository;
     private final IngredientConversionRepositoryPort ingredientConversionRepository;
-    private final UserRepository userRepository;
+    private final UserRepositoryPort userRepository;
     private final RecipeRecalculationPort recipeRecalculationPort;
     private final RawMaterialCostingService costingService;
 

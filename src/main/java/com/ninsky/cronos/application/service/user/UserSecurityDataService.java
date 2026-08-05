@@ -3,12 +3,12 @@ package com.ninsky.cronos.application.service.user;
 import com.ninsky.cronos.application.response.auth.LoginHistoryResponse;
 import com.ninsky.cronos.application.response.auth.UserSessionResponse;
 import com.ninsky.cronos.domain.entity.auth.LoginHistory;
-import com.ninsky.cronos.domain.entity.auth.User;
-import com.ninsky.cronos.domain.entity.auth.UserSession;
+import com.ninsky.cronos.domain.model.auth.User;
+import com.ninsky.cronos.domain.model.auth.UserSession;
+import com.ninsky.cronos.domain.port.auth.UserRepositoryPort;
+import com.ninsky.cronos.domain.port.auth.UserSessionRepositoryPort;
 import com.ninsky.cronos.infrastructure.exception.UserNotFoundException;
 import com.ninsky.cronos.infrastructure.persistence.auth.LoginHistoryRepository;
-import com.ninsky.cronos.infrastructure.persistence.auth.UserRepository;
-import com.ninsky.cronos.infrastructure.persistence.auth.UserSessionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -22,8 +22,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class UserSecurityDataService {
 
-    private final UserRepository userRepository;
-    private final UserSessionRepository userSessionRepository;
+    private final UserRepositoryPort userRepository;
+    private final UserSessionRepositoryPort userSessionRepository;
     private final LoginHistoryRepository loginHistoryRepository;
 
     @Transactional(readOnly = true)
@@ -59,7 +59,7 @@ public class UserSecurityDataService {
             return new UserNotFoundException("User not found");
         });
 
-        List<LoginHistory> loginHistory = loginHistoryRepository.findByUserIdOrderByCreatedAtDesc(user.getId(), org.springframework.data.domain.PageRequest.of(0, 50));
+        List<LoginHistory> loginHistory = loginHistoryRepository.findByUserIdOrderByCreatedAtDesc(user.getId(), PageRequest.of(0, 50));
 
         log.debug("Retrieved {} login history records for user ID: {}", loginHistory.size(), user.getId());
 

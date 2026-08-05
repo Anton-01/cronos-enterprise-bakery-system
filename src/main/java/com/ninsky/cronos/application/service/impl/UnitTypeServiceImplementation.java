@@ -10,7 +10,7 @@ import com.ninsky.cronos.domain.port.core.UnitTypeRepositoryPort;
 import com.ninsky.cronos.infrastructure.exception.DataIntegrityViolationException;
 import com.ninsky.cronos.infrastructure.exception.DuplicateResourceException;
 import com.ninsky.cronos.infrastructure.exception.ResourceNotFoundException;
-import com.ninsky.cronos.infrastructure.persistence.auth.UserRepository;
+import com.ninsky.cronos.domain.port.auth.UserRepositoryPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
@@ -26,7 +26,7 @@ public class UnitTypeServiceImplementation implements UnitTypeService {
 
     private final UnitTypeRepositoryPort unitTypeRepository;
     private final MeasurementUnitRepositoryPort measurementUnitRepository;
-    private final UserRepository userRepository;
+    private final UserRepositoryPort userRepository;
 
     /**
      * Creates a new unitType

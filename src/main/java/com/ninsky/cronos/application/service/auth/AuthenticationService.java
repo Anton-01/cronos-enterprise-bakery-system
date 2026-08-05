@@ -5,10 +5,28 @@ import com.ninsky.cronos.application.request.core.auth.LoginRequest;
 import com.ninsky.cronos.application.request.core.auth.RefreshTokenRequest;
 import com.ninsky.cronos.application.response.auth.LoginResponse;
 import com.ninsky.cronos.application.response.auth.TokenResponse;
-import com.ninsky.cronos.domain.entity.auth.*;
+import com.ninsky.cronos.application.response.menu.MenuItemResponse;
+import com.ninsky.cronos.domain.entity.auth.DeviceFingerprint;
+import com.ninsky.cronos.domain.entity.auth.LoginHistory;
+import com.ninsky.cronos.domain.entity.auth.SecurityNotification;
+import com.ninsky.cronos.domain.model.auth.Permission;
+import com.ninsky.cronos.domain.model.auth.RefreshToken;
+import com.ninsky.cronos.domain.model.auth.Role;
+import com.ninsky.cronos.domain.model.auth.User;
+import com.ninsky.cronos.domain.model.auth.UserSession;
+import com.ninsky.cronos.domain.model.menu.MenuNode;
+import com.ninsky.cronos.domain.port.auth.PermissionRepositoryPort;
+import com.ninsky.cronos.domain.port.auth.RefreshTokenRepositoryPort;
+import com.ninsky.cronos.domain.port.auth.RoleRepositoryPort;
+import com.ninsky.cronos.domain.port.auth.UserRepositoryPort;
+import com.ninsky.cronos.domain.port.auth.UserSessionRepositoryPort;
+import com.ninsky.cronos.domain.port.menu.MenuPort;
+import com.ninsky.cronos.infrastructure.config.security.JwtConfig;
 import com.ninsky.cronos.infrastructure.exception.InvalidTokenException;
 import com.ninsky.cronos.infrastructure.exception.UserNotFoundException;
-import com.ninsky.cronos.infrastructure.persistence.auth.*;
+import com.ninsky.cronos.infrastructure.persistence.auth.DeviceFingerprintRepository;
+import com.ninsky.cronos.infrastructure.persistence.auth.LoginHistoryRepository;
+import com.ninsky.cronos.infrastructure.persistence.auth.SecurityNotificationRepository;
 import com.ninsky.cronos.infrastructure.security.JwtService;
 import com.ninsky.cronos.infrastructure.util.auth.RequestContextUtil;
 import lombok.RequiredArgsConstructor;
@@ -25,24 +43,33 @@ import org.springframework.transaction.annotation.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Base64;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthenticationService {
 
-    private final UserRepository userRepository;
+    private final UserRepositoryPort userRepository;
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
+    private final JwtConfig jwtConfig;
     private final AccountLockoutService lockoutService;
     private final TwoFactorService twoFactorService;
+    private final RoleRepositoryPort roleRepository;
+    private final PermissionRepositoryPort permissionRepository;
+    private final MenuPort menuPort;
 
-    private final RefreshTokenRepository refreshTokenRepository;
-    private final UserSessionRepository userSessionRepository;
+    private final RefreshTokenRepositoryPort refreshTokenRepository;
+    private final UserSessionRepositoryPort userSessionRepository;
     private final LoginHistoryRepository loginHistoryRepository;
     private final DeviceFingerprintRepository deviceFingerprintRepository;
     private final SecurityNotificationRepository securityNotificationRepository;
@@ -55,8 +82,9 @@ public class AuthenticationService {
     public LoginResponse login(LoginRequest request) {
         log.info("Login request for user/email: {}", request.username());
 
-        User user = userRepository.findByUsernameWithRoles(request.username()).orElseGet(() -> userRepository.findByEmailWithRoles(request.username())
-                        .orElseThrow(() -> new BadCredentialsException("Invalid credentials")));
+        User user = userRepository.findByUsername(request.username())
+                .or(() -> userRepository.findByEmail(request.username()))
+                .orElseThrow(() -> new BadCredentialsException("Invalid credentials"));
 
         // Check if the account is blocked
         if (lockoutService.isAccountLocked(user)) {
@@ -97,17 +125,23 @@ public class AuthenticationService {
             // Create the Physical Session in the Database
             UserSession session = createUserSession(user, deviceFingerprint);
 
+            RoleAndPermissionNames grants = resolveRoleAndPermissionNames(user.getRoleIds());
+
             // Generate Tokens (JWT for Access, OPAQUE UUID for Refresh)
-            String accessToken = jwtService.generateAccessToken(user);
+            String accessToken = jwtService.generateAccessToken(user, grants.roleNames(), grants.permissionNames());
             String opaqueRefreshToken = UUID.randomUUID().toString();
 
             saveRefreshToken(user, session, opaqueRefreshToken);
             recordSuccessfulLogin(user, user.isTwoFactorEnabled());
 
+            List<MenuItemResponse> navigation = buildNavigation(grants.permissionNames());
+
             return LoginResponse.builder().accessToken(accessToken).refreshToken(opaqueRefreshToken)
                     .tokenType("Bearer").expiresIn(900) // 15 minutos (Debe coincidir con jwtConfig)
                     .username(user.getUsername()).email(user.getEmail())
-                    .roles(user.getRoles().stream().map(Role::getName).toList())
+                    .roles(grants.roleNames())
+                    .policies(grants.policies())
+                    .navigation(navigation)
                     .requiresTwoFactor(false).message("Login successful").build();
 
         } catch (BadCredentialsException e) {
@@ -130,19 +164,19 @@ public class AuthenticationService {
         }
 
         // Verify that the Parent Session is still active (the user did not close it remotely)
-        UserSession session = refreshToken.getSession();
+        UserSession session = refreshToken.getSessionId() != null ? userSessionRepository.findById(refreshToken.getSessionId()).orElse(null) : null;
         if (session == null || !session.isActive() || session.getExpiresAt().isBefore(LocalDateTime.now())) {
             throw new InvalidTokenException("Associated session is terminated or expired");
         }
 
-        User user = refreshToken.getUser();
+        User user = userRepository.findById(refreshToken.getUserId()).orElseThrow(() -> new UserNotFoundException("User not found"));
 
         // Refresh session activity
         session.setLastActivityAt(LocalDateTime.now());
         userSessionRepository.save(session);
 
-
-        String newAccessToken = jwtService.generateAccessToken(user);
+        RoleAndPermissionNames grants = resolveRoleAndPermissionNames(user.getRoleIds());
+        String newAccessToken = jwtService.generateAccessToken(user, grants.roleNames(), grants.permissionNames());
 
         // Refresh Token Rotation (OAuth 2.0 Security Best Practice)
         String newOpaqueRefreshToken = UUID.randomUUID().toString();
@@ -168,12 +202,13 @@ public class AuthenticationService {
                 token.setRevokedAt(LocalDateTime.now());
                 refreshTokenRepository.save(token);
 
-                if (token.getSession() != null) {
-                    UserSession session = token.getSession();
-                    session.setActive(false);
-                    session.setTerminatedAt(LocalDateTime.now());
-                    session.setTerminationReason("USER_LOGOUT");
-                    userSessionRepository.save(session);
+                if (token.getSessionId() != null) {
+                    userSessionRepository.findById(token.getSessionId()).ifPresent(session -> {
+                        session.setActive(false);
+                        session.setTerminatedAt(LocalDateTime.now());
+                        session.setTerminationReason("USER_LOGOUT");
+                        userSessionRepository.save(session);
+                    });
                 }
             });
         } else {
@@ -187,7 +222,6 @@ public class AuthenticationService {
     public LoginResponse processOAuth2Login(OAuth2User oAuth2User, String provider) {
         // 1. Extraer datos del proveedor (Google/Facebook)
         String email = oAuth2User.getAttribute("email");
-        String name = oAuth2User.getAttribute("name");
         String providerId = oAuth2User.getAttribute("sub"); // 'sub' es el ID en Google
 
         if (email == null) {
@@ -195,7 +229,7 @@ public class AuthenticationService {
         }
 
         // 2. Buscar si el usuario ya existe en nuestra BD
-        User user = userRepository.findByEmailWithRoles(email).orElseGet(() -> {
+        User user = userRepository.findByEmail(email).orElseGet(() -> {
             // 3. Si NO existe, lo registramos automáticamente (Auto-Provisioning)
             log.info("Creating new user from OAuth2 login: {}", email);
             User newUser = User.builder().email(email)
@@ -206,7 +240,7 @@ public class AuthenticationService {
                     // .password(null) -> ¡Por esto permitimos contraseñas nulas en la BD!
                     .build();
 
-            // Aquí deberías asignarle un Rol por defecto buscando en RoleRepository
+            // Aquí deberías asignarle un Rol por defecto buscando en RoleRepositoryPort
 
             return userRepository.save(newUser);
         });
@@ -214,7 +248,7 @@ public class AuthenticationService {
         // NOTA: Aquí deberías guardar/validar en la tabla UserSocialConnection (para el providerId)
         // para tener el histórico de qué cuentas de Google están vinculadas.
 
-        if (!user.isAccountNonLocked()) {
+        if (user.isCurrentlyLocked()) {
             throw new LockedException("Account is locked.");
         }
 
@@ -225,7 +259,8 @@ public class AuthenticationService {
         String deviceFingerprint = handleDeviceFingerprinting(user);
         UserSession session = createUserSession(user, deviceFingerprint);
 
-        String accessToken = jwtService.generateAccessToken(user);
+        RoleAndPermissionNames grants = resolveRoleAndPermissionNames(user.getRoleIds());
+        String accessToken = jwtService.generateAccessToken(user, grants.roleNames(), grants.permissionNames());
         String opaqueRefreshToken = UUID.randomUUID().toString();
 
         saveRefreshToken(user, session, opaqueRefreshToken);
@@ -234,12 +269,46 @@ public class AuthenticationService {
         return LoginResponse.builder().accessToken(accessToken)
                 .refreshToken(opaqueRefreshToken).tokenType("Bearer")
                 .expiresIn(900).username(user.getUsername())
-                .email(user.getEmail()).build();
+                .email(user.getEmail()).roles(grants.roleNames())
+                .policies(grants.policies()).navigation(buildNavigation(grants.permissionNames()))
+                .build();
+    }
+
+    // ROLE/PERMISSION/MENU RESOLUTION
+
+    private record RoleAndPermissionNames(List<String> roleNames, List<String> permissionNames, List<String> policies) {
+    }
+
+    private RoleAndPermissionNames resolveRoleAndPermissionNames(Set<Long> roleIds) {
+        List<Role> roles = roleRepository.findAllById(roleIds);
+        Set<Long> permissionIds = roles.stream().flatMap(r -> r.getPermissionIds().stream()).collect(Collectors.toCollection(LinkedHashSet::new));
+        List<Permission> permissions = permissionRepository.findAllById(permissionIds);
+
+        List<String> roleNames = roles.stream().map(Role::getName).toList();
+        List<String> permissionNames = permissions.stream().map(Permission::getName).distinct().toList();
+        List<String> policies = permissions.stream().map(Permission::toUrn).distinct().toList();
+
+        return new RoleAndPermissionNames(roleNames, permissionNames, policies);
+    }
+
+    private List<MenuItemResponse> buildNavigation(List<String> grantedPermissionNames) {
+        List<MenuNode> tree = menuPort.buildTree(Set.copyOf(grantedPermissionNames));
+        return tree.stream().map(this::toMenuItemResponse).toList();
+    }
+
+    private MenuItemResponse toMenuItemResponse(MenuNode node) {
+        return MenuItemResponse.builder()
+                .code(node.getCode())
+                .label(node.label(java.util.Locale.of("es")))
+                .icon(node.getIcon())
+                .path(node.getPath())
+                .children(node.getChildren().stream().map(this::toMenuItemResponse).toList())
+                .build();
     }
 
     // PRIVATE INFRASTRUCTURE METHODS (SESSIONS, FINGERPRINT, AND AUDIT)
     private UserSession createUserSession(User user, String deviceId) {
-        UserSession session = UserSession.builder().user(user)
+        UserSession session = UserSession.builder().userId(user.getId())
                 .sessionToken(UUID.randomUUID().toString())
                 .deviceId(deviceId).ipAddress(requestContextUtil.getClientIp())
                 .userAgent(requestContextUtil.getUserAgent())
@@ -255,8 +324,8 @@ public class AuthenticationService {
 
     private void saveRefreshToken(User user, UserSession session, String tokenStr) {
         RefreshToken refreshToken = RefreshToken.builder()
-                .token(tokenStr).user(user).session(session)
-                .expiresAt(LocalDateTime.now().plusDays(7))
+                .token(tokenStr).userId(user.getId()).sessionId(session.getId())
+                .expiresAt(LocalDateTime.now().plus(Duration.ofMillis(jwtConfig.getRefreshTokenExpiration())))
                 .revoked(false).ipAddress(requestContextUtil.getClientIp())
                 .userAgent(requestContextUtil.getUserAgent()).createdAt(LocalDateTime.now()).build();
 

@@ -5,18 +5,20 @@ import com.ninsky.cronos.application.request.recipe.CreateRecipeShareRequest;
 import com.ninsky.cronos.application.response.recipe.*;
 import com.ninsky.cronos.application.service.mail.MailService;
 import com.ninsky.cronos.application.service.storage.CloudStorageService;
-import com.ninsky.cronos.domain.entity.auth.User;
+import com.ninsky.cronos.domain.model.auth.User;
+import com.ninsky.cronos.domain.model.auth.UserProfile;
 import com.ninsky.cronos.domain.model.core.MeasurementUnit;
 import com.ninsky.cronos.domain.model.core.RawMaterial;
 import com.ninsky.cronos.domain.entity.recipes.Recipe;
 import com.ninsky.cronos.domain.entity.recipes.RecipeIngredient;
 import com.ninsky.cronos.domain.entity.recipes.RecipeShare;
 import com.ninsky.cronos.domain.entity.recipes.RecipeShareAccessLog;
+import com.ninsky.cronos.domain.port.auth.UserProfileRepositoryPort;
+import com.ninsky.cronos.domain.port.auth.UserRepositoryPort;
 import com.ninsky.cronos.domain.port.core.MeasurementUnitRepositoryPort;
 import com.ninsky.cronos.domain.port.core.RawMaterialRepositoryPort;
 import com.ninsky.cronos.infrastructure.exception.BusinessException;
 import com.ninsky.cronos.infrastructure.exception.ResourceNotFoundException;
-import com.ninsky.cronos.infrastructure.persistence.auth.UserRepository;
 import com.ninsky.cronos.infrastructure.persistence.recipe.RecipeRepository;
 import com.ninsky.cronos.infrastructure.persistence.recipe.RecipeShareAccessLogRepository;
 import com.ninsky.cronos.infrastructure.persistence.recipe.RecipeShareRepository;
@@ -41,7 +43,8 @@ public class RecipeShareService {
     private final RecipeShareRepository shareRepository;
     private final RecipeShareAccessLogRepository accessLogRepository;
     private final RecipeRepository recipeRepository;
-    private final UserRepository userRepository;
+    private final UserRepositoryPort userRepository;
+    private final UserProfileRepositoryPort userProfileRepository;
     private final MailService mailService;
     private final RawMaterialRepositoryPort rawMaterialRepository;
     private final MeasurementUnitRepositoryPort unitRepository;
@@ -80,7 +83,9 @@ public class RecipeShareService {
         share = shareRepository.save(share);
         String shareUrl = frontendUrlSharePublicRecipe + token;
 
-        sendEmailToSharedRecipe(request, recipe, user.getProfile().getCompleteName(), shareUrl);
+        UserProfile senderProfile = userProfileRepository.findByUserId(user.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Perfil de usuario no encontrado"));
+        sendEmailToSharedRecipe(request, recipe, senderProfile.getCompleteName(), shareUrl);
 
         return RecipeShareResponse.builder().id(share.getId()).shareUrl(shareUrl)
                 .expiresAt(share.getExpiresAt()).viewsCount(share.getViewsCount())
@@ -115,7 +120,8 @@ public class RecipeShareService {
         accessLogRepository.save(logEntry);
 
         Recipe recipe = share.getRecipe();
-        User owner = recipe.getUser();
+        UserProfile ownerProfile = userProfileRepository.findByUserId(recipe.getUserId())
+                .orElseThrow(() -> new ResourceNotFoundException("Perfil de usuario no encontrado"));
 
         // Collect all unique IDs so that only two database queries are made
         Set<UUID> materialIds = recipe.getIngredients().stream()
@@ -151,7 +157,7 @@ public class RecipeShareService {
                 .yieldUnit(recipe.getYieldUnit()).preparationTimeMinutes(recipe.getPreparationTimeMinutes())
                 .bakingTimeMinutes(recipe.getBakingTimeMinutes()).instructions(recipe.getInstructions())
                 .storageInstructions(recipe.getStorageInstructions())
-                .owner(PublicOwnerDto.builder().fullName(owner.getProfile().getCompleteName())
+                .owner(PublicOwnerDto.builder().fullName(ownerProfile.getCompleteName())
                         .brandName("Cronos Professional Bakery").build())
                 .expiresAt(share.getExpiresAt()).ingredients(ingredients).files(files).build();
     }

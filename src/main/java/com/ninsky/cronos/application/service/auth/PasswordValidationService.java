@@ -1,9 +1,9 @@
 package com.ninsky.cronos.application.service.auth;
 
-import com.ninsky.cronos.domain.entity.auth.PasswordHistory;
-import com.ninsky.cronos.domain.entity.auth.User;
+import com.ninsky.cronos.domain.model.auth.PasswordHistory;
+import com.ninsky.cronos.domain.model.auth.User;
+import com.ninsky.cronos.domain.port.auth.PasswordHistoryRepositoryPort;
 import com.ninsky.cronos.infrastructure.config.security.SecurityProperties;
-import com.ninsky.cronos.infrastructure.persistence.auth.PasswordHistoryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -17,7 +17,7 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 public class PasswordValidationService {
 
-    private final PasswordHistoryRepository passwordHistoryRepository;
+    private final PasswordHistoryRepositoryPort passwordHistoryRepository;
     private final PasswordEncoder passwordEncoder;
     private final SecurityProperties securityProperties;
 
@@ -76,7 +76,7 @@ public class PasswordValidationService {
     }
 
     public void savePasswordHistory(User user, String encodedPassword) {
-        PasswordHistory passwordHistory = PasswordHistory.builder().user(user)
+        PasswordHistory passwordHistory = PasswordHistory.builder().userId(user.getId())
                 .passwordHash(encodedPassword)
                 .changedAt(LocalDateTime.now()).build();
 

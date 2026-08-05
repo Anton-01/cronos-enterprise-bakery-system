@@ -6,17 +6,18 @@ import com.ninsky.cronos.application.request.quote.QuoteItemRequest;
 import com.ninsky.cronos.application.response.quote.*;
 import com.ninsky.cronos.application.service.mail.MailService;
 import com.ninsky.cronos.application.service.storage.CloudStorageService;
-import com.ninsky.cronos.domain.entity.auth.User;
-import com.ninsky.cronos.domain.entity.auth.UserProfile;
+import com.ninsky.cronos.domain.model.auth.User;
+import com.ninsky.cronos.domain.model.auth.UserProfile;
 import com.ninsky.cronos.domain.entity.enums.QuoteStatus;
 import com.ninsky.cronos.domain.entity.quote.Quote;
 import com.ninsky.cronos.domain.entity.quote.QuoteAccessLog;
 import com.ninsky.cronos.domain.entity.quote.QuoteItem;
 import com.ninsky.cronos.domain.entity.recipes.Recipe;
 import com.ninsky.cronos.domain.entity.recipes.RecipeFile;
+import com.ninsky.cronos.domain.port.auth.UserProfileRepositoryPort;
+import com.ninsky.cronos.domain.port.auth.UserRepositoryPort;
 import com.ninsky.cronos.infrastructure.exception.BusinessException;
 import com.ninsky.cronos.infrastructure.exception.ResourceNotFoundException;
-import com.ninsky.cronos.infrastructure.persistence.auth.UserRepository;
 import com.ninsky.cronos.infrastructure.persistence.quote.QuoteAccessLogRepository;
 import com.ninsky.cronos.infrastructure.persistence.quote.QuoteRepository;
 import com.ninsky.cronos.infrastructure.persistence.recipe.RecipeRepository;
@@ -46,7 +47,8 @@ public class QuoteService {
 
     private final QuoteRepository quoteRepository;
     private final RecipeRepository recipeRepository;
-    private final UserRepository userRepository;
+    private final UserRepositoryPort userRepository;
+    private final UserProfileRepositoryPort userProfileRepository;
     private final CloudStorageService cloudStorageService;
     private final QuoteAccessLogRepository quoteAccessLogRepository;
     private final MailService mailService;
@@ -82,7 +84,7 @@ public class QuoteService {
         String quoteNumber = "CR-" + user.getId().toString().substring(0, 4).toUpperCase() + "-" +
                 LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmm"));
 
-        Quote quote = Quote.builder().quoteNumber(quoteNumber).user(user).clientName(request.clientName())
+        Quote quote = Quote.builder().quoteNumber(quoteNumber).userId(user.getId()).clientName(request.clientName())
                 .clientEmail(request.clientEmail()).clientPhone(request.clientPhone())
                 .clientAddress(request.clientAddress()).notes(request.notes())
                 .status(QuoteStatus.DRAFT).validUntil(LocalDateTime.now().plusDays(request.validDays()))
@@ -276,7 +278,10 @@ public class QuoteService {
 
         List<PublicQuoteItemResponse> publicItems = extractPublicQuoteItems(quote);
 
-        return PublicQuoteResponse.builder().quoteNumber(quote.getQuoteNumber()).bakerName(quote.getUser().getProfile().getBakerCompleteName())
+        UserProfile bakerProfile = userProfileRepository.findByUserId(quote.getUserId())
+                .orElseThrow(() -> new ResourceNotFoundException("Perfil de usuario no encontrado"));
+
+        return PublicQuoteResponse.builder().quoteNumber(quote.getQuoteNumber()).bakerName(bakerProfile.getBakerCompleteName())
                 .clientName(quote.getClientName()).notes(quote.getNotes()).quoteDate(quote.getCreatedAt().toLocalDate())
                 .validUntil(quote.getValidUntil().toLocalDate()).subtotal(quote.getSubtotal()).taxRate(quote.getTaxRate())
                 .taxAmount(quote.getTaxAmount()).total(quote.getTotal()).currency(quote.getCurrency()).status(quote.getStatus().name())
@@ -372,7 +377,8 @@ public class QuoteService {
     }
 
     private EmailRequest createEmailRequest(Quote quote) {
-        UserProfile userProfile = quote.getUser().getProfile();
+        UserProfile userProfile = userProfileRepository.findByUserId(quote.getUserId())
+                .orElseThrow(() -> new ResourceNotFoundException("Perfil de usuario no encontrado"));
 
         return EmailRequest.builder().to(quote.getClientEmail()).subject(userProfile.getQuoteCompleteName())
                 .templateName("quote/share-quote").variables(Map.of("completeName", userProfile.getCompleteName(),

@@ -2,12 +2,12 @@ package com.ninsky.cronos.application.service.recipe;
 
 import com.ninsky.cronos.application.response.recipe.RecipeFileResponse;
 import com.ninsky.cronos.application.service.storage.CloudStorageService;
-import com.ninsky.cronos.domain.entity.auth.User;
+import com.ninsky.cronos.domain.model.auth.User;
 import com.ninsky.cronos.domain.entity.recipes.Recipe;
 import com.ninsky.cronos.domain.entity.recipes.RecipeFile;
 import com.ninsky.cronos.infrastructure.exception.BusinessException;
 import com.ninsky.cronos.infrastructure.exception.ResourceNotFoundException;
-import com.ninsky.cronos.infrastructure.persistence.auth.UserRepository;
+import com.ninsky.cronos.domain.port.auth.UserRepositoryPort;
 import com.ninsky.cronos.infrastructure.persistence.recipe.RecipeFileRepository;
 import com.ninsky.cronos.infrastructure.persistence.recipe.RecipeRepository;
 import lombok.RequiredArgsConstructor;
@@ -26,7 +26,7 @@ public class RecipeFileService {
 
     private final RecipeFileRepository recipeFileRepository;
     private final RecipeRepository recipeRepository;
-    private final UserRepository userRepository;
+    private final UserRepositoryPort userRepository;
     private final CloudStorageService cloudStorageService;
 
     @Transactional

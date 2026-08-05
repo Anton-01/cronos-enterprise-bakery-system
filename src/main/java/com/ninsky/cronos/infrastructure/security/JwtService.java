@@ -1,8 +1,6 @@
 package com.ninsky.cronos.infrastructure.security;
 
-import com.ninsky.cronos.domain.entity.auth.Permission;
-import com.ninsky.cronos.domain.entity.auth.Role;
-import com.ninsky.cronos.domain.entity.auth.User;
+import com.ninsky.cronos.domain.model.auth.User;
 import com.ninsky.cronos.infrastructure.config.security.JwtConfig;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
@@ -14,10 +12,10 @@ import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -26,16 +24,18 @@ public class JwtService {
 
     private final JwtConfig jwtConfig;
 
-    public String generateAccessToken(User user) {
+    /**
+     * Role/permission names are passed in rather than resolved here — the caller ({@code AuthenticationService})
+     * already has them from {@code RoleRepositoryPort}/{@code PermissionRepositoryPort}, so this class stays a
+     * pure token builder with no persistence dependency of its own.
+     */
+    public String generateAccessToken(User user, List<String> roleNames, List<String> permissionNames) {
         Map<String, Object> claims = new HashMap<>();
-        // Guardamos el UUID como String en el Payload del JWT
         claims.put("userId", user.getId().toString());
         claims.put("email", user.getEmail());
-        claims.put("roles", user.getRoles().stream().map(Role::getName).collect(Collectors.toList()));
+        claims.put("roles", roleNames);
         // Nota: Solo agregar permisos al JWT si no son cientos, para no exceder el tamaño ideal del header HTTP
-        claims.put("permissions", user.getRoles().stream()
-                .flatMap(role -> role.getPermissions().stream())
-                .map(Permission::getName).distinct().collect(Collectors.toList()));
+        claims.put("permissions", permissionNames);
         claims.put("2faEnabled", user.isTwoFactorEnabled());
 
         return buildToken(claims, user.getUsername(), jwtConfig.getAccessTokenExpiration());

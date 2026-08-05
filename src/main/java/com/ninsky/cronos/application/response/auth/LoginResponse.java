@@ -1,5 +1,6 @@
 package com.ninsky.cronos.application.response.auth;
 
+import com.ninsky.cronos.application.response.menu.MenuItemResponse;
 import lombok.Builder;
 import java.util.List;
 
@@ -12,6 +13,10 @@ public record LoginResponse(
         String username,
         String email,
         List<String> roles,
+        /** URN-style policy strings (e.g. "urn:cronos:recipe:read") derived from the user's granted permissions. */
+        List<String> policies,
+        /** DB-driven nav tree, pruned to what the user's granted permissions unlock. */
+        List<MenuItemResponse> navigation,
         Boolean requiresTwoFactor,
         String message
 ) { }

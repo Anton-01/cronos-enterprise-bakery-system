@@ -1,6 +1,6 @@
 package com.ninsky.cronos.application.service.auth;
 
-import com.ninsky.cronos.domain.entity.auth.User;
+import com.ninsky.cronos.domain.model.auth.User;
 import com.ninsky.cronos.infrastructure.config.security.SecurityProperties;
 import com.warrenstrange.googleauth.GoogleAuthenticator;
 import com.warrenstrange.googleauth.GoogleAuthenticatorKey;

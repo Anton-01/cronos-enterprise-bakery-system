@@ -5,7 +5,7 @@ import com.ninsky.cronos.application.request.core.UpdateMeasurementUnitRequest;
 import com.ninsky.cronos.application.request.status.ChangeStatusRequest;
 import com.ninsky.cronos.application.response.core.MeasurementUnitResponse;
 import com.ninsky.cronos.application.service.MeasurementUnitService;
-import com.ninsky.cronos.domain.entity.auth.User;
+import com.ninsky.cronos.domain.model.auth.User;
 import com.ninsky.cronos.domain.model.core.MeasurementUnit;
 import com.ninsky.cronos.domain.model.core.UnitType;
 import com.ninsky.cronos.domain.port.core.MeasurementUnitRepositoryPort;
@@ -13,7 +13,7 @@ import com.ninsky.cronos.domain.port.core.UnitTypeRepositoryPort;
 import com.ninsky.cronos.infrastructure.exception.DataIntegrityViolationException;
 import com.ninsky.cronos.infrastructure.exception.DuplicateResourceException;
 import com.ninsky.cronos.infrastructure.exception.ResourceNotFoundException;
-import com.ninsky.cronos.infrastructure.persistence.auth.UserRepository;
+import com.ninsky.cronos.domain.port.auth.UserRepositoryPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -29,7 +29,7 @@ public class MeasurementUnitServiceImplementation implements MeasurementUnitServ
 
     private final MeasurementUnitRepositoryPort measurementUnitRepository;
     private final UnitTypeRepositoryPort unitTypeRepository;
-    private final UserRepository userRepository;
+    private final UserRepositoryPort userRepository;
 
     /**
      * Creates a new category

@@ -7,13 +7,13 @@ import com.ninsky.cronos.application.request.core.auth.VerifyTwoFactorRequest;
 import com.ninsky.cronos.application.request.user.UpdateProfileRequest;
 import com.ninsky.cronos.application.response.auth.TwoFactorSetupResponse;
 import com.ninsky.cronos.application.response.auth.UserResponse;
-import com.ninsky.cronos.domain.entity.auth.Role;
-import com.ninsky.cronos.domain.entity.auth.User;
-import com.ninsky.cronos.domain.entity.auth.UserProfile;
+import com.ninsky.cronos.domain.model.auth.Role;
+import com.ninsky.cronos.domain.model.auth.User;
+import com.ninsky.cronos.domain.model.auth.UserProfile;
+import com.ninsky.cronos.domain.port.auth.RoleRepositoryPort;
+import com.ninsky.cronos.domain.port.auth.UserProfileRepositoryPort;
+import com.ninsky.cronos.domain.port.auth.UserRepositoryPort;
 import com.ninsky.cronos.infrastructure.exception.*;
-import com.ninsky.cronos.infrastructure.persistence.auth.RoleRepository;
-import com.ninsky.cronos.infrastructure.persistence.auth.UserProfileRepository;
-import com.ninsky.cronos.infrastructure.persistence.auth.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
@@ -33,9 +33,9 @@ import java.util.stream.Collectors;
 @Slf4j
 public class UserService {
 
-    private final UserRepository userRepository;
-    private final UserProfileRepository userProfileRepository;
-    private final RoleRepository roleRepository;
+    private final UserRepositoryPort userRepository;
+    private final UserProfileRepositoryPort userProfileRepository;
+    private final RoleRepositoryPort roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final PasswordValidationService passwordValidationService;
     private final TwoFactorService twoFactorService;
@@ -65,11 +65,12 @@ public class UserService {
         User user = User.builder().username(request.username()).email(request.email())
                 .password(passwordEncoder.encode(request.password())).emailVerified(false)
                 .enabled(true).accountNonLocked(true).accountNonExpired(true).credentialsNonExpired(true)
-                .twoFactorEnabled(false).failedLoginAttempts(0).passwordChangedAt(LocalDateTime.now()).roles(roles).build();
+                .twoFactorEnabled(false).failedLoginAttempts(0).passwordChangedAt(LocalDateTime.now())
+                .roleIds(roles.stream().map(Role::getId).collect(Collectors.toSet())).build();
 
         user = userRepository.save(user);
 
-        UserProfile profile = UserProfile.builder().user(user).firstName(request.firstName())
+        UserProfile profile = UserProfile.builder().userId(user.getId()).firstName(request.firstName())
                 .lastName(request.lastName()).phoneNumber(request.phoneNumber())
                 .emailNotifications(true).smsNotifications(false).pushNotifications(true).build();
 
@@ -104,8 +105,7 @@ public class UserService {
 
         if (request.roles() != null && !request.roles().isEmpty()) {
             Set<Role> newRoles = getRolesByNames(request.roles());
-            user.getRoles().clear();
-            user.getRoles().addAll(newRoles);
+            user.setRoleIds(newRoles.stream().map(Role::getId).collect(Collectors.toSet()));
         }
 
         if (request.enabled() != null) {
@@ -151,7 +151,7 @@ public class UserService {
 
         UserProfile profile = userProfileRepository.findByUserId(userId).orElseGet(() -> {
             log.warn("UserProfile not found for user ID: {}. Initializing a new empty profile.", userId);
-            return UserProfile.builder().user(user).build();
+            return UserProfile.builder().userId(user.getId()).build();
         });
 
         boolean isUpdated = false;
@@ -184,7 +184,6 @@ public class UserService {
             log.info("No changes detected in profile update request for user ID: {}. Skipping DB write.", userId);
         }
 
-        user.setProfile(profile);
         return mapToUserResponse(user);
     }
 
@@ -195,6 +194,10 @@ public class UserService {
 
         if (!passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
             throw new BadCredentialsException("Current password is incorrect");
+        }
+
+        if (!request.newPassword().equals(request.confirmPassword())) {
+            throw new ValidationException("New password and confirmation do not match");
         }
 
         List<String> passwordErrors = passwordValidationService.validatePassword(request.newPassword());
@@ -299,8 +302,8 @@ public class UserService {
             return null;
         }
 
-        Set<String> roleNames = user.getRoles() != null
-                ? user.getRoles().stream().map(Role::getName).collect(Collectors.toSet())
+        Set<String> roleNames = user.getRoleIds() != null && !user.getRoleIds().isEmpty()
+                ? roleRepository.findAllById(user.getRoleIds()).stream().map(Role::getName).collect(Collectors.toSet())
                 : Set.of();
 
         UserResponse.UserResponseBuilder responseBuilder = UserResponse.builder().id(user.getId())

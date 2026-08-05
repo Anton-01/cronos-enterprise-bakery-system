@@ -3,7 +3,7 @@ package com.ninsky.cronos.application.service.recipe;
 import com.ninsky.cronos.application.request.recipe.RecipeFixedCostRequest;
 import com.ninsky.cronos.application.request.recipe.RecipeIngredientRequest;
 import com.ninsky.cronos.application.service.UnitConversionService;
-import com.ninsky.cronos.domain.entity.auth.User;
+import com.ninsky.cronos.domain.model.auth.User;
 import com.ninsky.cronos.domain.model.core.MeasurementUnit;
 import com.ninsky.cronos.domain.model.core.RawMaterial;
 import com.ninsky.cronos.domain.entity.recipes.*;
@@ -12,7 +12,7 @@ import com.ninsky.cronos.domain.port.core.RawMaterialRepositoryPort;
 import com.ninsky.cronos.domain.service.core.RawMaterialCostingService;
 import com.ninsky.cronos.infrastructure.exception.BusinessException;
 import com.ninsky.cronos.infrastructure.exception.ResourceNotFoundException;
-import com.ninsky.cronos.infrastructure.persistence.auth.UserRepository;
+import com.ninsky.cronos.domain.port.auth.UserRepositoryPort;
 import com.ninsky.cronos.infrastructure.persistence.recipe.IngredientSubstituteRepository;
 import com.ninsky.cronos.infrastructure.persistence.recipe.RecipeIngredientRepository;
 import com.ninsky.cronos.infrastructure.persistence.recipe.RecipeRepository;
@@ -34,7 +34,7 @@ public class RecipeDetailService {
     private final RecipeIngredientRepository recipeIngredientRepository;
     private final IngredientSubstituteRepository substituteRepository;
     private final RawMaterialRepositoryPort rawMaterialRepository;
-    private final UserRepository userRepository;
+    private final UserRepositoryPort userRepository;
     private final UserFixedCostRepository userFixedCostRepository;
     private final MeasurementUnitRepositoryPort unitRepository;
 

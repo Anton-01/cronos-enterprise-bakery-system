@@ -1,9 +1,9 @@
 package com.ninsky.cronos.application.service.auth;
 
-import com.ninsky.cronos.domain.entity.auth.User;
-import com.ninsky.cronos.domain.entity.auth.UserSession;
-import com.ninsky.cronos.infrastructure.persistence.auth.RefreshTokenRepository;
-import com.ninsky.cronos.infrastructure.persistence.auth.UserSessionRepository;
+import com.ninsky.cronos.domain.model.auth.User;
+import com.ninsky.cronos.domain.model.auth.UserSession;
+import com.ninsky.cronos.domain.port.auth.RefreshTokenRepositoryPort;
+import com.ninsky.cronos.domain.port.auth.UserSessionRepositoryPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -18,8 +18,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SessionManagementService {
 
-    private final UserSessionRepository userSessionRepository;
-    private final RefreshTokenRepository refreshTokenRepository;
+    private final UserSessionRepositoryPort userSessionRepository;
+    private final RefreshTokenRepositoryPort refreshTokenRepository;
 
     @Async("systemTaskExecutor")
     @Transactional

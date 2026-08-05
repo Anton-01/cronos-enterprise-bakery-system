@@ -4,8 +4,6 @@ import com.ninsky.cronos.application.response.auth.LoginHistoryResponse;
 import com.ninsky.cronos.application.response.auth.UserSessionResponse;
 import com.ninsky.cronos.application.response.core.ApiResponse;
 import com.ninsky.cronos.application.service.user.UserSecurityDataService;
-import com.ninsky.cronos.domain.entity.auth.LoginHistory;
-import com.ninsky.cronos.domain.entity.auth.UserSession;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;

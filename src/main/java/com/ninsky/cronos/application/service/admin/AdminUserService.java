@@ -7,21 +7,20 @@ import com.ninsky.cronos.application.request.user.AdminUserCreateRequest;
 import com.ninsky.cronos.application.response.auth.UserResponse;
 import com.ninsky.cronos.application.service.mail.MailService;
 import com.ninsky.cronos.application.service.storage.CloudStorageService;
-import com.ninsky.cronos.domain.entity.auth.PasswordResetToken;
-import com.ninsky.cronos.domain.entity.auth.Role;
-import com.ninsky.cronos.domain.entity.auth.User;
-import com.ninsky.cronos.domain.entity.auth.UserProfile;
+import com.ninsky.cronos.domain.model.auth.PasswordResetToken;
+import com.ninsky.cronos.domain.model.auth.Role;
+import com.ninsky.cronos.domain.model.auth.User;
+import com.ninsky.cronos.domain.model.auth.UserProfile;
+import com.ninsky.cronos.domain.port.auth.*;
 import com.ninsky.cronos.infrastructure.exception.BusinessException;
 import com.ninsky.cronos.infrastructure.exception.DuplicateResourceException;
 import com.ninsky.cronos.infrastructure.exception.ResourceNotFoundException;
 import com.ninsky.cronos.infrastructure.exception.UserNotFoundException;
-import com.ninsky.cronos.infrastructure.persistence.auth.*;
-import com.ninsky.cronos.infrastructure.storage.LocalFileStorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,10 +29,6 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
-import jakarta.persistence.criteria.Join;
-import jakarta.persistence.criteria.JoinType;
-import jakarta.persistence.criteria.Predicate;
-import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 @Slf4j
@@ -41,45 +36,25 @@ import org.springframework.web.multipart.MultipartFile;
 @RequiredArgsConstructor
 public class AdminUserService {
 
-    private final UserRepository userRepository;
-    private final UserProfileRepository userProfileRepository;
-    private final RoleRepository roleRepository;
+    private final UserRepositoryPort userRepository;
+    private final UserProfileRepositoryPort userProfileRepository;
+    private final RoleRepositoryPort roleRepository;
     private final PasswordEncoder passwordEncoder;
-    private final RefreshTokenRepository refreshTokenRepository;
-    private final UserSessionRepository userSessionRepository;
-    private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final RefreshTokenRepositoryPort refreshTokenRepository;
+    private final UserSessionRepositoryPort userSessionRepository;
+    private final PasswordResetTokenRepositoryPort passwordResetTokenRepository;
     private final MailService mailService;
     private final CloudStorageService fileStorageService;
+
+    @Value("${app.frontend.url}")
+    private String frontendUrl;
 
     @Transactional(readOnly = true)
     public Page<UserResponse> getAllUsers(String roleName, Boolean enabled, String search, Pageable pageable) {
         log.info("Admin fetching users with filters - Role: {}, Enabled: {}, Search: {}", roleName, enabled, search);
 
-        Specification<User> spec = (root, query, cb) -> {
-            List<Predicate> predicates = new ArrayList<>();
-
-            if (enabled != null) {
-                predicates.add(cb.equal(root.get("enabled"), enabled));
-            }
-
-            if (StringUtils.hasText(roleName)) {
-                Join<User, Role> rolesJoin = root.join("roles", JoinType.INNER);
-                predicates.add(cb.equal(rolesJoin.get("name"), roleName.toUpperCase()));
-            }
-
-            if (StringUtils.hasText(search)) {
-                String searchPattern = "%" + search.toLowerCase() + "%";
-                Predicate usernameMatch = cb.like(cb.lower(root.get("username")), searchPattern);
-                Predicate emailMatch = cb.like(cb.lower(root.get("email")), searchPattern);
-                predicates.add(cb.or(usernameMatch, emailMatch));
-            }
-
-            assert query != null;
-            query.distinct(true);
-            return cb.and(predicates.toArray(new Predicate[0]));
-        };
-
-        return userRepository.findAll(spec, pageable).map(this::mapToUserResponse);
+        UserSearchCriteria criteria = new UserSearchCriteria(roleName, enabled, search);
+        return userRepository.search(criteria, pageable).map(this::mapToUserResponse);
     }
 
     @Transactional(readOnly = true)
@@ -103,27 +78,68 @@ public class AdminUserService {
 
         User user = User.builder().username(request.username()).email(request.email()).password(passwordEncoder.encode(request.password())).emailVerified(true)
                 .enabled(true).accountNonLocked(true).accountNonExpired(true).credentialsNonExpired(true)
-                .twoFactorEnabled(false).failedLoginAttempts(0).roles(roles).build();
+                .twoFactorEnabled(false).failedLoginAttempts(0)
+                .roleIds(roles.stream().map(Role::getId).collect(Collectors.toSet())).build();
 
         user = userRepository.save(user);
 
-        UserProfile profile = UserProfile.builder().user(user).firstName(request.firstName())
+        UserProfile profile = UserProfile.builder().userId(user.getId()).firstName(request.firstName())
                 .lastName(request.lastName()).phoneNumber(request.phoneNumber()).build();
         userProfileRepository.save(profile);
 
-        user.setProfile(profile);
         return mapToUserResponse(user);
     }
 
     @Transactional
     public UserResponse updateUser(UUID id, UpdateUserRequest request) {
-        // Implementación similar a tu UserService.updateUser, pero exclusiva para el Admin
-        // Aquí podrías permitir cambiar el username/email sin validación de 2FA
         User user = userRepository.findById(id).orElseThrow(() -> new UserNotFoundException("User not found"));
 
-        // ... Lógica de actualización de campos ...
-        // (Reutiliza la lógica de actualización que ya tienes)
+        if (request.username() != null && !request.username().equals(user.getUsername())) {
+            if (userRepository.existsByUsernameAndIdNot(request.username(), id)) {
+                throw new DuplicateResourceException("Username already exists");
+            }
+            user.setUsername(request.username());
+        }
 
+        if (request.email() != null && !request.email().equals(user.getEmail())) {
+            if (userRepository.existsByEmailAndIdNot(request.email(), id)) {
+                throw new DuplicateResourceException("Email already exists");
+            }
+            user.setEmail(request.email());
+            user.setEmailVerified(false);
+        }
+
+        if (request.roles() != null && !request.roles().isEmpty()) {
+            Set<Role> newRoles = getRolesByNames(request.roles());
+            user.setRoleIds(newRoles.stream().map(Role::getId).collect(Collectors.toSet()));
+        }
+
+        if (request.enabled() != null) {
+            user.setEnabled(request.enabled());
+        }
+
+        user = userRepository.save(user);
+
+        userProfileRepository.findByUserId(id).ifPresent(profile -> {
+            boolean profileUpdated = false;
+            if (request.firstName() != null) {
+                profile.setFirstName(request.firstName());
+                profileUpdated = true;
+            }
+            if (request.lastName() != null) {
+                profile.setLastName(request.lastName());
+                profileUpdated = true;
+            }
+            if (request.phoneNumber() != null) {
+                profile.setPhoneNumber(request.phoneNumber());
+                profileUpdated = true;
+            }
+            if (profileUpdated) {
+                userProfileRepository.save(profile);
+            }
+        });
+
+        log.info("User updated successfully by admin: {}", user.getUsername());
         return mapToUserResponse(user);
     }
 
@@ -149,8 +165,7 @@ public class AdminUserService {
         User user = userRepository.findById(id).orElseThrow(() -> new UserNotFoundException("User not found"));
 
         Set<Role> roles = getRolesByNames(roleNames);
-        user.getRoles().clear();
-        user.getRoles().addAll(roles);
+        user.setRoleIds(roles.stream().map(Role::getId).collect(Collectors.toSet()));
 
         userRepository.save(user);
 
@@ -201,11 +216,15 @@ public class AdminUserService {
 
         String resetToken = UUID.randomUUID().toString();
 
-        PasswordResetToken entity = new PasswordResetToken(resetToken, user, LocalDateTime.now().plusHours(1));
+        PasswordResetToken entity = PasswordResetToken.builder()
+                .token(resetToken).userId(user.getId())
+                .expiresAt(LocalDateTime.now().plusHours(1))
+                .used(false).createdAt(LocalDateTime.now())
+                .build();
         passwordResetTokenRepository.save(entity);
 
         mailService.sendHtmlEmail(EmailRequest.builder().to(user.getEmail()).subject("Restablecimiento de Contraseña").templateName("auth/password-reset")
-                .variables(Map.of("resetLink", "http://localhost:4200/auth/reset-password?token=" + resetToken, "username", user.getUsername()))
+                .variables(Map.of("resetLink", frontendUrl + "/auth/reset-password?token=" + resetToken, "username", user.getUsername()))
                 .build());
     }
 
@@ -219,7 +238,7 @@ public class AdminUserService {
     }
 
     private UserResponse mapToUserResponse(User user) {
-        Set<String> roleNames = getRolesByAuthenticatedUser(user);
+        Set<String> roleNames = getRoleNames(user);
 
         UserResponse.UserResponseBuilder responseBuilder = UserResponse.builder().id(user.getId()).username(user.getUsername())
                 .email(user.getEmail()).enabled(user.isEnabled()).accountNonLocked(user.isAccountNonLocked())
@@ -228,17 +247,15 @@ public class AdminUserService {
                 .passwordChangedAt(user.getPasswordChangedAt()).roles(roleNames).createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt());
 
-        UserProfile profile = user.getProfile();
-        if (profile != null) {
-            responseBuilder.firstName(profile.getFirstName()).lastName(profile.getLastName()).phoneNumber(profile.getPhoneNumber());
-        }
+        userProfileRepository.findByUserId(user.getId()).ifPresent(profile ->
+                responseBuilder.firstName(profile.getFirstName()).lastName(profile.getLastName()).phoneNumber(profile.getPhoneNumber()));
 
         return responseBuilder.build();
     }
 
-    private Set<String> getRolesByAuthenticatedUser(User user) {
-        return user.getRoles() != null
-                ? user.getRoles().stream().map(Role::getName).collect(Collectors.toSet())
+    private Set<String> getRoleNames(User user) {
+        return user.getRoleIds() != null && !user.getRoleIds().isEmpty()
+                ? roleRepository.findAllById(user.getRoleIds()).stream().map(Role::getName).collect(Collectors.toSet())
                 : Set.of();
     }
 
@@ -252,13 +269,16 @@ public class AdminUserService {
 
         String defaultPassword = "Cronos" + UUID.randomUUID().toString().substring(0, 8) + "!";
 
+        Set<Long> roleIds = roleRepository.findAllById(request.roleIds()).stream().map(Role::getId).collect(Collectors.toSet());
+
         User user = User.builder().username(request.username()).email(request.email())
                 .password(passwordEncoder.encode(defaultPassword))
                 .passwordNeedsChange(true).emailVerified(true).enabled(true)
-                .roles(new HashSet<>(roleRepository.findAllById(request.roleIds()))).build();
+                .roleIds(roleIds).build();
 
+        user = userRepository.save(user);
 
-        UserProfile profile = UserProfile.builder().user(user).firstName(request.firstName())
+        UserProfile profile = UserProfile.builder().userId(user.getId()).firstName(request.firstName())
                 .lastName(request.lastName()).phoneNumber(request.phone()).build();
 
         if (profilePicture != null && !profilePicture.isEmpty()) {
@@ -266,8 +286,7 @@ public class AdminUserService {
             profile.setProfilePictureUrl(pictureUrl);
         }
 
-        user.setProfile(profile);
-        userRepository.save(user);
+        userProfileRepository.save(profile);
 
         // 4. Notificación (Opcional pero recomendado)
         // mailService.sendWelcomeAdminEmail(user.getEmail(), defaultPassword);

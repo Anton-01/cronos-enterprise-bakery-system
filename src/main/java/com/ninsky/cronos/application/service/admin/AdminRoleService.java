@@ -3,12 +3,12 @@ package com.ninsky.cronos.application.service.admin;
 import com.ninsky.cronos.application.request.roles.RoleRequest;
 import com.ninsky.cronos.application.response.roles.PermissionResponse;
 import com.ninsky.cronos.application.response.roles.RoleResponse;
-import com.ninsky.cronos.domain.entity.auth.Permission;
-import com.ninsky.cronos.domain.entity.auth.Role;
+import com.ninsky.cronos.domain.model.auth.Permission;
+import com.ninsky.cronos.domain.model.auth.Role;
+import com.ninsky.cronos.domain.port.auth.PermissionRepositoryPort;
+import com.ninsky.cronos.domain.port.auth.RoleRepositoryPort;
 import com.ninsky.cronos.infrastructure.exception.BusinessException;
 import com.ninsky.cronos.infrastructure.exception.ResourceNotFoundException;
-import com.ninsky.cronos.infrastructure.persistence.auth.PermissionRepository;
-import com.ninsky.cronos.infrastructure.persistence.auth.RoleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -23,8 +24,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class AdminRoleService {
 
-    private final RoleRepository roleRepository;
-    private final PermissionRepository permissionRepository;
+    private final RoleRepositoryPort roleRepository;
+    private final PermissionRepositoryPort permissionRepository;
 
     @Transactional(readOnly = true)
     public List<PermissionResponse> getAllPermissions() {
@@ -48,14 +49,14 @@ public class AdminRoleService {
             throw new BusinessException("Ya existe un rol con ese nombre.");
         }
 
-        Role role = Role.builder().name(request.name().toUpperCase())
-                .description(request.description()).permissions(new HashSet<>())
-                .build();
-
+        Set<Long> permissionIds = new HashSet<>();
         if (request.permissionIds() != null && !request.permissionIds().isEmpty()) {
-            List<Permission> permissions = permissionRepository.findAllById(request.permissionIds());
-            role.getPermissions().addAll(permissions);
+            permissionIds.addAll(permissionRepository.findAllById(request.permissionIds()).stream().map(Permission::getId).collect(Collectors.toSet()));
         }
+
+        Role role = Role.builder().name(request.name().toUpperCase())
+                .description(request.description()).permissionIds(permissionIds)
+                .build();
 
         role = roleRepository.save(role);
         return mapToRoleResponse(role);
@@ -75,11 +76,11 @@ public class AdminRoleService {
         role.setName(request.name().toUpperCase());
         role.setDescription(request.description());
 
-        role.getPermissions().clear();
+        Set<Long> permissionIds = new HashSet<>();
         if (request.permissionIds() != null && !request.permissionIds().isEmpty()) {
-            List<Permission> permissions = permissionRepository.findAllById(request.permissionIds());
-            role.getPermissions().addAll(permissions);
+            permissionIds.addAll(permissionRepository.findAllById(request.permissionIds()).stream().map(Permission::getId).collect(Collectors.toSet()));
         }
+        role.setPermissionIds(permissionIds);
 
         role = roleRepository.save(role);
         return mapToRoleResponse(role);
@@ -91,8 +92,12 @@ public class AdminRoleService {
     }
 
     private RoleResponse mapToRoleResponse(Role r) {
+        Set<PermissionResponse> permissions = r.getPermissionIds() == null || r.getPermissionIds().isEmpty()
+                ? Set.of()
+                : permissionRepository.findAllById(r.getPermissionIds()).stream().map(this::mapToPermissionResponse).collect(Collectors.toSet());
+
         return RoleResponse.builder().id(r.getId()).name(r.getName()).description(r.getDescription())
-                .permissions(r.getPermissions().stream().map(this::mapToPermissionResponse).collect(Collectors.toSet()))
+                .permissions(permissions)
                 .build();
     }
 }

@@ -1,20 +1,19 @@
 package com.ninsky.cronos.infrastructure.config.seed;
 
-import com.ninsky.cronos.domain.entity.auth.Permission;
-import com.ninsky.cronos.domain.entity.auth.Role;
-import com.ninsky.cronos.domain.entity.auth.User;
-import com.ninsky.cronos.domain.entity.auth.UserProfile;
-import com.ninsky.cronos.infrastructure.persistence.auth.PermissionRepository;
-import com.ninsky.cronos.infrastructure.persistence.auth.RoleRepository;
-import com.ninsky.cronos.infrastructure.persistence.auth.UserProfileRepository;
-import com.ninsky.cronos.infrastructure.persistence.auth.UserRepository;
+import com.ninsky.cronos.domain.model.auth.Permission;
+import com.ninsky.cronos.domain.model.auth.Role;
+import com.ninsky.cronos.domain.model.auth.User;
+import com.ninsky.cronos.domain.model.auth.UserProfile;
+import com.ninsky.cronos.domain.port.auth.PermissionRepositoryPort;
+import com.ninsky.cronos.domain.port.auth.RoleRepositoryPort;
+import com.ninsky.cronos.domain.port.auth.UserProfileRepositoryPort;
+import com.ninsky.cronos.domain.port.auth.UserRepositoryPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-import java.util.HashSet;
 import java.util.Set;
 
 @Component
@@ -22,10 +21,10 @@ import java.util.Set;
 @Slf4j
 public class DataSeeder implements CommandLineRunner {
 
-    private final RoleRepository roleRepository;
-    private final PermissionRepository permissionRepository;
-    private final UserRepository userRepository;
-    private final UserProfileRepository userProfileRepository;
+    private final RoleRepositoryPort roleRepository;
+    private final PermissionRepositoryPort permissionRepository;
+    private final UserRepositoryPort userRepository;
+    private final UserProfileRepositoryPort userProfileRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Override
@@ -34,7 +33,7 @@ public class DataSeeder implements CommandLineRunner {
         log.info(":: CRONOS :: Starting seed data verification ...");
 
         // We only populate the table if there are no records in the database
-        if (roleRepository.count() == 0) {
+        if (roleRepository.findAll().isEmpty()) {
             seedSecurityData();
             seedSuperAdmin();
             log.info(":: CRONOS :: Seed data has been successfully entered.");
@@ -51,11 +50,11 @@ public class DataSeeder implements CommandLineRunner {
 
         // 2. Create Roles and assign permissions
         Role superAdminRole = Role.builder().name("SUPER_ADMIN").description("Administrador maestro del sistema")
-                .permissions(new HashSet<>(Set.of(allAccess, manageUsers, viewDashboard))).build();
+                .permissionIds(Set.of(allAccess.getId(), manageUsers.getId(), viewDashboard.getId())).build();
 
         roleRepository.save(superAdminRole);
 
-        Role userRole = Role.builder().name("USER").description("Usuario estándar del sistema").permissions(new HashSet<>(Set.of(viewDashboard))).build();
+        Role userRole = Role.builder().name("USER").description("Usuario estándar del sistema").permissionIds(Set.of(viewDashboard.getId())).build();
         roleRepository.save(userRole);
     }
 
@@ -67,12 +66,12 @@ public class DataSeeder implements CommandLineRunner {
         User adminUser = User.builder().username("admin_cronos")
                 .email("admin@cronos.com").password(passwordEncoder.encode("SuperAdmin2026!"))
                 .emailVerified(true).enabled(true).accountNonLocked(true).accountNonExpired(true).credentialsNonExpired(true)
-                .twoFactorEnabled(false).roles(new HashSet<>(Set.of(superAdminRole))).build();
+                .twoFactorEnabled(false).roleIds(Set.of(superAdminRole.getId())).build();
 
         adminUser = userRepository.save(adminUser);
 
         // 4. Create an Admin Administrator
-        UserProfile adminProfile = UserProfile.builder().user(adminUser).firstName("Antón")
+        UserProfile adminProfile = UserProfile.builder().userId(adminUser.getId()).firstName("Antón")
                 .lastName("Admin").businessName("Cronos System").businessType("Software")
                 .emailNotifications(true).pushNotifications(true).build();
 

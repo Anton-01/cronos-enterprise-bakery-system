@@ -5,7 +5,7 @@ import com.ninsky.cronos.application.request.recipe.CreateRecipeRequest;
 import com.ninsky.cronos.application.request.recipe.UpdateRecipeRequest;
 import com.ninsky.cronos.application.response.recipe.*;
 import com.ninsky.cronos.application.service.storage.CloudStorageService;
-import com.ninsky.cronos.domain.entity.auth.User;
+import com.ninsky.cronos.domain.model.auth.User;
 import com.ninsky.cronos.domain.model.core.Allergen;
 import com.ninsky.cronos.domain.model.core.MeasurementUnit;
 import com.ninsky.cronos.domain.model.core.RawMaterial;
@@ -17,7 +17,7 @@ import com.ninsky.cronos.domain.port.core.AllergenRepositoryPort;
 import com.ninsky.cronos.domain.port.core.MeasurementUnitRepositoryPort;
 import com.ninsky.cronos.domain.port.core.RawMaterialRepositoryPort;
 import com.ninsky.cronos.infrastructure.exception.ResourceNotFoundException;
-import com.ninsky.cronos.infrastructure.persistence.auth.UserRepository;
+import com.ninsky.cronos.domain.port.auth.UserRepositoryPort;
 import com.ninsky.cronos.infrastructure.persistence.recipe.RecipeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,7 +36,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class RecipeService {
     private final RecipeRepository recipeRepository;
-    private final UserRepository userRepository;
+    private final UserRepositoryPort userRepository;
     private final RawMaterialRepositoryPort rawMaterialRepository;
     private final MeasurementUnitRepositoryPort unitRepository;
     private final AllergenRepositoryPort allergenRepository;
@@ -115,7 +115,7 @@ public class RecipeService {
         User user = userRepository.findByUsername(username).orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
 
         Recipe recipe = Recipe.builder().name(request.name()).description(request.description())
-                .user(user).categoryId(request.categoryId())
+                .userId(user.getId()).categoryId(request.categoryId())
                 .yieldQuantity(request.yieldQuantity())
                 .yieldUnit(request.yieldUnit()).preparationTimeMinutes(request.preparationTimeMinutes())
                 .bakingTimeMinutes(request.bakingTimeMinutes())
