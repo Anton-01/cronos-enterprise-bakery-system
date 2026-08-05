@@ -31,6 +31,7 @@
         <java.version>25</java.version>
         <springdoc.version>2.3.0</springdoc.version>
         <jjwt.version>0.12.3</jjwt.version>
+        <nimbus-jose-jwt.version>10.9.1</nimbus-jose-jwt.version>
     </properties>
 
     <dependencyManagement>
@@ -141,6 +142,19 @@
             <artifactId>jjwt-jackson</artifactId>
             <version>${jjwt.version}</version>
             <scope>runtime</scope>
+        </dependency>
+
+        <!--
+          DPoP proof verification (embedded-JWK signature check, RFC 7638 thumbprints) and JWE
+          (request/response payload encryption) — jjwt above only does JWS (access/refresh token
+          signing), left untouched. Version pinned explicitly: spring-boot-starter-oauth2-client
+          already pulls this in transitively, and DPoP/JWE need APIs from a version not silently
+          downgraded by that transitive resolution.
+        -->
+        <dependency>
+            <groupId>com.nimbusds</groupId>
+            <artifactId>nimbus-jose-jwt</artifactId>
+            <version>${nimbus-jose-jwt.version}</version>
         </dependency>
 
         <dependency>

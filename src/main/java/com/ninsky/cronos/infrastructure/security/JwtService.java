@@ -31,8 +31,11 @@ public class JwtService {
      * {@code sessionId} is nullable (e.g. OAuth2 flows that don't always resolve one) — the blacklist
      * check in {@code JwtAuthenticationFilter} treats an absent session claim as "not blacklisted",
      * falling back to the user-level cutoff check only.
+     * {@code dpopJkt} is nullable: null issues an ordinary unbound (Bearer) token, exactly today's
+     * behavior; non-null binds the token to that key via a {@code cnf.jkt} claim (RFC 9449 §4.2) —
+     * only presentable thereafter via the {@code DPoP} auth scheme with a matching proof.
      */
-    public String generateAccessToken(User user, UUID sessionId, List<String> roleNames, List<String> permissionNames) {
+    public String generateAccessToken(User user, UUID sessionId, List<String> roleNames, List<String> permissionNames, String dpopJkt) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("jti", UUID.randomUUID().toString());
         claims.put("userId", user.getId().toString());
@@ -42,6 +45,9 @@ public class JwtService {
         // Nota: Solo agregar permisos al JWT si no son cientos, para no exceder el tamaño ideal del header HTTP
         claims.put("permissions", permissionNames);
         claims.put("2faEnabled", user.isTwoFactorEnabled());
+        if (dpopJkt != null) {
+            claims.put("cnf", Map.of("jkt", dpopJkt));
+        }
 
         return buildToken(claims, user.getUsername(), jwtConfig.getAccessTokenExpiration());
     }
@@ -87,6 +93,13 @@ public class JwtService {
 
     public Date extractIssuedAt(String token) {
         return extractClaim(token, Claims::getIssuedAt);
+    }
+
+    /** Null if the token was issued unbound (no {@code cnf} claim) — mirrors {@link #extractSessionId}'s null-safe shape. */
+    @SuppressWarnings("unchecked")
+    public String extractDpopJkt(String token) {
+        Map<String, Object> cnf = extractClaim(token, claims -> claims.get("cnf", Map.class));
+        return cnf != null ? (String) cnf.get("jkt") : null;
     }
 
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {

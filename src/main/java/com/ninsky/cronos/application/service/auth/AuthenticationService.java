@@ -29,6 +29,7 @@ import com.ninsky.cronos.infrastructure.persistence.auth.LoginHistoryRepository;
 import com.ninsky.cronos.infrastructure.persistence.auth.SecurityNotificationRepository;
 import com.ninsky.cronos.infrastructure.security.JwtService;
 import com.ninsky.cronos.infrastructure.security.blacklist.TokenBlacklistService;
+import com.ninsky.cronos.infrastructure.security.dpop.DpopProofValidator;
 import com.ninsky.cronos.infrastructure.util.auth.RequestContextUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -79,6 +80,7 @@ public class AuthenticationService {
     private final ApplicationEventPublisher eventPublisher;
     private final SessionManagementService sessionManagementService;
     private final TokenBlacklistService tokenBlacklistService;
+    private final DpopProofValidator dpopProofValidator;
 
     @Transactional
     public LoginResponse login(LoginRequest request) {
@@ -124,13 +126,20 @@ public class AuthenticationService {
             // (Fire-and-Forget)
             sessionManagementService.cleanupConcurrentSessionsAsync(user, 3);
 
+            // DPoP binding is opt-in: a client that wants a bound token sends a DPoP proof on the
+            // login request itself. No header -> unbound token, today's exact behavior. An invalid
+            // proof fails the login outright rather than silently downgrading (the client explicitly
+            // signaled intent to bind).
+            String dpopProof = requestContextUtil.getHeader("DPoP");
+            String dpopJkt = dpopProof != null ? dpopProofValidator.validate(dpopProof, "POST", requestContextUtil.getRequestUrl()) : null;
+
             // Create the Physical Session in the Database
-            UserSession session = createUserSession(user, deviceFingerprint);
+            UserSession session = createUserSession(user, deviceFingerprint, dpopJkt);
 
             RoleAndPermissionNames grants = resolveRoleAndPermissionNames(user.getRoleIds());
 
             // Generate Tokens (JWT for Access, OPAQUE UUID for Refresh)
-            String accessToken = jwtService.generateAccessToken(user, session.getId(), grants.roleNames(), grants.permissionNames());
+            String accessToken = jwtService.generateAccessToken(user, session.getId(), grants.roleNames(), grants.permissionNames(), dpopJkt);
             String opaqueRefreshToken = UUID.randomUUID().toString();
 
             saveRefreshToken(user, session, opaqueRefreshToken);
@@ -171,6 +180,16 @@ public class AuthenticationService {
             throw new InvalidTokenException("Associated session is terminated or expired");
         }
 
+        // A DPoP-bound session can only be refreshed by the same key it was bound to at login —
+        // otherwise a stolen refresh token could mint a newly-bound access token under an attacker's key.
+        if (session.getDpopJkt() != null) {
+            String dpopProof = requestContextUtil.getHeader("DPoP");
+            String jkt = dpopProofValidator.validate(dpopProof, "POST", requestContextUtil.getRequestUrl());
+            if (!session.getDpopJkt().equals(jkt)) {
+                throw new InvalidTokenException("DPoP proof does not match the key this session was bound to");
+            }
+        }
+
         User user = userRepository.findById(refreshToken.getUserId()).orElseThrow(() -> new UserNotFoundException("User not found"));
 
         // Refresh session activity
@@ -178,7 +197,7 @@ public class AuthenticationService {
         userSessionRepository.save(session);
 
         RoleAndPermissionNames grants = resolveRoleAndPermissionNames(user.getRoleIds());
-        String newAccessToken = jwtService.generateAccessToken(user, session.getId(), grants.roleNames(), grants.permissionNames());
+        String newAccessToken = jwtService.generateAccessToken(user, session.getId(), grants.roleNames(), grants.permissionNames(), session.getDpopJkt());
 
         // Refresh Token Rotation (OAuth 2.0 Security Best Practice)
         String newOpaqueRefreshToken = UUID.randomUUID().toString();
@@ -261,10 +280,13 @@ public class AuthenticationService {
         userRepository.save(user);
 
         String deviceFingerprint = handleDeviceFingerprinting(user);
-        UserSession session = createUserSession(user, deviceFingerprint);
+        // DPoP binding is deliberately not offered on the OAuth2 flow: the provider-redirect
+        // callback isn't something an SPA can attach a custom header to, so OAuth2-originated
+        // logins always issue unbound tokens.
+        UserSession session = createUserSession(user, deviceFingerprint, null);
 
         RoleAndPermissionNames grants = resolveRoleAndPermissionNames(user.getRoleIds());
-        String accessToken = jwtService.generateAccessToken(user, session.getId(), grants.roleNames(), grants.permissionNames());
+        String accessToken = jwtService.generateAccessToken(user, session.getId(), grants.roleNames(), grants.permissionNames(), null);
         String opaqueRefreshToken = UUID.randomUUID().toString();
 
         saveRefreshToken(user, session, opaqueRefreshToken);
@@ -311,7 +333,7 @@ public class AuthenticationService {
     }
 
     // PRIVATE INFRASTRUCTURE METHODS (SESSIONS, FINGERPRINT, AND AUDIT)
-    private UserSession createUserSession(User user, String deviceId) {
+    private UserSession createUserSession(User user, String deviceId, String dpopJkt) {
         UserSession session = UserSession.builder().userId(user.getId())
                 .sessionToken(UUID.randomUUID().toString())
                 .deviceId(deviceId).ipAddress(requestContextUtil.getClientIp())
@@ -321,7 +343,7 @@ public class AuthenticationService {
                 .device(requestContextUtil.getDevice())
                 .location(requestContextUtil.getLocation()).isActive(true)
                 .createdAt(LocalDateTime.now()).lastActivityAt(LocalDateTime.now())
-                .expiresAt(LocalDateTime.now().plusDays(30)).build();
+                .expiresAt(LocalDateTime.now().plusDays(30)).dpopJkt(dpopJkt).build();
 
         return userSessionRepository.save(session);
     }

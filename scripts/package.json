@@ -1,0 +1,12 @@
+{
+  "name": "cronos-phase4b-verify",
+  "private": true,
+  "type": "module",
+  "description": "Standalone DPoP+JWE verification harness for Phase 4b — not part of the Maven build.",
+  "scripts": {
+    "verify": "node verify-dpop-jwe.mjs"
+  },
+  "dependencies": {
+    "jose": "^5.9.6"
+  }
+}

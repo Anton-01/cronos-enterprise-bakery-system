@@ -71,6 +71,18 @@ public class RequestContextUtil {
         return "Unknown";
     }
 
+    /** Header from the current request, or null if there is none (e.g. no request bound to this thread) or the header is absent. */
+    public String getHeader(String name) {
+        HttpServletRequest request = getCurrentRequest();
+        return request != null ? request.getHeader(name) : null;
+    }
+
+    /** Absolute URL the client targeted (scheme/host/port/path, no query/fragment) — already reflects X-Forwarded-* via server.forward-headers-strategy=native. */
+    public String getRequestUrl() {
+        HttpServletRequest request = getCurrentRequest();
+        return request != null ? request.getRequestURL().toString() : null;
+    }
+
     private HttpServletRequest getCurrentRequest() {
         ServletRequestAttributes attributes =
                 (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();

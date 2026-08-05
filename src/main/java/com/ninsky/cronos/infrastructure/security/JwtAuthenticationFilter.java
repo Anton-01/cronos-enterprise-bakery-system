@@ -1,6 +1,8 @@
 package com.ninsky.cronos.infrastructure.security;
 
+import com.ninsky.cronos.infrastructure.config.security.DpopConfig;
 import com.ninsky.cronos.infrastructure.security.blacklist.TokenBlacklistService;
+import com.ninsky.cronos.infrastructure.security.dpop.DpopProofValidator;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -17,8 +19,16 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Objects;
 import java.util.UUID;
 
+/**
+ * Accepts two {@code Authorization} schemes: {@code Bearer} (today's exact unbound-token flow) and
+ * {@code DPoP} (RFC 9449 proof-of-possession — requires a matching {@code DPoP} proof header on
+ * every request, not just at login). A token issued bound ({@code cnf} claim present) presented via
+ * plain {@code Bearer} is rejected outright — otherwise a stolen bound token could just be replayed
+ * unbound and DPoP would provide no real protection.
+ */
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -26,25 +36,34 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
     private final TokenBlacklistService tokenBlacklistService;
+    private final DpopProofValidator dpopProofValidator;
+    private final DpopConfig dpopConfig;
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain) throws ServletException, IOException {
 
         final String authHeader = request.getHeader("Authorization");
+        final String jwt;
+        final boolean dpopScheme;
 
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            jwt = authHeader.substring(7);
+            dpopScheme = false;
+        } else if (authHeader != null && authHeader.startsWith("DPoP ")) {
+            jwt = authHeader.substring(5);
+            dpopScheme = true;
+        } else {
             filterChain.doFilter(request, response);
             return;
         }
 
         try {
-            final String jwt = authHeader.substring(7);
             final String username = jwtService.extractUsername(jwt);
 
             if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 
-                if (jwtService.isTokenValid(jwt, userDetails.getUsername()) && !isRevoked(jwt)) {
+                if (jwtService.isTokenValid(jwt, userDetails.getUsername()) && !isRevoked(jwt) && isProofOfPossessionSatisfied(jwt, dpopScheme, request)) {
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                             userDetails,
                             null,
@@ -70,5 +89,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         UUID userId = jwtService.extractUserId(jwt);
         return tokenBlacklistService.isTokenRevokedForUser(userId, jwtService.extractIssuedAt(jwt));
     }
-}
 
+    private boolean isProofOfPossessionSatisfied(String jwt, boolean dpopScheme, HttpServletRequest request) {
+        String tokenJkt = jwtService.extractDpopJkt(jwt);
+        if (!dpopScheme) {
+            // Downgrade protection: a bound token must not be usable via plain Bearer.
+            return tokenJkt == null;
+        }
+        if (!dpopConfig.isEnabled()) {
+            return false;
+        }
+        String proof = request.getHeader("DPoP");
+        String proofJkt = dpopProofValidator.validate(proof, request.getMethod(), request.getRequestURL().toString());
+        // tokenJkt == null here correctly rejects (Objects.equals(proofJkt, null) is false since
+        // proofJkt is non-null on successful validation) — an unbound token presented via the DPoP
+        // scheme has no cnf to match, so it's rejected same as a mismatch.
+        return Objects.equals(proofJkt, tokenJkt);
+    }
+}

@@ -33,4 +33,7 @@ public class UserSession {
     private LocalDateTime expiresAt;
     private LocalDateTime terminatedAt;
     private String terminationReason;
+
+    /** RFC 7638 JWK thumbprint of the DPoP key this session was bound to at login; null if unbound. Immutable for the session's lifetime. */
+    private String dpopJkt;
 }

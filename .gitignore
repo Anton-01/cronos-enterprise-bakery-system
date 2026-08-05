@@ -41,3 +41,7 @@ src/main/resources/credentials/
 ### Runtime artifacts ###
 logs/
 .DS_Store
+
+### scripts/ (Node verification harness, not part of the Maven build) ###
+scripts/node_modules/
+scripts/package-lock.json

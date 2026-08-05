@@ -82,6 +82,10 @@ app:
 
 server:
   port: 9191
+  # Tomcat-level RemoteIpValve: rewrites getScheme/getServerName/getServerPort/getRequestURL from
+  # X-Forwarded-* before any Filter runs, so DPoP's htu (computed from getRequestURL()) matches
+  # what the client actually targeted even behind a reverse proxy/LB. No-op locally.
+  forward-headers-strategy: native
   servlet:
     context-path: /api/v1
   error:

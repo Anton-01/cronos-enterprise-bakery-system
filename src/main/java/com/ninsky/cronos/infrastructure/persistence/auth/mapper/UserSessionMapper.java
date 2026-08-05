@@ -28,6 +28,7 @@ public class UserSessionMapper {
                 .expiresAt(entity.getExpiresAt())
                 .terminatedAt(entity.getTerminatedAt())
                 .terminationReason(entity.getTerminationReason())
+                .dpopJkt(entity.getDpopJkt())
                 .build();
     }
 
@@ -52,6 +53,7 @@ public class UserSessionMapper {
                 .expiresAt(domain.getExpiresAt())
                 .terminatedAt(domain.getTerminatedAt())
                 .terminationReason(domain.getTerminationReason())
+                .dpopJkt(domain.getDpopJkt())
                 .build();
     }
 }
