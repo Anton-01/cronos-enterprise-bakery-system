@@ -1,11 +1,10 @@
 package com.ninsky.cronos.application.service.admin;
 
+import com.ninsky.cronos.application.event.PasswordResetRequestedEvent;
 import com.ninsky.cronos.application.request.core.auth.CreateUserRequest;
 import com.ninsky.cronos.application.request.core.auth.UpdateUserRequest;
-import com.ninsky.cronos.application.request.core.mail.EmailRequest;
 import com.ninsky.cronos.application.request.user.AdminUserCreateRequest;
 import com.ninsky.cronos.application.response.auth.UserResponse;
-import com.ninsky.cronos.application.service.mail.MailService;
 import com.ninsky.cronos.infrastructure.storage.StoragePort;
 import com.ninsky.cronos.domain.model.auth.PasswordResetToken;
 import com.ninsky.cronos.domain.model.auth.Role;
@@ -20,7 +19,7 @@ import com.ninsky.cronos.infrastructure.exception.UserNotFoundException;
 import com.ninsky.cronos.infrastructure.security.blacklist.TokenBlacklistService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -46,13 +45,10 @@ public class AdminUserService {
     private final RefreshTokenRepositoryPort refreshTokenRepository;
     private final UserSessionRepositoryPort userSessionRepository;
     private final PasswordResetTokenRepositoryPort passwordResetTokenRepository;
-    private final MailService mailService;
+    private final ApplicationEventPublisher eventPublisher;
     private final StoragePort fileStorageService;
     private final TokenBlacklistService tokenBlacklistService;
     private final JwtConfig jwtConfig;
-
-    @Value("${app.frontend.url}")
-    private String frontendUrl;
 
     @Transactional(readOnly = true)
     public Page<UserResponse> getAllUsers(String roleName, Boolean enabled, String search, Pageable pageable) {
@@ -229,9 +225,8 @@ public class AdminUserService {
                 .build();
         passwordResetTokenRepository.save(entity);
 
-        mailService.sendHtmlEmail(EmailRequest.builder().to(user.getEmail()).subject("Restablecimiento de Contraseña").templateName("auth/password-reset")
-                .variables(Map.of("resetLink", frontendUrl + "/auth/reset-password?token=" + resetToken, "username", user.getUsername()))
-                .build());
+        eventPublisher.publishEvent(PasswordResetRequestedEvent.builder()
+                .userId(user.getId()).resetToken(resetToken).requestedByAdmin(true).build());
     }
 
     // Private methods. Mapper and validations

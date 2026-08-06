@@ -1,9 +1,8 @@
 package com.ninsky.cronos.application.service.recipe;
 
-import com.ninsky.cronos.application.request.core.mail.EmailRequest;
+import com.ninsky.cronos.application.event.RecipeSharedEvent;
 import com.ninsky.cronos.application.request.recipe.CreateRecipeShareRequest;
 import com.ninsky.cronos.application.response.recipe.*;
-import com.ninsky.cronos.application.service.mail.MailService;
 import com.ninsky.cronos.infrastructure.storage.StoragePort;
 import com.ninsky.cronos.domain.model.auth.User;
 import com.ninsky.cronos.domain.model.auth.UserProfile;
@@ -26,6 +25,7 @@ import com.ninsky.cronos.infrastructure.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -47,7 +47,7 @@ public class RecipeShareService {
     private final RecipeFileRepositoryPort recipeFileRepository;
     private final UserRepositoryPort userRepository;
     private final UserProfileRepositoryPort userProfileRepository;
-    private final MailService mailService;
+    private final ApplicationEventPublisher eventPublisher;
     private final RawMaterialRepositoryPort rawMaterialRepository;
     private final MeasurementUnitRepositoryPort unitRepository;
 
@@ -85,9 +85,9 @@ public class RecipeShareService {
         share = shareRepository.save(share);
         String shareUrl = frontendUrlSharePublicRecipe + token;
 
-        UserProfile senderProfile = userProfileRepository.findByUserId(user.getId())
-                .orElseThrow(() -> new ResourceNotFoundException("Perfil de usuario no encontrado"));
-        sendEmailToSharedRecipe(request, recipe, senderProfile.getCompleteName(), shareUrl);
+        if (request.recipientEmail() != null && !request.recipientEmail().isBlank()) {
+            eventPublisher.publishEvent(RecipeSharedEvent.builder().shareId(share.getId()).build());
+        }
 
         return RecipeShareResponse.builder().id(share.getId()).shareUrl(shareUrl)
                 .expiresAt(share.getExpiresAt()).viewsCount(share.getViewsCount())
@@ -181,19 +181,6 @@ public class RecipeShareService {
                 .collect(Collectors.toList());
     }
 
-    private void sendEmailToSharedRecipe(CreateRecipeShareRequest request, Recipe recipe, String username, String url) {
-        if (request.recipientEmail() != null && !request.recipientEmail().isBlank()) {
-            EmailRequest emailRequest = EmailRequest.builder().to(request.recipientEmail())
-                    .subject(username + " ha compartido una receta contigo")
-                    .templateName("recipes/share-recipe")
-                    .variables(Map.of("senderName", username,
-                            "recipeName", recipe.getName(), "shareUrl", url,
-                            "expirationDays", String.valueOf(request.expirationDays())
-                    )).build();
-            mailService.sendHtmlEmail(emailRequest);
-            log.info("Email sent to {}", request.recipientEmail());
-        }
-    }
 
     private RecipeShareResponse mapToResponse(RecipeShare share) {
         return RecipeShareResponse.builder().id(share.getId()).shareUrl(frontendUrlSharePublicRecipe + share.getShareToken())

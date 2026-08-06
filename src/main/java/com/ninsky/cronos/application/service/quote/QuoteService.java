@@ -1,10 +1,9 @@
 package com.ninsky.cronos.application.service.quote;
 
-import com.ninsky.cronos.application.request.core.mail.EmailRequest;
+import com.ninsky.cronos.application.event.QuoteEmailRequestedEvent;
 import com.ninsky.cronos.application.request.quote.CreateQuoteRequest;
 import com.ninsky.cronos.application.request.quote.QuoteItemRequest;
 import com.ninsky.cronos.application.response.quote.*;
-import com.ninsky.cronos.application.service.mail.MailService;
 import com.ninsky.cronos.infrastructure.storage.StoragePort;
 import com.ninsky.cronos.domain.model.auth.User;
 import com.ninsky.cronos.domain.model.auth.UserProfile;
@@ -26,6 +25,7 @@ import jakarta.validation.constraints.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -38,7 +38,6 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -53,10 +52,7 @@ public class QuoteService {
     private final UserProfileRepositoryPort userProfileRepository;
     private final StoragePort cloudStorageService;
     private final QuoteAccessLogRepositoryPort quoteAccessLogRepository;
-    private final MailService mailService;
-
-    @Value("${app.frontend.urlSharePublicQuote}")
-    private String urlSharePublicQuote;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional(readOnly = true)
     public Page<InternalQuoteResponse> getQuotesByUser(String username, Pageable pageable) {
@@ -332,9 +328,9 @@ public class QuoteService {
             throw new BusinessException("No puedes enviar por correo una cotización que ha sido revocada.");
         }
 
-        mailService.sendHtmlEmail(createEmailRequest(quote));
+        eventPublisher.publishEvent(QuoteEmailRequestedEvent.builder().quoteId(quote.getId()).build());
 
-        log.info("Quote email sent successfully to {}", quote.getClientEmail());
+        log.info("Quote email dispatch requested for {}", quote.getClientEmail());
     }
 
     @Transactional(readOnly = true)
@@ -385,17 +381,6 @@ public class QuoteService {
                 .publicToken(quote.getPublicToken()).items(itemDtos).accessLogs(logDtos).build();
     }
 
-    private EmailRequest createEmailRequest(Quote quote) {
-        UserProfile userProfile = userProfileRepository.findByUserId(quote.getUserId())
-                .orElseThrow(() -> new ResourceNotFoundException("Perfil de usuario no encontrado"));
-
-        return EmailRequest.builder().to(quote.getClientEmail()).subject(userProfile.getQuoteCompleteName())
-                .templateName("quote/share-quote").variables(Map.of("completeName", userProfile.getCompleteName(),
-                        "clientName", quote.getClientName(), "quoteNumber", quote.getQuoteNumber(),
-                        "publicQuoteUrl", urlSharePublicQuote + quote.getPublicToken(),
-                        "validUntil", quote.getValidUntil().toLocalDate().toString()))
-                .build();
-    }
     private void saveAccessLogQuoteAnalytics(Quote quote, String ipAddress, String userAgent) {
         QuoteAccessLog accessLog = QuoteAccessLog.builder().quoteId(quote.getId()).ipAddress(ipAddress).userAgent(userAgent).build();
         quoteAccessLogRepository.save(accessLog);

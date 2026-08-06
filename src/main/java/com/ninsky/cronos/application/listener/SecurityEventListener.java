@@ -5,8 +5,9 @@ import com.ninsky.cronos.application.request.core.mail.EmailRequest;
 import com.ninsky.cronos.application.service.mail.MailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
@@ -18,7 +19,9 @@ public class SecurityEventListener {
 
     private final MailService mailService;
 
-    @EventListener
+    // AFTER_COMMIT: the publishing transaction (AuthenticationService.login) must actually commit
+    // before this fires — otherwise a rolled-back login could still send a "new device" email.
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleNewDeviceLoginEvent(NewDeviceLoginEvent event) {
         log.info("New device event detected. Preparing email to: {}", event.email());
         String formattedTime = event.time().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss"));

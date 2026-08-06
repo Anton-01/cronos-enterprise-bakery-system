@@ -1,7 +1,6 @@
 package com.ninsky.cronos.application.service.auth;
 
-import com.ninsky.cronos.application.request.core.mail.EmailRequest;
-import com.ninsky.cronos.application.service.mail.MailService;
+import com.ninsky.cronos.application.event.PasswordResetRequestedEvent;
 import com.ninsky.cronos.domain.model.auth.PasswordResetToken;
 import com.ninsky.cronos.domain.model.auth.User;
 import com.ninsky.cronos.domain.port.auth.PasswordResetTokenRepositoryPort;
@@ -10,13 +9,12 @@ import com.ninsky.cronos.infrastructure.exception.InvalidTokenException;
 import com.ninsky.cronos.infrastructure.exception.UserNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.Map;
 import java.util.UUID;
 
 @Slf4j
@@ -27,10 +25,7 @@ public class PasswordResetService {
     private final UserRepositoryPort userRepository;
     private final PasswordResetTokenRepositoryPort tokenRepository;
     private final PasswordEncoder passwordEncoder;
-    private final MailService mailService;
-
-    @Value("${app.frontend.url}")
-    private String frontendUrl;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public void processForgotPassword(String email) {
@@ -46,18 +41,9 @@ public class PasswordResetService {
 
             tokenRepository.save(resetToken);
 
-            String resetLink = frontendUrl + "/auth/reset-password?token=" + tokenStr;
-
-            EmailRequest emailRequest = EmailRequest.builder().to(user.getEmail())
-                    .subject("Recuperación de Contraseña - Cronos Bakery")
-                    .templateName("auth/password-reset")
-                    .variables(Map.of(
-                            "username", user.getUsername(),
-                            "resetLink", resetLink
-                    )).build();
-
-            mailService.sendHtmlEmail(emailRequest);
-            log.info("Password reset token generated and email dispatched for user: {}", email);
+            eventPublisher.publishEvent(PasswordResetRequestedEvent.builder()
+                    .userId(user.getId()).resetToken(tokenStr).requestedByAdmin(false).build());
+            log.info("Password reset token generated and email dispatch requested for user: {}", email);
         });
     }
 
