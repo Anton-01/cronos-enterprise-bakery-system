@@ -2,13 +2,13 @@ package com.ninsky.cronos.application.service.user;
 
 import com.ninsky.cronos.application.response.auth.LoginHistoryResponse;
 import com.ninsky.cronos.application.response.auth.UserSessionResponse;
-import com.ninsky.cronos.domain.entity.auth.LoginHistory;
+import com.ninsky.cronos.domain.model.auth.LoginHistory;
 import com.ninsky.cronos.domain.model.auth.User;
 import com.ninsky.cronos.domain.model.auth.UserSession;
+import com.ninsky.cronos.domain.port.auth.LoginHistoryRepositoryPort;
 import com.ninsky.cronos.domain.port.auth.UserRepositoryPort;
 import com.ninsky.cronos.domain.port.auth.UserSessionRepositoryPort;
 import com.ninsky.cronos.infrastructure.exception.UserNotFoundException;
-import com.ninsky.cronos.infrastructure.persistence.auth.LoginHistoryRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -24,7 +24,7 @@ public class UserSecurityDataService {
 
     private final UserRepositoryPort userRepository;
     private final UserSessionRepositoryPort userSessionRepository;
-    private final LoginHistoryRepository loginHistoryRepository;
+    private final LoginHistoryRepositoryPort loginHistoryRepository;
 
     @Transactional(readOnly = true)
     public List<UserSessionResponse> getActiveSessionsByUsername(String username, String currentIp, String currentUserAgent) {

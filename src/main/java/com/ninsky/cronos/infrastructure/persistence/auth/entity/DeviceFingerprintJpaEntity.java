@@ -1,18 +1,20 @@
-package com.ninsky.cronos.domain.entity.auth;
+package com.ninsky.cronos.infrastructure.persistence.auth.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-@Entity @Getter
+@Entity
+@Getter
 @Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "device_fingerprints", schema = "public",
         uniqueConstraints = @UniqueConstraint(name = "uq_user_fingerprint", columnNames = {"user_id", "fingerprint_hash"}))
-public class DeviceFingerprint {
+public class DeviceFingerprintJpaEntity {
 
     @Id @GeneratedValue(strategy = GenerationType.UUID)
     @Column(nullable = false, updatable = false)

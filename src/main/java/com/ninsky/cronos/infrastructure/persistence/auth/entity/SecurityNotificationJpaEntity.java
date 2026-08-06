@@ -1,17 +1,19 @@
-package com.ninsky.cronos.domain.entity.auth;
+package com.ninsky.cronos.infrastructure.persistence.auth.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-@Entity @Getter
+@Entity
+@Getter
 @Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "security_notifications", schema = "public")
-public class SecurityNotification {
+public class SecurityNotificationJpaEntity {
 
     @Id @GeneratedValue(strategy = GenerationType.UUID)
     @Column(nullable = false, updatable = false)
