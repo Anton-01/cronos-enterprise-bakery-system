@@ -1,0 +1,53 @@
+package com.ninsky.cronos.infrastructure.persistence.audit.entity;
+
+import jakarta.persistence.*;
+import lombok.*;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+@Entity
+@Table(name = "audit_log")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@EntityListeners(AuditingEntityListener.class)
+public class AuditLogJpaEntity {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "actor_user_id")
+    private UUID actorUserId;
+
+    @Column(name = "actor_username", length = 100)
+    private String actorUsername;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "action", nullable = false, length = 50)
+    private com.ninsky.cronos.domain.model.audit.AuditAction action;
+
+    @Column(name = "target_type", nullable = false, length = 50)
+    private String targetType;
+
+    @Column(name = "target_id", length = 100)
+    private String targetId;
+
+    @Column(name = "details", columnDefinition = "TEXT")
+    private String details;
+
+    @Column(name = "ip_address", length = 45)
+    private String ipAddress;
+
+    @Column(name = "user_agent", length = 500)
+    private String userAgent;
+
+    @CreatedDate
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+}

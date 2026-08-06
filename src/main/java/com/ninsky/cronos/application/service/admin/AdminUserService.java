@@ -5,7 +5,9 @@ import com.ninsky.cronos.application.request.core.auth.CreateUserRequest;
 import com.ninsky.cronos.application.request.core.auth.UpdateUserRequest;
 import com.ninsky.cronos.application.request.user.AdminUserCreateRequest;
 import com.ninsky.cronos.application.response.auth.UserResponse;
+import com.ninsky.cronos.application.service.audit.AuditLogService;
 import com.ninsky.cronos.infrastructure.storage.StoragePort;
+import com.ninsky.cronos.domain.model.audit.AuditAction;
 import com.ninsky.cronos.domain.model.auth.PasswordResetToken;
 import com.ninsky.cronos.domain.model.auth.Role;
 import com.ninsky.cronos.domain.model.auth.User;
@@ -38,6 +40,8 @@ import org.springframework.web.multipart.MultipartFile;
 @RequiredArgsConstructor
 public class AdminUserService {
 
+    private static final String TARGET_USER = "USER";
+
     private final UserRepositoryPort userRepository;
     private final UserProfileRepositoryPort userProfileRepository;
     private final RoleRepositoryPort roleRepository;
@@ -49,6 +53,7 @@ public class AdminUserService {
     private final StoragePort fileStorageService;
     private final TokenBlacklistService tokenBlacklistService;
     private final JwtConfig jwtConfig;
+    private final AuditLogService auditLogService;
 
     @Transactional(readOnly = true)
     public Page<UserResponse> getAllUsers(String roleName, Boolean enabled, String search, Pageable pageable) {
@@ -65,7 +70,7 @@ public class AdminUserService {
     }
 
     @Transactional
-    public UserResponse createUser(CreateUserRequest request) {
+    public UserResponse createUser(String actingAdminUsername, CreateUserRequest request) {
         log.info("Admin creating new user: {}", request.email());
 
         if (userRepository.existsByUsername(request.username())) {
@@ -88,11 +93,14 @@ public class AdminUserService {
                 .lastName(request.lastName()).phoneNumber(request.phoneNumber()).build();
         userProfileRepository.save(profile);
 
+        auditLogService.record(actingAdminUsername, AuditAction.USER_CREATED, TARGET_USER, user.getId().toString(),
+                "username=" + user.getUsername() + ", email=" + user.getEmail());
+
         return mapToUserResponse(user);
     }
 
     @Transactional
-    public UserResponse updateUser(UUID id, UpdateUserRequest request) {
+    public UserResponse updateUser(String actingAdminUsername, UUID id, UpdateUserRequest request) {
         User user = userRepository.findById(id).orElseThrow(() -> new UserNotFoundException("User not found"));
 
         if (request.username() != null && !request.username().equals(user.getUsername())) {
@@ -140,13 +148,15 @@ public class AdminUserService {
             }
         });
 
+        auditLogService.record(actingAdminUsername, AuditAction.USER_UPDATED, TARGET_USER, user.getId().toString(), null);
+
         log.info("User updated successfully by admin: {}", user.getUsername());
         return mapToUserResponse(user);
     }
 
     // State operations and manage Roles
     @Transactional
-    public UserResponse updateUserStatus(UUID id, boolean isUnlocked) {
+    public UserResponse updateUserStatus(String actingAdminUsername, UUID id, boolean isUnlocked) {
         log.info("Updating lock status for user {}: {}", id, isUnlocked ? "UNLOCKED" : "LOCKED");
 
         User user = userRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
@@ -157,11 +167,15 @@ public class AdminUserService {
         }
 
         user = userRepository.save(user);
+
+        auditLogService.record(actingAdminUsername, isUnlocked ? AuditAction.USER_UNLOCKED : AuditAction.USER_LOCKED,
+                TARGET_USER, user.getId().toString(), null);
+
         return mapToUserResponse(user);
     }
 
     @Transactional
-    public UserResponse assignRoles(UUID id, Set<String> roleNames) {
+    public UserResponse assignRoles(String actingAdminUsername, UUID id, Set<String> roleNames) {
         log.info("Admin assigning roles {} to user {}", roleNames, id);
         User user = userRepository.findById(id).orElseThrow(() -> new UserNotFoundException("User not found"));
 
@@ -170,15 +184,18 @@ public class AdminUserService {
 
         userRepository.save(user);
 
+        auditLogService.record(actingAdminUsername, AuditAction.USER_ROLES_ASSIGNED, TARGET_USER, user.getId().toString(),
+                "roles=" + roleNames);
+
         // Require the user to log in again so that the JWT is regenerated with the new roles
-        forceGlobalLogout(id);
+        forceGlobalLogout(actingAdminUsername, id);
         return mapToUserResponse(user);
     }
 
 
     // Operations for technical support - Admin
     @Transactional
-    public void unlockAccount(UUID id) {
+    public void unlockAccount(String actingAdminUsername, UUID id) {
         log.warn("Admin manually unlocking account for user {}", id);
         User user = userRepository.findById(id).orElseThrow(() -> new UserNotFoundException("User not found"));
 
@@ -187,10 +204,13 @@ public class AdminUserService {
         user.setFailedLoginAttempts(0);
 
         userRepository.save(user);
+
+        auditLogService.record(actingAdminUsername, AuditAction.USER_UNLOCKED, TARGET_USER, user.getId().toString(),
+                "manual brute-force unlock");
     }
 
     @Transactional
-    public void forceGlobalLogout(UUID id) {
+    public void forceGlobalLogout(String actingAdminUsername, UUID id) {
         log.warn("Admin executing FORCE GLOBAL LOGOUT for user {}", id);
         User user = userRepository.findById(id).orElseThrow(() -> new UserNotFoundException("User not found"));
 
@@ -198,10 +218,12 @@ public class AdminUserService {
         refreshTokenRepository.revokeAllUserTokens(user.getId(), now);
         userSessionRepository.terminateAllUserSessions(user.getId(), now, "ADMIN_FORCED_LOGOUT");
         tokenBlacklistService.blacklistUser(user.getId(), Duration.ofMillis(jwtConfig.getAccessTokenExpiration()));
+
+        auditLogService.record(actingAdminUsername, AuditAction.USER_FORCE_LOGOUT, TARGET_USER, user.getId().toString(), null);
     }
 
     @Transactional
-    public void disableTwoFactorAuthentication(UUID id) {
+    public void disableTwoFactorAuthentication(String actingAdminUsername, UUID id) {
         log.warn("Admin EMERGENCY 2FA DISABLE for user {}", id);
         User user = userRepository.findById(id).orElseThrow(() -> new UserNotFoundException("User not found"));
 
@@ -209,10 +231,12 @@ public class AdminUserService {
         user.setTwoFactorSecret(null);
 
         userRepository.save(user);
+
+        auditLogService.record(actingAdminUsername, AuditAction.USER_TWO_FACTOR_DISABLED, TARGET_USER, user.getId().toString(), null);
     }
 
     @Transactional
-    public void initiatePasswordReset(UUID id) {
+    public void initiatePasswordReset(String actingAdminUsername, UUID id) {
         log.info("Admin initiated password reset flow for user {}", id);
         User user = userRepository.findById(id).orElseThrow(() -> new UserNotFoundException("User not found"));
 
@@ -227,6 +251,8 @@ public class AdminUserService {
 
         eventPublisher.publishEvent(PasswordResetRequestedEvent.builder()
                 .userId(user.getId()).resetToken(resetToken).requestedByAdmin(true).build());
+
+        auditLogService.record(actingAdminUsername, AuditAction.USER_PASSWORD_RESET_INITIATED, TARGET_USER, user.getId().toString(), null);
     }
 
     // Private methods. Mapper and validations
@@ -261,7 +287,7 @@ public class AdminUserService {
     }
 
     @Transactional
-    public void createUserFromAdmin(AdminUserCreateRequest request, MultipartFile profilePicture) throws IOException {
+    public void createUserFromAdmin(String actingAdminUsername, AdminUserCreateRequest request, MultipartFile profilePicture) throws IOException {
         log.info("Admin creating user: {}", request.email());
 
         if (userRepository.existsByEmail(request.email())) {
@@ -288,6 +314,9 @@ public class AdminUserService {
         }
 
         userProfileRepository.save(profile);
+
+        auditLogService.record(actingAdminUsername, AuditAction.USER_CREATED_WITH_PROFILE, TARGET_USER, user.getId().toString(),
+                "username=" + user.getUsername() + ", email=" + user.getEmail());
 
         // 4. Notificación (Opcional pero recomendado)
         // mailService.sendWelcomeAdminEmail(user.getEmail(), defaultPassword);

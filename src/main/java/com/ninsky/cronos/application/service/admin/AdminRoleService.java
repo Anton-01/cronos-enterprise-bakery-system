@@ -3,6 +3,8 @@ package com.ninsky.cronos.application.service.admin;
 import com.ninsky.cronos.application.request.roles.RoleRequest;
 import com.ninsky.cronos.application.response.roles.PermissionResponse;
 import com.ninsky.cronos.application.response.roles.RoleResponse;
+import com.ninsky.cronos.application.service.audit.AuditLogService;
+import com.ninsky.cronos.domain.model.audit.AuditAction;
 import com.ninsky.cronos.domain.model.auth.Permission;
 import com.ninsky.cronos.domain.model.auth.Role;
 import com.ninsky.cronos.domain.port.auth.PermissionRepositoryPort;
@@ -24,8 +26,11 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class AdminRoleService {
 
+    private static final String TARGET_ROLE = "ROLE";
+
     private final RoleRepositoryPort roleRepository;
     private final PermissionRepositoryPort permissionRepository;
+    private final AuditLogService auditLogService;
 
     @Transactional(readOnly = true)
     public List<PermissionResponse> getAllPermissions() {
@@ -42,7 +47,7 @@ public class AdminRoleService {
     }
 
     @Transactional
-    public RoleResponse createRole(RoleRequest request) {
+    public RoleResponse createRole(String actingAdminUsername, RoleRequest request) {
         log.info("Creating new role: {}", request.name());
 
         if (roleRepository.existsByNameIgnoreCase(request.name())) {
@@ -59,11 +64,15 @@ public class AdminRoleService {
                 .build();
 
         role = roleRepository.save(role);
+
+        auditLogService.record(actingAdminUsername, AuditAction.ROLE_CREATED, TARGET_ROLE, role.getId().toString(),
+                "name=" + role.getName());
+
         return mapToRoleResponse(role);
     }
 
     @Transactional
-    public RoleResponse updateRole(Long roleId, RoleRequest request) {
+    public RoleResponse updateRole(String actingAdminUsername, Long roleId, RoleRequest request) {
         log.info("Updating role ID: {}", roleId);
 
         Role role = roleRepository.findById(roleId).orElseThrow(() -> new ResourceNotFoundException("Rol no encontrado"));
@@ -83,6 +92,10 @@ public class AdminRoleService {
         role.setPermissionIds(permissionIds);
 
         role = roleRepository.save(role);
+
+        auditLogService.record(actingAdminUsername, AuditAction.ROLE_UPDATED, TARGET_ROLE, role.getId().toString(),
+                "name=" + role.getName());
+
         return mapToRoleResponse(role);
     }
 

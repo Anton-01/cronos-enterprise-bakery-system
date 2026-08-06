@@ -1,0 +1,15 @@
+package com.ninsky.cronos.domain.model.audit;
+
+public enum AuditAction {
+    USER_CREATED,
+    USER_CREATED_WITH_PROFILE,
+    USER_UPDATED,
+    USER_LOCKED,
+    USER_UNLOCKED,
+    USER_ROLES_ASSIGNED,
+    USER_FORCE_LOGOUT,
+    USER_TWO_FACTOR_DISABLED,
+    USER_PASSWORD_RESET_INITIATED,
+    ROLE_CREATED,
+    ROLE_UPDATED
+}

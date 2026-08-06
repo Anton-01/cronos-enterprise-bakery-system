@@ -17,6 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -50,15 +51,15 @@ public class AdminController {
 
     @PostMapping
     @Operation(summary = "Create new user", description = "Admin creation of a user (bypasses self-registration limits)")
-    public ResponseEntity<ApiResponse<UserResponse>> createUser(@Valid @RequestBody CreateUserRequest request) {
-        UserResponse user = adminUserService.createUser(request);
+    public ResponseEntity<ApiResponse<UserResponse>> createUser(@Valid @RequestBody CreateUserRequest request, Authentication authentication) {
+        UserResponse user = adminUserService.createUser(authentication.getName(), request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("User created successfully", user));
     }
 
     @PutMapping("/{id}")
     @Operation(summary = "Update user", description = "Updates user core data and profile")
-    public ResponseEntity<ApiResponse<UserResponse>> updateUser(@PathVariable UUID id, @Valid @RequestBody UpdateUserRequest request) {
-        UserResponse user = adminUserService.updateUser(id, request);
+    public ResponseEntity<ApiResponse<UserResponse>> updateUser(@PathVariable UUID id, @Valid @RequestBody UpdateUserRequest request, Authentication authentication) {
+        UserResponse user = adminUserService.updateUser(authentication.getName(), id, request);
         return ResponseEntity.ok(ApiResponse.success("User updated successfully", user));
     }
 
@@ -68,22 +69,22 @@ public class AdminController {
 
     @PostMapping("/{id}/block")
     @Operation(summary = "Block user (Soft Disable)", description = "Prevents the user from logging in")
-    public ResponseEntity<ApiResponse<UserResponse>> blockUser(@PathVariable UUID id) {
-        UserResponse updatedUser = adminUserService.updateUserStatus(id, false);
+    public ResponseEntity<ApiResponse<UserResponse>> blockUser(@PathVariable UUID id, Authentication authentication) {
+        UserResponse updatedUser = adminUserService.updateUserStatus(authentication.getName(), id, false);
         return ResponseEntity.ok(ApiResponse.success("User blocked successfully", updatedUser));
     }
 
     @PostMapping("/{id}/unblock")
     @Operation(summary = "Unblock user", description = "Restores login access for a disabled user")
-    public ResponseEntity<ApiResponse<UserResponse>> unblockUser(@PathVariable UUID id) {
-        UserResponse updatedUser = adminUserService.updateUserStatus(id, true);
+    public ResponseEntity<ApiResponse<UserResponse>> unblockUser(@PathVariable UUID id, Authentication authentication) {
+        UserResponse updatedUser = adminUserService.updateUserStatus(authentication.getName(), id, true);
         return ResponseEntity.ok(ApiResponse.success("User unblocked successfully", updatedUser));
     }
 
     @PutMapping("/{id}/roles")
     @Operation(summary = "Assign Roles", description = "Overrides the current roles of a user")
-    public ResponseEntity<ApiResponse<UserResponse>> assignRoles(@PathVariable UUID id, @RequestBody Set<String> roles) {
-        UserResponse user = adminUserService.assignRoles(id, roles);
+    public ResponseEntity<ApiResponse<UserResponse>> assignRoles(@PathVariable UUID id, @RequestBody Set<String> roles, Authentication authentication) {
+        UserResponse user = adminUserService.assignRoles(authentication.getName(), id, roles);
         return ResponseEntity.ok(ApiResponse.success("Roles assigned successfully", user));
     }
 
@@ -93,36 +94,36 @@ public class AdminController {
 
     @PostMapping("/{id}/unlock-account")
     @Operation(summary = "Unlock account (Brute Force)", description = "Unlocks an account that was locked by the brute-force prevention system")
-    public ResponseEntity<ApiResponse<Void>> unlockAccount(@PathVariable UUID id) {
-        adminUserService.unlockAccount(id);
+    public ResponseEntity<ApiResponse<Void>> unlockAccount(@PathVariable UUID id, Authentication authentication) {
+        adminUserService.unlockAccount(authentication.getName(), id);
         return ResponseEntity.ok(ApiResponse.success("User account unlocked successfully", null));
     }
 
     @PostMapping("/{id}/force-logout")
     @Operation(summary = "Force global logout", description = "Terminates all active sessions and revokes all refresh tokens for the user")
-    public ResponseEntity<ApiResponse<Void>> forceUserLogout(@PathVariable UUID id) {
-        adminUserService.forceGlobalLogout(id);
+    public ResponseEntity<ApiResponse<Void>> forceUserLogout(@PathVariable UUID id, Authentication authentication) {
+        adminUserService.forceGlobalLogout(authentication.getName(), id);
         return ResponseEntity.ok(ApiResponse.success("All sessions terminated for user", null));
     }
 
     @PostMapping("/{id}/force-password-reset")
     @Operation(summary = "Force password reset", description = "Sends an email to the user with a secure link to reset their password")
-    public ResponseEntity<ApiResponse<Void>> forcePasswordReset(@PathVariable UUID id) {
-        adminUserService.initiatePasswordReset(id);
+    public ResponseEntity<ApiResponse<Void>> forcePasswordReset(@PathVariable UUID id, Authentication authentication) {
+        adminUserService.initiatePasswordReset(authentication.getName(), id);
         return ResponseEntity.ok(ApiResponse.success("Password reset email dispatched", null));
     }
 
     @PostMapping("/{id}/disable-2fa")
     @Operation(summary = "Disable 2FA (Emergency)", description = "Disables two-factor authentication if the user lost their device")
-    public ResponseEntity<ApiResponse<Void>> emergencyDisable2FA(@PathVariable UUID id) {
-        adminUserService.disableTwoFactorAuthentication(id);
+    public ResponseEntity<ApiResponse<Void>> emergencyDisable2FA(@PathVariable UUID id, Authentication authentication) {
+        adminUserService.disableTwoFactorAuthentication(authentication.getName(), id);
         return ResponseEntity.ok(ApiResponse.success("2FA disabled for user", null));
     }
 
     @PostMapping(path = "/register", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Create user from admin panel")
-    public ResponseEntity<ApiResponse<String>> createUser(@RequestPart("userData") @Valid AdminUserCreateRequest request, @RequestPart(value = "profilePicture", required = false) MultipartFile file) throws IOException {
-        adminUserService.createUserFromAdmin(request, file);
+    public ResponseEntity<ApiResponse<String>> createUser(@RequestPart("userData") @Valid AdminUserCreateRequest request, @RequestPart(value = "profilePicture", required = false) MultipartFile file, Authentication authentication) throws IOException {
+        adminUserService.createUserFromAdmin(authentication.getName(), request, file);
         return ResponseEntity.ok(ApiResponse.success("Usuario creado. Se requiere cambio de contraseña al ingresar.", null));
     }
 }

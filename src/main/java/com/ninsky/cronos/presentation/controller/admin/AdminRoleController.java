@@ -11,6 +11,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
@@ -37,13 +38,13 @@ public class AdminRoleController {
 
     @PostMapping
     @Operation(summary = "Create a new role", description = "Creates a role and links the selected permission IDs")
-    public ResponseEntity<ApiResponse<RoleResponse>> createRole(@Valid @RequestBody RoleRequest request) {
-        return ResponseEntity.ok(ApiResponse.success("Role created successfully", adminRoleService.createRole(request)));
+    public ResponseEntity<ApiResponse<RoleResponse>> createRole(@Valid @RequestBody RoleRequest request, Authentication authentication) {
+        return ResponseEntity.ok(ApiResponse.success("Role created successfully", adminRoleService.createRole(authentication.getName(), request)));
     }
 
     @PutMapping("/{id}")
     @Operation(summary = "Update role", description = "Updates role details and overrides its permissions")
-    public ResponseEntity<ApiResponse<RoleResponse>> updateRole(@PathVariable Long id, @Valid @RequestBody RoleRequest request) {
-        return ResponseEntity.ok(ApiResponse.success("Role updated successfully", adminRoleService.updateRole(id, request)));
+    public ResponseEntity<ApiResponse<RoleResponse>> updateRole(@PathVariable Long id, @Valid @RequestBody RoleRequest request, Authentication authentication) {
+        return ResponseEntity.ok(ApiResponse.success("Role updated successfully", adminRoleService.updateRole(authentication.getName(), id, request)));
     }
 }
