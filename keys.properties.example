@@ -1,0 +1,26 @@
+# Plantilla para el archivo externo de credenciales que carga
+# KeysPropertiesEnvironmentPostProcessor al arrancar la app. Nunca commitear el archivo real.
+#
+# Donde debe vivir el archivo real (fuera de este repo):
+#   - Perfil qa   (-Dspring.profiles.active=qa):
+#       macOS: /Users/anton/Codification-back-files/pkt-k/scts/keys.properties (default)
+#       Windows / otros: define la variable de entorno CRONOS_KEYS_FILE con la ruta al archivo.
+#   - Perfil prod (-Dspring.profiles.active=prod):
+#       /etc/cronos/keys.properties en el servidor, owner = usuario de servicio de la JVM,
+#       permisos 600. Override con CRONOS_KEYS_FILE si tu infra monta el secreto en otra ruta.
+#   - Cualquier perfil (incluido local sin perfil): define CRONOS_KEYS_FILE (o -Dcronos.keys.file=...)
+#     para usar este mecanismo tambien fuera de qa/prod.
+
+DB_URL=jdbc:postgresql://host:5432/database?sslmode=require
+DB_USERNAME=changeme
+DB_PASSWORD=changeme
+
+MAIL_PASSWORD=changeme
+
+JWT_SECRET=changeme-generate-a-256-bit-base64-secret
+
+# Opcionales: solo si quieres que el cifrado local (kms.provider=local) sobreviva un restart.
+# En una implementacion real de prod, kms.provider debe ser gcp/aws/azure, no local.
+# kms.local.master-key=
+# kms.wrapped-data-key=
+# jwe.wrapped-private-key=

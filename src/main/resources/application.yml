@@ -1,6 +1,6 @@
 spring:
   application:
-    name: Cronos Bakery System
+    name: Cronos Bakery Management
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/cronos_bakery_system_nisnky}
     username: ${DB_USERNAME:cronos_admin_user_bakery-system}
