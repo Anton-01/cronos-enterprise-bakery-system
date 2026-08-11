@@ -1,1 +1,6 @@
+    /\_/\
+   ( o.o )
+    > ^ <
+
 -- Cronos --
+:: Spring Boot ::               (v${spring-boot.version})
