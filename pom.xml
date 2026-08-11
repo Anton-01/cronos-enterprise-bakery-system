@@ -32,6 +32,11 @@
         <springdoc.version>2.3.0</springdoc.version>
         <jjwt.version>0.12.3</jjwt.version>
         <nimbus-jose-jwt.version>10.9.1</nimbus-jose-jwt.version>
+        <!-- Silences Netty/Lettuce's sun.misc.Unsafe deprecation warning (JEP 471) on JDK 24+
+             for `mvnw spring-boot:run`. Override on the command line with
+             -Dspring-boot.run.jvmArguments="..." if you need other JVM args instead.
+             Add the same flag to IDE run configurations (VM options) to silence it there too. -->
+        <spring-boot.run.jvmArguments>--sun-misc-unsafe-memory-access=allow</spring-boot.run.jvmArguments>
     </properties>
 
     <dependencyManagement>
