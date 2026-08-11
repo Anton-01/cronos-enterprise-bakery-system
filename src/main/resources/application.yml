@@ -15,8 +15,7 @@ spring:
   flyway:
     enabled: true
     baseline-on-migrate: true
-    baseline-version: 1
-    baseline-description: "Baseline of existing hand-maintained schema"
+    baseline-version: 0
     locations: classpath:db/migration
   jpa:
     open-in-view: false
