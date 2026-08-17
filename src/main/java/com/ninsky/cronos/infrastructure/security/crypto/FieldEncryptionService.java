@@ -75,12 +75,34 @@ public class FieldEncryptionService {
         }
     }
 
+    /**
+     * Tolerates legacy plain-text values written before {@code EncryptedStringConverter} existed:
+     * anything that isn't valid Base64 (real emails always contain {@code @}/{@code .}, both
+     * illegal in Base64) is returned as-is rather than crashing. A value that IS valid Base64 but
+     * fails GCM tag verification is NOT treated as plaintext — that's ambiguous with genuine
+     * corruption or a rotated/lost data-encryption-key, so it still throws loudly. This heuristic
+     * only reliably covers fields whose plaintext form is guaranteed to contain non-Base64
+     * characters (e.g. email); it will not catch legacy plaintext in fields like a Base32 TOTP
+     * secret, which happens to be valid Base64 and so still hits the throwing branch below.
+     */
     public String decrypt(String ciphertextBase64) {
         if (ciphertextBase64 == null) {
             return null;
         }
+        byte[] packed;
         try {
-            byte[] packed = Base64.getDecoder().decode(ciphertextBase64);
+            packed = Base64.getDecoder().decode(ciphertextBase64);
+        } catch (IllegalArgumentException e) {
+            log.warn("Stored value is not valid Base64 ciphertext — treating as legacy plain-text " +
+                    "data written before field encryption was introduced. Re-encrypt this row to migrate it.");
+            return ciphertextBase64;
+        }
+        if (packed.length <= GCM_IV_LENGTH) {
+            log.warn("Stored value is too short to contain an IV + ciphertext — treating as legacy " +
+                    "plain-text data written before field encryption was introduced.");
+            return ciphertextBase64;
+        }
+        try {
             byte[] iv = new byte[GCM_IV_LENGTH];
             byte[] ciphertext = new byte[packed.length - GCM_IV_LENGTH];
             System.arraycopy(packed, 0, iv, 0, GCM_IV_LENGTH);
@@ -91,7 +113,10 @@ public class FieldEncryptionService {
             byte[] plaintext = cipher.doFinal(ciphertext);
             return new String(plaintext, java.nio.charset.StandardCharsets.UTF_8);
         } catch (GeneralSecurityException e) {
-            throw new IllegalStateException("Field decryption failed", e);
+            throw new IllegalStateException("Field decryption failed: the stored value is valid Base64 " +
+                    "but fails AES-GCM tag verification. This usually means the data-encryption-key " +
+                    "changed since the value was encrypted (e.g. kms.local.master-key/kms.wrapped-data-key " +
+                    "not persisted across a restart) rather than legacy plain-text data.", e);
         }
     }
 

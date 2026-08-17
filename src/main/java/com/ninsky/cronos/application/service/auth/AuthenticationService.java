@@ -6,6 +6,7 @@ import com.ninsky.cronos.application.request.core.auth.RefreshTokenRequest;
 import com.ninsky.cronos.application.response.auth.LoginResponse;
 import com.ninsky.cronos.application.response.auth.TokenResponse;
 import com.ninsky.cronos.application.response.menu.MenuItemResponse;
+import com.ninsky.cronos.domain.model.auth.AuthUserProjection;
 import com.ninsky.cronos.domain.model.auth.DeviceFingerprint;
 import com.ninsky.cronos.domain.model.auth.LoginHistory;
 import com.ninsky.cronos.domain.model.auth.SecurityNotification;
@@ -21,6 +22,7 @@ import com.ninsky.cronos.domain.port.auth.PermissionRepositoryPort;
 import com.ninsky.cronos.domain.port.auth.RefreshTokenRepositoryPort;
 import com.ninsky.cronos.domain.port.auth.RoleRepositoryPort;
 import com.ninsky.cronos.domain.port.auth.SecurityNotificationRepositoryPort;
+import com.ninsky.cronos.domain.port.auth.UserAuthLookupPort;
 import com.ninsky.cronos.domain.port.auth.UserRepositoryPort;
 import com.ninsky.cronos.domain.port.auth.UserSessionRepositoryPort;
 import com.ninsky.cronos.domain.port.menu.MenuPort;
@@ -61,6 +63,7 @@ import java.util.stream.Collectors;
 public class AuthenticationService {
 
     private final UserRepositoryPort userRepository;
+    private final UserAuthLookupPort userAuthLookupPort;
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
     private final JwtConfig jwtConfig;
@@ -86,80 +89,88 @@ public class AuthenticationService {
     public LoginResponse login(LoginRequest request) {
         log.info("Login request for user/email: {}", request.username());
 
-        User user = userRepository.findByUsername(request.username())
-                .or(() -> userRepository.findByEmail(request.username()))
+        // Lean, JPA-entity-graph-bypassing lookup (see UserAuthLookupPort/AuthUserProjection):
+        // never decrypts email/2FA secret. Everything up to a confirmed-correct password stays on
+        // this path so a nonexistent username, a locked account, or a wrong password never touches
+        // field decryption.
+        AuthUserProjection authUser = userAuthLookupPort.findByUsernameOrEmail(request.username())
                 .orElseThrow(() -> new BadCredentialsException("Invalid credentials"));
 
-        // Check if the account is blocked
-        if (lockoutService.isAccountLocked(user)) {
-            long remainingMinutes = lockoutService.getRemainingLockoutTime(user);
-            recordFailedLogin(user, "Account locked");
+        if (authUser.isEffectivelyLocked()) {
+            long remainingMinutes = lockoutService.getRemainingLockoutTime(authUser.lockedUntil());
+            recordFailedLogin(authUser.id(), authUser.username(), "Account locked");
             throw new LockedException(String.format("Account is locked. Try again in %d minutes", remainingMinutes));
         }
 
         try {
-            // Authenticating credentials with Spring Security
+            // Authenticating credentials with Spring Security (delegates to
+            // CustomUserDetailsService, backed by this same lean UserAuthLookupPort).
             authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.username(), request.password()));
-
-            // Verification 2FA
-            if (user.isTwoFactorEnabled()) {
-                if (request.twoFactorCode() == null) {
-                    return LoginResponse.builder().requiresTwoFactor(true)
-                            .message("Two-factor authentication code required").build();
-                }
-
-                if (!twoFactorService.isCodeValid(user, request.twoFactorCode())) {
-                    lockoutService.handleFailedLogin(user);
-                    recordFailedLogin(user, "Invalid 2FA code");
-                    throw new BadCredentialsException("Invalid two-factor authentication code");
-                }
-            }
-
-            // Login successful -> Reset lockout counters
-            lockoutService.handleSuccessfulLogin(user);
-            user.setLastLoginAt(LocalDateTime.now());
-            userRepository.save(user);
-
-            // Fingerprinting and Security Alerts
-            String deviceFingerprint = handleDeviceFingerprinting(user);
-
-            // (Fire-and-Forget)
-            sessionManagementService.cleanupConcurrentSessionsAsync(user, 3);
-
-            // DPoP binding is opt-in: a client that wants a bound token sends a DPoP proof on the
-            // login request itself. No header -> unbound token, today's exact behavior. An invalid
-            // proof fails the login outright rather than silently downgrading (the client explicitly
-            // signaled intent to bind).
-            String dpopProof = requestContextUtil.getHeader("DPoP");
-            String dpopJkt = dpopProof != null ? dpopProofValidator.validate(dpopProof, "POST", requestContextUtil.getRequestUrl()) : null;
-
-            // Create the Physical Session in the Database
-            UserSession session = createUserSession(user, deviceFingerprint, dpopJkt);
-
-            RoleAndPermissionNames grants = resolveRoleAndPermissionNames(user.getRoleIds());
-
-            // Generate Tokens (JWT for Access, OPAQUE UUID for Refresh)
-            String accessToken = jwtService.generateAccessToken(user, session.getId(), grants.roleNames(), grants.permissionNames(), dpopJkt);
-            String opaqueRefreshToken = UUID.randomUUID().toString();
-
-            saveRefreshToken(user, session, opaqueRefreshToken);
-            recordSuccessfulLogin(user, user.isTwoFactorEnabled());
-
-            List<MenuItemResponse> navigation = buildNavigation(grants.permissionNames());
-
-            return LoginResponse.builder().accessToken(accessToken).refreshToken(opaqueRefreshToken)
-                    .tokenType("Bearer").expiresIn(900) // 15 minutos (Debe coincidir con jwtConfig)
-                    .username(user.getUsername()).email(user.getEmail())
-                    .roles(grants.roleNames())
-                    .policies(grants.policies())
-                    .navigation(navigation)
-                    .requiresTwoFactor(false).message("Login successful").build();
-
         } catch (BadCredentialsException e) {
-            lockoutService.handleFailedLogin(user);
-            recordFailedLogin(user, "Invalid credentials");
+            persistFailedAttemptBestEffort(authUser.id());
+            recordFailedLogin(authUser.id(), authUser.username(), "Invalid credentials");
             throw e;
         }
+
+        // Password confirmed correct: only now load the full aggregate (decrypts email/2FA
+        // secret), needed for the rest of this method (JWT claims, session/audit records, response).
+        User user = userRepository.findById(authUser.id())
+                .orElseThrow(() -> new UserNotFoundException("User not found: " + authUser.id()));
+
+        // Verification 2FA
+        if (user.isTwoFactorEnabled()) {
+            if (request.twoFactorCode() == null) {
+                return LoginResponse.builder().requiresTwoFactor(true)
+                        .message("Two-factor authentication code required").build();
+            }
+
+            if (!twoFactorService.isCodeValid(user, request.twoFactorCode())) {
+                lockoutService.handleFailedLogin(user);
+                userRepository.save(user);
+                recordFailedLogin(user.getId(), user.getUsername(), "Invalid 2FA code");
+                throw new BadCredentialsException("Invalid two-factor authentication code");
+            }
+        }
+
+        // Login successful -> Reset lockout counters
+        lockoutService.handleSuccessfulLogin(user);
+        user.setLastLoginAt(LocalDateTime.now());
+        userRepository.save(user);
+
+        // Fingerprinting and Security Alerts
+        String deviceFingerprint = handleDeviceFingerprinting(user);
+
+        // (Fire-and-Forget)
+        sessionManagementService.cleanupConcurrentSessionsAsync(user, 3);
+
+        // DPoP binding is opt-in: a client that wants a bound token sends a DPoP proof on the
+        // login request itself. No header -> unbound token, today's exact behavior. An invalid
+        // proof fails the login outright rather than silently downgrading (the client explicitly
+        // signaled intent to bind).
+        String dpopProof = requestContextUtil.getHeader("DPoP");
+        String dpopJkt = dpopProof != null ? dpopProofValidator.validate(dpopProof, "POST", requestContextUtil.getRequestUrl()) : null;
+
+        // Create the Physical Session in the Database
+        UserSession session = createUserSession(user, deviceFingerprint, dpopJkt);
+
+        RoleAndPermissionNames grants = resolveRoleAndPermissionNames(user.getRoleIds());
+
+        // Generate Tokens (JWT for Access, OPAQUE UUID for Refresh)
+        String accessToken = jwtService.generateAccessToken(user, session.getId(), grants.roleNames(), grants.permissionNames(), dpopJkt);
+        String opaqueRefreshToken = UUID.randomUUID().toString();
+
+        saveRefreshToken(user, session, opaqueRefreshToken);
+        recordSuccessfulLogin(user, user.isTwoFactorEnabled());
+
+        List<MenuItemResponse> navigation = buildNavigation(grants.permissionNames());
+
+        return LoginResponse.builder().accessToken(accessToken).refreshToken(opaqueRefreshToken)
+                .tokenType("Bearer").expiresIn(900) // 15 minutos (Debe coincidir con jwtConfig)
+                .username(user.getUsername()).email(user.getEmail())
+                .roles(grants.roleNames())
+                .policies(grants.policies())
+                .navigation(navigation)
+                .requiresTwoFactor(false).message("Login successful").build();
     }
 
     @Transactional
@@ -213,7 +224,10 @@ public class AuthenticationService {
 
     @Transactional
     public void logout(String username, String refreshTokenStr) {
-        User user = userRepository.findByUsername(username)
+        // Logout never needs email/2FA secret — the lean lookup avoids decrypting anything just to
+        // resolve a user id.
+        UUID userId = userAuthLookupPort.findByUsernameOrEmail(username)
+                .map(AuthUserProjection::id)
                 .orElseThrow(() -> new UserNotFoundException("User not found"));
 
         if (refreshTokenStr != null) {
@@ -235,9 +249,9 @@ public class AuthenticationService {
             });
         } else {
             // Sign out of all user sessions (Global logout)
-            refreshTokenRepository.revokeAllUserTokens(user.getId(), LocalDateTime.now());
-            userSessionRepository.terminateAllUserSessions(user.getId(), LocalDateTime.now(), "GLOBAL_LOGOUT");
-            tokenBlacklistService.blacklistUser(user.getId(), Duration.ofMillis(jwtConfig.getAccessTokenExpiration()));
+            refreshTokenRepository.revokeAllUserTokens(userId, LocalDateTime.now());
+            userSessionRepository.terminateAllUserSessions(userId, LocalDateTime.now(), "GLOBAL_LOGOUT");
+            tokenBlacklistService.blacklistUser(userId, Duration.ofMillis(jwtConfig.getAccessTokenExpiration()));
         }
     }
 
@@ -420,9 +434,27 @@ public class AuthenticationService {
         loginHistoryRepository.save(loginHistory);
     }
 
-    private void recordFailedLogin(User user, String reason) {
-        log.warn("Failed login attempt for user: {}. Reason: {}", user.getUsername(), reason);
-        LoginHistory loginHistory = LoginHistory.builder().userId(user.getId()).status("FAILED")
+    /**
+     * Failed-attempt/lockout bookkeeping is best-effort: it goes through the full JPA {@link User}
+     * (needed to reuse {@link AccountLockoutService}'s domain-mutating methods), which decrypts
+     * email like any other JPA load of this entity. A row with corrupted/un-decryptable email must
+     * not turn a correctly-rejected wrong password into a 500 — the client still gets its 401
+     * either way; only the lockout counter increment is skipped, and logged, if this fails.
+     */
+    private void persistFailedAttemptBestEffort(UUID userId) {
+        try {
+            userRepository.findById(userId).ifPresent(user -> {
+                lockoutService.handleFailedLogin(user);
+                userRepository.save(user);
+            });
+        } catch (RuntimeException e) {
+            log.warn("Could not persist failed-login lockout bookkeeping for user {}: {}", userId, e.getMessage());
+        }
+    }
+
+    private void recordFailedLogin(UUID userId, String username, String reason) {
+        log.warn("Failed login attempt for user: {}. Reason: {}", username, reason);
+        LoginHistory loginHistory = LoginHistory.builder().userId(userId).status("FAILED")
                 .ipAddress(requestContextUtil.getClientIp()).userAgent(requestContextUtil.getUserAgent())
                 .browser(requestContextUtil.getBrowser()).operatingSystem(requestContextUtil.getOperatingSystem())
                 .device(requestContextUtil.getDevice()).successful(false)

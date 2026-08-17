@@ -63,15 +63,20 @@ public class AccountLockoutService {
     }
 
     public long getRemainingLockoutTime(User user) {
-        if (user.getLockedUntil() == null) {
+        return getRemainingLockoutTime(user.getLockedUntil());
+    }
+
+    /** Same calculation as {@link #getRemainingLockoutTime(User)}, for callers that only have a lean read-model (e.g. {@code AuthUserProjection}) and no full {@link User}. */
+    public long getRemainingLockoutTime(LocalDateTime lockedUntil) {
+        if (lockedUntil == null) {
             return 0;
         }
 
         LocalDateTime now = LocalDateTime.now();
-        if (now.isAfter(user.getLockedUntil())) {
+        if (now.isAfter(lockedUntil)) {
             return 0;
         }
 
-        return ChronoUnit.MINUTES.between(now, user.getLockedUntil());
+        return ChronoUnit.MINUTES.between(now, lockedUntil);
     }
 }

@@ -4,6 +4,7 @@ import com.ninsky.cronos.domain.model.auth.AuthUserProjection;
 import com.ninsky.cronos.domain.port.auth.UserAuthLookupPort;
 import com.ninsky.cronos.infrastructure.security.crypto.BlindIndexService;
 import com.ninsky.cronos.infrastructure.security.crypto.FieldEncryptionService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -27,6 +28,7 @@ import java.util.UUID;
  * eviction keyed by userId elsewhere (e.g. {@code UserService.changePassword}); not redesigned
  * here since that's a caching-strategy decision, not a mechanical refactor.
  */
+@Slf4j
 @Repository
 public class JdbcUserAuthAdapter implements UserAuthLookupPort {
 
@@ -37,6 +39,11 @@ public class JdbcUserAuthAdapter implements UserAuthLookupPort {
      * deterministic email_blind_index column instead; the raw email column is only ever read back
      * here to be decrypted in-process via {@link FieldEncryptionService} (this raw JdbcTemplate query
      * bypasses the JPA {@code @Convert} converter entirely, so decryption has to happen explicitly).
+     * That decryption is best-effort (see {@link #decryptEmailOrNull}): this projection backs
+     * {@code UserDetails} for the password-comparison step, which never reads email, so a row with
+     * corrupted/un-decryptable email must not fail the authentication attempt itself — the caller
+     * (login flow) reloads the full aggregate through JPA once the password is confirmed correct,
+     * which is where a decrypt failure is actually meaningful and should surface.
      */
     private static final String SELECT_USER = """
             SELECT id, username, email, password, enabled, account_non_locked,
@@ -91,7 +98,7 @@ public class JdbcUserAuthAdapter implements UserAuthLookupPort {
         return Optional.of(new AuthUserProjection(
                 id,
                 (String) row.get("username"),
-                fieldEncryptionService.decrypt((String) row.get("email")),
+                decryptEmailOrNull((String) row.get("email")),
                 (String) row.get("password"),
                 (boolean) row.get("enabled"),
                 (boolean) row.get("account_non_locked"),
@@ -102,5 +109,15 @@ public class JdbcUserAuthAdapter implements UserAuthLookupPort {
                 roleNames,
                 permissionNames
         ));
+    }
+
+    private String decryptEmailOrNull(String encryptedEmail) {
+        try {
+            return fieldEncryptionService.decrypt(encryptedEmail);
+        } catch (RuntimeException e) {
+            log.warn("Could not decrypt email for an auth lookup row — proceeding without it; " +
+                    "this only affects display data, not the password check itself.", e);
+            return null;
+        }
     }
 }
