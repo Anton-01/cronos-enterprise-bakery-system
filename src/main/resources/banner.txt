@@ -1,6 +1,6 @@
-    /\_/\
-   ( o.o )
-    > ^ <
-
--- Cronos --
-:: Spring Boot ::               (v${spring-boot.version})
+${AnsiColor.BRIGHT_BLUE}${AnsiColor.MAGENTA} ██████╗██████╗  ██████  ███╗   ██╗ ██████   ██████╗  ███╗   ██╗██╗███╗   ██╗ ██████╗██╗  ██╗██╗   ██╗
+${AnsiColor.BRIGHT_BLUE}██╔═══${AnsiColor.MAGENTA}═╝██╔══██╗██╔═══██╗████╗  ██║██╔═══██╗██╔════╝  ████╗  ██║██║████╗  ██║██╔════╝██║ ██╔╝╚██${AnsiColor.BRIGHT_BLUE}╗ ██╔╝
+${AnsiColor.BRIGHT_BLUE}██║     ████${AnsiColor.MAGENTA}██╔╝██║   ██║██╔██╗ ██║██║   ██║███████╗  ██╔██╗ ██║██║██╔██╗ ██║███████╗█████${AnsiColor.BRIGHT_BLUE}╔╝  ╚████╔╝
+${AnsiColor.BRIGHT_BLUE}██║     ██╔══██╗██${AnsiColor.MAGENTA}║   ██║██║╚██╗██║██║   ██║╚════██║  ██║╚██╗██║██║██║╚██╗██║╚════██${AnsiColor.BRIGHT_BLUE}║██╔═██╗   ╚██╔╝
+${AnsiColor.BRIGHT_BLUE}╚██████╗██║  ██║╚██████╔${AnsiColor.MAGENTA}╝██║ ╚████║╚██████╔╝██████╔╝  ██║ ╚████║██║██║ ╚████║█${AnsiColor.BRIGHT_BLUE}█████╔╝██║  ██╗   ██║
+${AnsiColor.BRIGHT_BLUE} ╚═════╝╚═╝  ╚═╝ ╚═════╝ ╚═╝  ${AnsiColor.MAGENTA}╚═══╝ ╚═════╝ ╚═════╝   ╚═╝  ╚═══╝╚═╝╚═╝  ${AnsiColor.BRIGHT_BLUE}╚═══╝╚═════╝ ╚═╝  ╚═╝   ╚═╝

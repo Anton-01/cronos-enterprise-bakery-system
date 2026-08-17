@@ -18,11 +18,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -36,8 +32,7 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
     private final UserMapper mapper;
     private final BlindIndexService blindIndexService;
 
-    public UserRepositoryAdapter(UserJpaRepository jpaRepository, RoleJpaRepository roleJpaRepository,
-                                  UserMapper mapper, BlindIndexService blindIndexService) {
+    public UserRepositoryAdapter(UserJpaRepository jpaRepository, RoleJpaRepository roleJpaRepository, UserMapper mapper, BlindIndexService blindIndexService) {
         this.jpaRepository = jpaRepository;
         this.roleJpaRepository = roleJpaRepository;
         this.mapper = mapper;
@@ -46,9 +41,7 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
 
     @Override
     public User save(User user) {
-        Set<RoleJpaEntity> roles = user.getRoleIds().isEmpty()
-                ? Set.of()
-                : StreamSupport.stream(roleJpaRepository.findAllById(user.getRoleIds()).spliterator(), false).collect(Collectors.toSet());
+        Set<RoleJpaEntity> roles = user.getRoleIds().isEmpty() ? Set.of() : new HashSet<>(roleJpaRepository.findAllById(user.getRoleIds()));
         UserJpaEntity saved = jpaRepository.save(mapper.toEntity(user, roles));
         return mapper.toDomain(saved);
     }
@@ -120,6 +113,7 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
                 ));
             }
 
+            assert query != null;
             query.distinct(true);
             return cb.and(predicates.toArray(new Predicate[0]));
         };
