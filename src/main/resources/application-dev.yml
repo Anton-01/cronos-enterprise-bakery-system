@@ -1,0 +1,52 @@
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+  # Neon (or any remote Postgres) tolerates a small, short-lived pool better than a long-lived
+  # local one — see application-prod.properties for the full rationale.
+  datasource:
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 1
+      max-lifetime: 240000
+      keepalive-time: 120000
+      connection-timeout: 10000
+      validation-timeout: 5000
+
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
+
+  # Mailpit: no auth, no TLS, intercepts every outgoing message locally.
+  mail:
+    host: ${MAIL_HOST:mailpit}
+    port: ${MAIL_PORT:1025}
+    properties:
+      mail.smtp.auth: false
+      mail.smtp.starttls.enable: false
+
+  devtools:
+    restart:
+      enabled: true
+      poll-interval: 1s
+      quiet-period: 400ms
+    livereload:
+      enabled: true
+
+# Wider-open actuator for local debugging only — application.yml's base `include: health,prometheus`
+# is what ships to qa/prod.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus,info,beans,env,mappings
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.ninsky.cronos: DEBUG
+    org.springframework.security: DEBUG

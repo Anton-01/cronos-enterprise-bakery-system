@@ -1,0 +1,36 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  # Reads the same rolling JSON file cronos-ninsky.log the app writes (logback-spring.xml FILE_JSON
+  # appender), bind-mounted read-only from the host's ./logs. traceId is kept as an extracted field
+  # (not a label) deliberately — it's unique per request, and a label with unbounded cardinality
+  # blows up Loki's index.
+  - job_name: cronos
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: cronos
+          service: cronos
+          __path__: /var/log/cronos/*.log
+    pipeline_stages:
+      - json:
+          expressions:
+            level: level
+            logger: logger_name
+            traceId: traceId
+            # JMESPath quoted-identifier: @ is a special token, the key must be a quoted string.
+            timestamp: '"@timestamp"'
+      - labels:
+          level:
+          logger:
+      - timestamp:
+          source: timestamp
+          format: RFC3339

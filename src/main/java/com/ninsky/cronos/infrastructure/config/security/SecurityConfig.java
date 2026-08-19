@@ -40,7 +40,7 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.csrf(AbstractHttpConfigurer::disable).cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/login","/auth/register","/auth/refresh", "/auth/forgot-password", "/auth/reset-password", "/oauth2/**", "/login/oauth2/**", "/error", "/public/**", "/security/jwe-public-key", "swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                        .requestMatchers("/auth/login","/auth/register","/auth/refresh", "/auth/forgot-password", "/auth/reset-password", "/oauth2/**", "/login/oauth2/**", "/error", "/public/**", "/security/jwe-public-key", "swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**", "/actuator/**").permitAll()
                         .anyRequest().authenticated()
                 ).oauth2Login(oauth2 -> oauth2
                         .successHandler(oAuth2LoginSuccessHandler)

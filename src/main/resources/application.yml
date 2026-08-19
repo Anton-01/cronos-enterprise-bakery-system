@@ -12,6 +12,17 @@ spring:
       connection-timeout: 30000
       idle-timeout: 600000
       max-lifetime: 1800000
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 2
   flyway:
     enabled: true
     baseline-on-migrate: true
@@ -157,3 +168,21 @@ gcp:
   project-id: "cronos-ninsky"
   bucket-name: "cronos-storage-dev"
   credentials-file: "classpath:credentials/gcp-cronos-key.json"
+
+# Actuator on its own internal port, deliberately not under server.servlet.context-path and not
+# published to the host in docker-compose.yml — only reachable from other containers (Prometheus).
+management:
+  server:
+    port: 9192
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}

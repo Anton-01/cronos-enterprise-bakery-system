@@ -1,5 +1,96 @@
 # Architectural Decision Records
 
+## Infrastructure & DevOps
+
+### Docker build: multi-stage, Java 25, non-root
+
+`Dockerfile` has three stages: `builder` (`eclipse-temurin:25-jdk`, compiles the jar via `mvnw
+clean package`), and `runtime` (`eclipse-temurin:25-jre-alpine`, copies only `app.jar`, runs as a
+non-root `cronos` user). Distroless was evaluated per the ultra-lightweight requirement but
+`gcr.io/distroless/java25-debian12` does not exist yet (distroless currently tops out at
+`java21-debian12`), so Alpine JRE is the smallest currently-available base for a `java.version=25`
+build — revisit once distroless ships a Java 25 image. `docker compose build` (no `target`
+override) builds this full three-stage image, which is what a real deploy should use.
+
+**Do not bake `src/main/resources/credentials/gcp-cronos-key.json` into a production image.** It's
+already `.gitignore`d, but a Docker image copies the local working tree regardless of git — running
+`docker build .` on a machine with that file present embeds a long-lived service-account key inside
+every layer of a shippable image. Production should authenticate to GCS/KMS via Workload Identity
+(GKE) or an attached service account (Cloud Run/GCE) instead of a key file. This wasn't changed
+here — `GcsStorageAdapter`/`GcpKmsAdapter` still read `gcp.credentials-file` — because switching
+credential strategy is a code change with its own testing surface, out of scope for the
+infra/Dockerization pass. Flagging it as the one piece worth fixing before this image goes to prod.
+
+### Local dev stack (`docker-compose.yml`)
+
+`docker compose watch` runs `app`, `redis`, `mailpit`, `loki`, `promtail`, `prometheus`, `grafana`.
+No local Postgres container — the primary DB is Neon (external, serverless), configured purely
+through `DB_URL`/`DB_USERNAME`/`DB_PASSWORD` in `.env` (see `.env.example`); the URL must include
+`?sslmode=require`.
+
+- **Hot reload** — `app` builds only to the `builder` Dockerfile stage (JDK + resolved deps +
+  compiled source) and runs `mvnw spring-boot:run -Dspring-boot.run.profiles=dev` instead of the
+  packaged jar. `develop.watch` uses `action: sync+restart` (not plain `sync`) for
+  `src/main/java`/`src/main/resources`: `spring-boot:run` only compiles at process start, and
+  `spring-boot-devtools`' own in-JVM restart watches `target/classes`, not `src/` — a bare file sync
+  with no restart leaves the container running stale compiled classes forever, verified the hard
+  way (`docker compose watch` reported the sync but the app never restarted until `sync+restart` was
+  wired in). `sync+restart` re-runs `mvnw spring-boot:run` after the file lands, which recompiles
+  just the changed sources and comes back up in ~5s — still no Docker image rebuild. Editing
+  `pom.xml` triggers a full `rebuild` instead, since dependencies changed. `spring-boot-devtools`
+  stays in `pom.xml` (`optional=true`, never ships in the runtime image) for its dev-only side
+  effects (disabled template/resource caching, LiveReload), not for its restart mechanism. Command:
+  `docker compose watch`.
+- **Redis** — backs the existing `TokenBlacklistService` (session/token blacklist,
+  `spring.data.redis.*`, now parameterized via `REDIS_HOST`/`REDIS_PORT`/`REDIS_PASSWORD` instead of
+  being unconfigured) and a new standalone `RedissonClient` bean (`RedissonConfig`, package
+  `infrastructure.config.redis`) for distributed locks on concurrent writes (e.g. recipe/quote
+  edits). Deliberately wired by hand off `spring.data.redis.host/port` rather than via
+  `redisson-spring-boot-starter`, which auto-replaces Spring Data's `RedisConnectionFactory` and
+  would have silently repointed `TokenBlacklistService`'s `StringRedisTemplate` at a second,
+  independently-configured connection.
+- **Mailpit** — dev profile (`application-dev.yml`) overrides `spring.mail.host/port` to the
+  `mailpit` container (no auth, no TLS) instead of SendGrid, so password-reset/new-device/share
+  emails are inspectable at `http://localhost:8025` instead of actually sending.
+- **Loki + Promtail + Grafana** — Promtail tails the same rolling JSON file
+  `logs/cronos-ninsky.log` the app already writes (`logback-spring.xml`'s `FILE_JSON` appender,
+  bind-mounted read-only into the `promtail` container), ships it to Loki, and Grafana is
+  pre-provisioned (`docker/grafana/provisioning/datasources`) with both Loki and Prometheus as
+  datasources — open `http://localhost:3000` and query by `traceId` (kept as an extracted Loki
+  field, deliberately *not* a label — it's unique per request, and a label with unbounded
+  cardinality blows up Loki's index) to follow one request's log lines end-to-end, e.g. across
+  `AuthenticationService` → `CacheMonitoringAspect` → `ErrorInterceptorAspect`.
+- **Prometheus** — scrapes `app:9192/actuator/prometheus` (see below). `http://localhost:9090`.
+
+### Actuator: separate internal port, not under `/api/v1`
+
+`management.server.port=9192` runs actuator on its own port, independent of
+`server.servlet.context-path=/api/v1` — endpoints are `/actuator/health` and
+`/actuator/prometheus`, not `/api/v1/actuator/...`. In `docker-compose.yml` this port is `expose`d
+(container-network only) rather than `ports`-published, so it's reachable from `prometheus` but not
+from the host/internet — that's the actual security boundary. Base `application.yml` includes only
+`health,prometheus`; `application-dev.yml` widens the exposure (`info,beans,env,mappings`) for local
+debugging only.
+
+`/actuator/**` is also explicitly `permitAll()`'d in `SecurityConfig`'s `authorizeHttpRequests`.
+This looks redundant with network isolation until you actually run it: Spring Boot's separate
+management port still gets a **child context that reuses the app's `@Bean SecurityFilterChain`**
+(confirmed empirically — before this permitAll was added, curling `:9192/actuator/health` returned
+the app's own `AUTHENTICATION_FAILED` JSON error, because `.anyRequest().authenticated()` caught it
+too). Prometheus has no JWT to present, so without this exemption the scrape target is permanently
+401 and `/actuator/health` is unusable — network isolation alone wasn't sufficient, the app-layer
+auth had to be told to back off too.
+
+### Neon HikariCP tuning (`application-prod.properties`, `application-dev.yml`)
+
+Neon's serverless compute auto-suspends on idle and can silently drop/rebuild the underlying
+connection — this is almost certainly what produced the `HikariPool-1 - Failed to validate
+connection ... This connection has been closed` warnings seen in production logs. Both profiles now
+set a short `max-lifetime` (240s) and a `keepalive-time` (120s) so HikariCP proactively recycles
+connections before Neon does, instead of handing out one Neon already closed. The base
+`application.yml` pool settings (30 min `max-lifetime`, no keepalive) are unchanged and remain
+correct for a persistent local Postgres.
+
 ## Persistence & Security
 
 ### ADR: Bypass JPA entity hydration for the authentication hot path

@@ -80,6 +80,34 @@
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
 
+        <!-- Observability: /actuator/health + /actuator/prometheus -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+
+        <!-- Hot reload for local/docker-compose-watch development only -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-devtools</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- Redisson client only (not redisson-spring-boot-starter): that starter auto-replaces
+             Spring Data's RedisConnectionFactory/RedisTemplate, which would repoint the existing
+             TokenBlacklistService (StringRedisTemplate, spring.data.redis.*) at a separately
+             configured connection. Wiring RedissonClient by hand off the same host/port keeps a
+             single Redis connection source of truth; see RedissonConfig. -->
+        <dependency>
+            <groupId>org.redisson</groupId>
+            <artifactId>redisson</artifactId>
+            <version>3.51.0</version>
+        </dependency>
+
         <!-- BD dependencies -->
 
         <dependency>

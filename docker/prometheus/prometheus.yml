@@ -1,0 +1,10 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  # Actuator lives on its own internal port (management.server.port=9192), not published to the
+  # host and outside server.servlet.context-path — see application.yml.
+  - job_name: cronos
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["app:9192"]
