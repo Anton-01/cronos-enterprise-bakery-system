@@ -14,6 +14,12 @@
 # Usage:
 #   cp .env.example .env   # fill in real values
 #   docker compose watch
+#
+# Secrets: the app service reads DB_URL/DB_USERNAME/DB_PASSWORD/MAIL_PASSWORD/JWT_SECRET straight
+# from .env (env_file below) — KeysPropertiesEnvironmentPostProcessor deliberately no-ops on the
+# `dev` profile unless CRONOS_KEYS_FILE is set. If you already maintain a keys.properties file for
+# qa/prod (see keys.properties.example), reuse it instead of duplicating secrets into .env: add
+# `-f docker-compose.keys-file.yml` (see that file for usage).
 
 services:
   app:

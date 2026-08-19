@@ -28,6 +28,23 @@ No local Postgres container — the primary DB is Neon (external, serverless), c
 through `DB_URL`/`DB_USERNAME`/`DB_PASSWORD` in `.env` (see `.env.example`); the URL must include
 `?sslmode=require`.
 
+**Secrets, and how this relates to `KeysPropertiesEnvironmentPostProcessor`** — that post-processor
+(the existing qa/prod external-secrets loader, `infrastructure/config/secrets`) is a deliberate
+no-op on the `dev` profile unless `CRONOS_KEYS_FILE` is explicitly set (see its class docs); it does
+*not* automatically pick up `.env`. So `docker-compose.yml`'s `app` service reads
+`DB_URL`/`DB_USERNAME`/`DB_PASSWORD`/`MAIL_PASSWORD`/`JWT_SECRET` as plain environment variables
+from `.env` (`env_file:`) — a parallel path, not a rerouting of the existing mechanism. Developers
+who already keep those five values in a `keys.properties` file for qa/prod don't have to duplicate
+them into `.env`: `docker-compose.keys-file.yml` is an opt-in overlay
+(`-f docker-compose.keys-file.yml`, `CRONOS_KEYS_FILE_HOST=/path/to/keys.properties`) that
+bind-mounts that file and sets `CRONOS_KEYS_FILE` inside the container, so the same
+`KeysPropertiesEnvironmentPostProcessor` loads it exactly as it would for qa/prod. It's opt-in
+rather than the default specifically because `CRONOS_KEYS_FILE` makes loading *mandatory* — wiring
+it in unconditionally (e.g. defaulting the mount to `keys.properties.example`) would mean the
+committed placeholder's `DB_PASSWORD=changeme` silently wins over a real `.env` value, since the
+post-processor adds its property source with the highest priority (`addFirst`). Keeping it opt-in
+avoids that footgun for the default path (which is what's actually been run end-to-end, see below).
+
 - **Hot reload** — `app` builds only to the `builder` Dockerfile stage (JDK + resolved deps +
   compiled source) and runs `mvnw spring-boot:run -Dspring-boot.run.profiles=dev` instead of the
   packaged jar. `develop.watch` uses `action: sync+restart` (not plain `sync`) for

@@ -1,0 +1,23 @@
+# Optional overlay: reuse an existing keys.properties file — the same mechanism/file the qa/prod
+# profiles already use (KeysPropertiesEnvironmentPostProcessor, see keys.properties.example) —
+# instead of copying DB_URL/DB_USERNAME/DB_PASSWORD/MAIL_PASSWORD/JWT_SECRET into .env a second
+# time. Without this overlay, docker-compose.yml's `app` service reads those five values straight
+# from .env/env vars, since KeysPropertiesEnvironmentPostProcessor is a deliberate no-op on the
+# `dev` profile unless CRONOS_KEYS_FILE is set (see its class docs) — that's still the simplest
+# path for a first run with no keys.properties file yet.
+#
+# Usage:
+#   CRONOS_KEYS_FILE_HOST=/path/to/your/keys.properties \
+#     docker compose -f docker-compose.yml -f docker-compose.keys-file.yml watch
+#
+# When using this overlay, remove DB_URL/DB_USERNAME/DB_PASSWORD/MAIL_PASSWORD/JWT_SECRET from
+# .env entirely rather than leaving both set: KeysPropertiesEnvironmentPostProcessor adds the
+# mounted file's properties with the highest priority (addFirst), so stale .env values would be
+# silently shadowed instead of erring loudly — worse than just not having them there.
+
+services:
+  app:
+    environment:
+      CRONOS_KEYS_FILE: /run/secrets/keys.properties
+    volumes:
+      - ${CRONOS_KEYS_FILE_HOST:?Set CRONOS_KEYS_FILE_HOST to the path of your keys.properties file}:/run/secrets/keys.properties:ro
