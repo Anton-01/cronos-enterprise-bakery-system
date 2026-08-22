@@ -16,6 +16,7 @@ public final class ErrorCodes {
     public static final String ROUTE_NOT_FOUND = "ROUTE_NOT_FOUND";
     public static final String DUPLICATE_RESOURCE = "DUPLICATE_RESOURCE";
     public static final String SYSTEM_RESOURCE_CONFLICT = "SYSTEM_RESOURCE_CONFLICT";
+    public static final String UNAUTHORIZED_MODIFICATION = "UNAUTHORIZED_MODIFICATION";
     public static final String DATA_INTEGRITY_VIOLATION = "DATA_INTEGRITY_VIOLATION";
     public static final String BUSINESS_CONFLICT = "BUSINESS_CONFLICT";
     public static final String INVALID_TOKEN = "INVALID_TOKEN";

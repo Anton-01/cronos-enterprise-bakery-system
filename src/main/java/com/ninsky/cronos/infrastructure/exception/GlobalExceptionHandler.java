@@ -78,6 +78,11 @@ public class GlobalExceptionHandler {
         return respond(ErrorCodes.SYSTEM_RESOURCE_CONFLICT, HttpStatus.CONFLICT, request, ex.getMessage());
     }
 
+    @ExceptionHandler(UnauthorizedCategoryModificationException.class)
+    public ResponseEntity<ApiResponseEnvelope<Void>> handleUnauthorizedCategoryModification(UnauthorizedCategoryModificationException ex, HttpServletRequest request) {
+        return respond(ErrorCodes.UNAUTHORIZED_MODIFICATION, HttpStatus.FORBIDDEN, request, ex.getMessage());
+    }
+
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiResponseEnvelope<Void>> handleDataIntegrityViolation(DataIntegrityViolationException ex, HttpServletRequest request) {
         return respond(ErrorCodes.DATA_INTEGRITY_VIOLATION, HttpStatus.CONFLICT, request, ex.getMessage());

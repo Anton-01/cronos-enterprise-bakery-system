@@ -15,7 +15,9 @@ public class CategoryMapper {
                 .id(entity.getId())
                 .name(entity.getName())
                 .description(entity.getDescription())
-                .isSystemDefault(entity.getIsSystemDefault())
+                .type(entity.getType())
+                .scope(entity.getScope())
+                .userId(entity.getUserId())
                 .version(entity.getVersion())
                 .status(entity.getStatus())
                 .build();
@@ -26,12 +28,14 @@ public class CategoryMapper {
             return null;
         }
         return CategoryJpaEntity.builder()
-                .id(domain.getId())
-                .name(domain.getName())
-                .description(domain.getDescription())
-                .isSystemDefault(domain.getIsSystemDefault())
-                .version(domain.getVersion())
-                .status(domain.getStatus())
+                .id(domain.id())
+                .name(domain.name())
+                .description(domain.description())
+                .type(domain.type())
+                .scope(domain.scope())
+                .userId(domain.userId())
+                .version(domain.version())
+                .status(domain.status())
                 .build();
     }
 }

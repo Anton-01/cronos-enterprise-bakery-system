@@ -1,6 +1,8 @@
 package com.ninsky.cronos.application.request.core;
 
+import com.ninsky.cronos.domain.entity.enums.CategoryType;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Builder;
 
@@ -11,5 +13,8 @@ public record CreateCategoryRequest(
         String name,
 
         @Size(max = 500)
-        String description
+        String description,
+
+        @NotNull(message = "Category type is required (PRODUCT or INGREDIENT)")
+        CategoryType type
 ) {}
