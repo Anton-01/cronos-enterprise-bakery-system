@@ -7,7 +7,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import javax.crypto.AEADBadTagException;
+import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.security.GeneralSecurityException;
@@ -30,6 +33,16 @@ public class FieldEncryptionService {
     private static final int GCM_IV_LENGTH = 12;
     private static final int GCM_TAG_LENGTH_BITS = 128;
     private static final int DEK_LENGTH_BYTES = 32;
+
+    /**
+     * Returned by {@link #decrypt} in place of throwing when ciphertext fails AES-GCM
+     * verification, so a corrupted/un-decryptable row degrades gracefully instead of blowing up
+     * Hibernate's attribute-conversion lifecycle. Callers on the read path that can't tolerate a
+     * corrupted value (e.g. {@code AuthenticationService.login}) must check for this sentinel
+     * explicitly and reject the request (401), rather than let it silently pass through as if it
+     * were the real plaintext.
+     */
+    public static final String DECRYPTION_FAILED_SENTINEL = "[DECRYPTION_FAILED]";
 
     private final KmsPort kmsPort;
     private final KmsConfig kmsConfig;
@@ -78,12 +91,23 @@ public class FieldEncryptionService {
     /**
      * Tolerates legacy plain-text values written before {@code EncryptedStringConverter} existed:
      * anything that isn't valid Base64 (real emails always contain {@code @}/{@code .}, both
-     * illegal in Base64) is returned as-is rather than crashing. A value that IS valid Base64 but
-     * fails GCM tag verification is NOT treated as plaintext — that's ambiguous with genuine
-     * corruption or a rotated/lost data-encryption-key, so it still throws loudly. This heuristic
-     * only reliably covers fields whose plaintext form is guaranteed to contain non-Base64
-     * characters (e.g. email); it will not catch legacy plaintext in fields like a Base32 TOTP
-     * secret, which happens to be valid Base64 and so still hits the throwing branch below.
+     * illegal in Base64) is returned as-is rather than crashing. This heuristic only reliably
+     * covers fields whose plaintext form is guaranteed to contain non-Base64 characters (e.g.
+     * email); it will not catch legacy plaintext in fields like a Base32 TOTP secret, which
+     * happens to be valid Base64 and so falls through to the AES-GCM attempt below.
+     * <p>
+     * A value that IS valid Base64 but fails AES-GCM tag verification — a rotated/lost
+     * data-encryption-key, or genuinely tampered/corrupted ciphertext — returns
+     * {@link #DECRYPTION_FAILED_SENTINEL} instead of throwing. This method is called from
+     * {@code EncryptedStringConverter.convertToEntityAttribute}, i.e. mid-Hibernate-hydration on
+     * every JPA load of an entity with an encrypted column: throwing here surfaces as an opaque
+     * {@code JpaSystemException} (500) on any code path that merely loads the entity, including
+     * pre-authentication ones like {@code AuthenticationService.login}. Degrading gracefully lets
+     * the caller decide — {@code login} rejects a corrupted row as a 401 like any other invalid
+     * credential, instead of every login attempt against that row taking down the request with a
+     * 500. Other {@link GeneralSecurityException}s (bad key, bad algorithm params — a cipher
+     * *configuration* problem affecting every row, not one corrupted value) still throw: masking
+     * that as a wave of per-row "corrupted data" would hide a systemic outage instead of paging it.
      */
     public String decrypt(String ciphertextBase64) {
         if (ciphertextBase64 == null) {
@@ -112,11 +136,21 @@ public class FieldEncryptionService {
             cipher.init(Cipher.DECRYPT_MODE, dataEncryptionKey, new GCMParameterSpec(GCM_TAG_LENGTH_BITS, iv));
             byte[] plaintext = cipher.doFinal(ciphertext);
             return new String(plaintext, java.nio.charset.StandardCharsets.UTF_8);
+        } catch (AEADBadTagException e) {
+            // Deliberately no `e`/stack trace and no ciphertext in the log line — the trace is
+            // just noise for an expected-shape failure, and the payload is sensitive either way.
+            log.warn("Failed to decrypt field due to GCM tag mismatch. The encryption key may have " +
+                    "changed, or the stored value was tampered with. Treating as corrupted data.");
+            return DECRYPTION_FAILED_SENTINEL;
+        } catch (BadPaddingException | IllegalBlockSizeException e) {
+            log.warn("Failed to decrypt field: ciphertext is malformed or was encrypted under a " +
+                    "different key. Treating as corrupted data.");
+            return DECRYPTION_FAILED_SENTINEL;
         } catch (GeneralSecurityException e) {
-            throw new IllegalStateException("Field decryption failed: the stored value is valid Base64 " +
-                    "but fails AES-GCM tag verification. This usually means the data-encryption-key " +
-                    "changed since the value was encrypted (e.g. kms.local.master-key/kms.wrapped-data-key " +
-                    "not persisted across a restart) rather than legacy plain-text data.", e);
+            // Anything else (bad key, bad algorithm params, ...) is a cipher/config problem that
+            // would affect every row, not this one — fail loudly instead of masking a systemic
+            // outage as a wave of per-row "corrupted data" 401s.
+            throw new IllegalStateException("Field decryption failed due to a cipher configuration error", e);
         }
     }
 

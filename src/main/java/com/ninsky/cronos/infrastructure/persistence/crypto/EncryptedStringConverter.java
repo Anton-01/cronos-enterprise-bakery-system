@@ -10,6 +10,13 @@ import org.springframework.stereotype.Component;
  * {@code @Convert(converter = EncryptedStringConverter.class)} (deliberately not {@code autoApply}
  * — encryption must be an opt-in choice per field, not a blanket default). Everything above the
  * entity layer (mappers, services, DTOs) sees plain Java strings; only the DB column holds ciphertext.
+ * <p>
+ * {@link FieldEncryptionService#decrypt} never throws for a corrupted/un-decryptable value — it
+ * returns {@link FieldEncryptionService#DECRYPTION_FAILED_SENTINEL} — so a bad row can't blow up
+ * Hibernate's attribute-conversion lifecycle mid-hydration. Callers that load an entity with an
+ * encrypted column on a security-sensitive path (e.g. login) must check the resulting field for
+ * that sentinel themselves; this converter has no context to decide what "corrupted" should mean
+ * for a given caller.
  */
 @Component
 @Converter

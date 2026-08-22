@@ -53,8 +53,7 @@ public class KeysPropertiesEnvironmentPostProcessor implements EnvironmentPostPr
     private static final String SYSTEM_PROPERTY = "cronos.keys.file";
     private static final String ENV_VAR = "CRONOS_KEYS_FILE";
     private static final String PROD_DEFAULT_PATH = "/etc/cronos/keys.properties";
-    private static final String QA_MACOS_DEFAULT_PATH =
-            "/Users/anton/Codification-back-files/pkt-k/scts/keys.properties";
+    private static final String QA_MACOS_DEFAULT_PATH = "/Users/anton/Codification-back-files/pkt-k/scts/keys.properties";
 
     private final Log log;
 

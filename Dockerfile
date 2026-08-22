@@ -20,7 +20,12 @@ RUN --mount=type=cache,target=/root/.m2 ./mvnw -B -q clean package -DskipTests \
 # currently-available option rather than distroless. Revisit once distroless ships a java25 image.
 FROM eclipse-temurin:25-jre-alpine AS runtime
 
-RUN addgroup -S cronos && adduser -S cronos -G cronos
+# mkdir+chown /app/logs before USER switch: logging.file.name is the relative path "logs/...",
+# resolved against WORKDIR, and cronos (non-root) cannot create a subdirectory under WORKDIR
+# unless it's pre-owned — mounting a named volume onto an already-owned path inherits that
+# ownership, mounting it onto a root-owned one does not, and logback would fail to open the file.
+RUN addgroup -S cronos && adduser -S cronos -G cronos \
+    && mkdir -p /app/logs && chown -R cronos:cronos /app
 WORKDIR /app
 
 COPY --from=builder --chown=cronos:cronos /build/target/app.jar app.jar

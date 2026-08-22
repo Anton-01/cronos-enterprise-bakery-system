@@ -1,7 +1,7 @@
 # Local development stack for Cronos.
 #
 # The primary database (Neon, serverless Postgres) is NOT containerized here — it's external.
-# Point DB_URL/DB_USERNAME/DB_PASSWORD (in .env, see .env.example) at your Neon connection string,
+# Point DB_URL/DB_USERNAME/DB_PASSWORD (in .env, see .env) at your Neon connection string,
 # including `?sslmode=require`.
 #
 # Hot reload: `docker compose watch` builds the `app` service up to the `builder` stage (JDK +
@@ -12,13 +12,13 @@
 # full image rebuild instead, since dependencies changed.
 #
 # Usage:
-#   cp .env.example .env   # fill in real values
+#   cp .env .env   # fill in real values
 #   docker compose watch
 #
 # Secrets: the app service reads DB_URL/DB_USERNAME/DB_PASSWORD/MAIL_PASSWORD/JWT_SECRET straight
 # from .env (env_file below) — KeysPropertiesEnvironmentPostProcessor deliberately no-ops on the
 # `dev` profile unless CRONOS_KEYS_FILE is set. If you already maintain a keys.properties file for
-# qa/prod (see keys.properties.example), reuse it instead of duplicating secrets into .env: add
+# qa/prod (see keys.properties), reuse it instead of duplicating secrets into .env: add
 # `-f docker-compose.keys-file.yml` (see that file for usage).
 
 services:
@@ -32,12 +32,13 @@ services:
       -Dspring-boot.run.profiles=dev
       -Dspring-boot.run.jvmArguments=--sun-misc-unsafe-memory-access=allow
     ports:
-      - "9191:9191" # REST API (server.servlet.context-path=/api/v1)
+      - "9191:9191"
     expose:
       - "9192" # Actuator — internal only, scraped by Prometheus
     env_file:
       - .env
     environment:
+      SERVER_ADDRESS: 0.0.0.0
       SPRING_PROFILES_ACTIVE: dev
       REDIS_HOST: redis
       REDIS_PORT: 6379
@@ -53,11 +54,6 @@ services:
         condition: service_started
     develop:
       watch:
-        # sync+restart, not sync: `mvnw spring-boot:run` only recompiles on (re)start — devtools'
-        # in-JVM restart watches target/classes, not src/, so a plain file sync with no restart
-        # leaves the container running stale compiled classes with the new source never built.
-        # sync+restart re-runs the container's `mvnw spring-boot:run` after the file lands, which
-        # recompiles just the changed sources and restarts in ~5s — no docker image rebuild.
         - path: ./src/main/java
           action: sync+restart
           target: /build/src/main/java

@@ -25,7 +25,7 @@ infra/Dockerization pass. Flagging it as the one piece worth fixing before this 
 
 `docker compose watch` runs `app`, `redis`, `mailpit`, `loki`, `promtail`, `prometheus`, `grafana`.
 No local Postgres container — the primary DB is Neon (external, serverless), configured purely
-through `DB_URL`/`DB_USERNAME`/`DB_PASSWORD` in `.env` (see `.env.example`); the URL must include
+through `DB_URL`/`DB_USERNAME`/`DB_PASSWORD` in `.env` (see `.env`); the URL must include
 `?sslmode=require`.
 
 **Secrets, and how this relates to `KeysPropertiesEnvironmentPostProcessor`** — that post-processor
@@ -40,7 +40,7 @@ them into `.env`: `docker-compose.keys-file.yml` is an opt-in overlay
 bind-mounts that file and sets `CRONOS_KEYS_FILE` inside the container, so the same
 `KeysPropertiesEnvironmentPostProcessor` loads it exactly as it would for qa/prod. It's opt-in
 rather than the default specifically because `CRONOS_KEYS_FILE` makes loading *mandatory* — wiring
-it in unconditionally (e.g. defaulting the mount to `keys.properties.example`) would mean the
+it in unconditionally (e.g. defaulting the mount to `keys.properties`) would mean the
 committed placeholder's `DB_PASSWORD=changeme` silently wins over a real `.env` value, since the
 post-processor adds its property source with the highest priority (`addFirst`). Keeping it opt-in
 avoids that footgun for the default path (which is what's actually been run end-to-end, see below).
@@ -146,18 +146,38 @@ overhead on sensitive fields, and prevent `AEADBadTagException` during the authe
 
 **Defense in depth.** `FieldEncryptionService.decrypt()` also no longer hard-crashes on legacy
 plain-text values: anything that isn't valid Base64 (a real email always contains `@`/`.`, both
-illegal in Base64) is returned as-is, logged as a `WARN`. A value that *is* valid Base64 but fails
-GCM tag verification is deliberately **not** treated as plaintext — that's ambiguous with genuine
-corruption or a lost/rotated DEK, so it still throws, now with a message pointing at the KMS
-persistence issue instead of a bare stack trace. This heuristic does not cover legacy plain-text in
-fields whose plaintext form is itself valid Base64 (e.g. a Base32 TOTP secret) — that class of
-migration was out of scope here and would need explicit, deliberate handling if it turns up.
+illegal in Base64) is returned as-is, logged as a `WARN`. This heuristic does not cover legacy
+plain-text in fields whose plaintext form is itself valid Base64 (e.g. a Base32 TOTP secret) — that
+class of migration was out of scope here and would need explicit, deliberate handling if it turns up.
+
+A value that *is* valid Base64 but fails AES-GCM tag verification (genuine corruption, or a
+lost/rotated DEK) **used to** rethrow and take the request down as a 500 — that stopped being true.
+`decrypt()` now catches `AEADBadTagException`/`BadPaddingException`/`IllegalBlockSizeException`
+specifically, logs a concise `WARN` (no stack trace, no ciphertext — both are noise/sensitive,
+respectively), and returns the sentinel `FieldEncryptionService.DECRYPTION_FAILED_SENTINEL`
+(`"[DECRYPTION_FAILED]"`) instead of throwing. Reason for the flip: `decrypt()` runs inside
+`EncryptedStringConverter.convertToEntityAttribute`, i.e. mid-Hibernate-hydration on *every* JPA
+load of an entity with an encrypted column — throwing there surfaces as an opaque
+`JpaSystemException` on any code path that merely loads the row, including
+`AuthenticationService.login()`'s post-password-check `userRepository.findById(...)` a few lines
+below this ADR's own "only load once password is confirmed correct" decision. A row with a
+KMS-key-mismatched email was turning a *correct* password into a 500 instead of the controlled 401
+a corrupted account should produce. `login()` now checks the loaded `User` for the sentinel
+(`isDecryptionCorrupted`, covers both `email` and `twoFactorSecret`) right after that load and
+throws `BadCredentialsException` if found — same failed-login bookkeeping path as a wrong password.
+Other `GeneralSecurityException`s (bad key, bad algorithm params) still throw: those are a cipher
+*configuration* problem affecting every row, not one corrupted value, and masking that as a wave of
+per-row "corrupted data" 401s would hide a systemic outage instead of paging it.
+
+Any caller loading an encrypted-column entity outside `login()` (there's no `@ControllerAdvice`
+catching this sentinel globally) gets the literal string `"[DECRYPTION_FAILED]"` back rather than
+real data or an exception — worth checking for at any other security-sensitive read path if one
+shows up.
 
 **Consequence.** A nonexistent username, an already-locked account, or a wrong password never
 touch field decryption anymore. A correct password for a user with a genuinely corrupted (KMS-key
-mismatch) email still throws — that's a data problem no query shape fixes; persisting
-`kms.local.master-key`/`kms.wrapped-data-key` (see `keys.properties.example`) prevents new
-occurrences of it going forward.
+mismatch) email now gets a 401, not a 500; persisting `kms.local.master-key`/`kms.wrapped-data-key`
+(see `keys.properties`) prevents new occurrences of it going forward.
 
 **Bugs fixed incidentally while touching this code** (found during the refactor, not introduced by
 it): `login()`'s failure path called `AccountLockoutService.handleFailedLogin(user)` but never

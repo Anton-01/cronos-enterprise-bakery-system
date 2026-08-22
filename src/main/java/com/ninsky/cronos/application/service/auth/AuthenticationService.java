@@ -31,6 +31,7 @@ import com.ninsky.cronos.infrastructure.exception.InvalidTokenException;
 import com.ninsky.cronos.infrastructure.exception.UserNotFoundException;
 import com.ninsky.cronos.infrastructure.security.JwtService;
 import com.ninsky.cronos.infrastructure.security.blacklist.TokenBlacklistService;
+import com.ninsky.cronos.infrastructure.security.crypto.FieldEncryptionService;
 import com.ninsky.cronos.infrastructure.security.dpop.DpopProofValidator;
 import com.ninsky.cronos.infrastructure.util.auth.RequestContextUtil;
 import lombok.RequiredArgsConstructor;
@@ -116,6 +117,16 @@ public class AuthenticationService {
         // secret), needed for the rest of this method (JWT claims, session/audit records, response).
         User user = userRepository.findById(authUser.id())
                 .orElseThrow(() -> new UserNotFoundException("User not found: " + authUser.id()));
+
+        // FieldEncryptionService.decrypt() degrades a corrupted/undecryptable column (rotated or
+        // lost data-encryption-key) to a sentinel instead of throwing, so this row's login must be
+        // rejected explicitly here — otherwise the sentinel string would silently ride along as if
+        // it were the real email/2FA secret (wrong JWT claim, or a TOTP check that can never pass).
+        if (isDecryptionCorrupted(user)) {
+            persistFailedAttemptBestEffort(authUser.id());
+            recordFailedLogin(authUser.id(), authUser.username(), "Corrupted encrypted user data");
+            throw new BadCredentialsException("Invalid credentials");
+        }
 
         // Verification 2FA
         if (user.isTwoFactorEnabled()) {
@@ -462,6 +473,11 @@ public class AuthenticationService {
                 .build();
 
         loginHistoryRepository.save(loginHistory);
+    }
+
+    private boolean isDecryptionCorrupted(User user) {
+        return FieldEncryptionService.DECRYPTION_FAILED_SENTINEL.equals(user.getEmail())
+                || FieldEncryptionService.DECRYPTION_FAILED_SENTINEL.equals(user.getTwoFactorSecret());
     }
 
     private String generateSha256(String input) {
