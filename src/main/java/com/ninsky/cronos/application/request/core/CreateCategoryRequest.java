@@ -8,13 +8,15 @@ import lombok.Builder;
 
 @Builder
 public record CreateCategoryRequest(
-        @NotBlank(message = "Category name is required")
+        @NotBlank(message = "{validation.category.name.required}")
         @Size(max = 100)
         String name,
 
+        /** Optional by design — {@code CategoryServiceImplementation} treats a null/blank
+         *  description as legitimate input, not a data error. */
         @Size(max = 500)
         String description,
 
-        @NotNull(message = "Category type is required (PRODUCT or INGREDIENT)")
+        @NotNull(message = "{validation.category.type.required}")
         CategoryType type
 ) {}

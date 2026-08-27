@@ -41,11 +41,13 @@ public class GlobalExceptionHandler {
     private final ErrorCatalogPort errorCatalogPort;
     private final MessageSource messageSource;
 
+    private static final String VALIDATION_ERROR_IMAGE_URL = "/assets/errors/validation.svg";
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponseEnvelope<Void>> handleValidation(MethodArgumentNotValidException ex, HttpServletRequest request) {
         Locale locale = RequestLocaleResolver.resolve(request);
         List<ApiError> fieldErrors = ex.getBindingResult().getFieldErrors().stream()
-                .map(fe -> new ApiError("VALIDATION_FIELD_ERROR", resolveFieldMessage(fe, locale), fe.getField()))
+                .map(fe -> new ApiError("VALIDATION_FIELD_ERROR", resolveFieldMessage(fe, locale), fe.getField(), VALIDATION_ERROR_IMAGE_URL))
                 .collect(Collectors.toList());
         return respond(ErrorCodes.VALIDATION_FAILED, HttpStatus.BAD_REQUEST, request, fieldErrors);
     }
@@ -85,7 +87,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<ApiResponseEnvelope<Void>> handleConstraintViolation(ConstraintViolationException ex, HttpServletRequest request) {
         List<ApiError> errors = ex.getConstraintViolations().stream()
-                .map(cv -> new ApiError("VALIDATION_FIELD_ERROR", cv.getMessage(), lastPathSegment(cv.getPropertyPath())))
+                .map(cv -> new ApiError("VALIDATION_FIELD_ERROR", cv.getMessage(), lastPathSegment(cv.getPropertyPath()), VALIDATION_ERROR_IMAGE_URL))
                 .collect(Collectors.toList());
         return respond(ErrorCodes.VALIDATION_FAILED, HttpStatus.BAD_REQUEST, request, errors);
     }
