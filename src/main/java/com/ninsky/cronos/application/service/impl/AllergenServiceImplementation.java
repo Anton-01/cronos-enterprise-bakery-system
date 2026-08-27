@@ -48,7 +48,7 @@ public class AllergenServiceImplementation implements AllergenService {
 
         Allergen allergen = Allergen.builder().name(request.name().trim())
                 .alternativeName(request.alternativeName().trim())
-                .description(request.description().trim())
+                .description(request.description() == null ? null : request.description().trim())
                 .build();
 
         allergen = allergenRepository.save(allergen);
@@ -99,7 +99,7 @@ public class AllergenServiceImplementation implements AllergenService {
 
         allergen.setName(request.name().trim());
         allergen.setAlternativeName(request.alternativeName().trim());
-        allergen.setDescription(request.description().trim());
+        allergen.setDescription(request.description() == null ? null : request.description().trim());
 
         allergen = allergenRepository.save(allergen);
         log.info("Allergen updated: ID {}, Name: {}", allergen.getId(), allergen.getName());

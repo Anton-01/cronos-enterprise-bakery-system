@@ -7,12 +7,14 @@ import com.ninsky.cronos.domain.port.ErrorCatalogPort;
 import com.ninsky.cronos.infrastructure.web.RequestLocaleResolver;
 import com.ninsky.cronos.infrastructure.web.TraceIdFilter;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolationException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.context.MessageSource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -61,6 +63,37 @@ public class GlobalExceptionHandler {
             return messageSource.getMessage(key, null, raw, locale);
         }
         return raw;
+    }
+
+    /**
+     * Malformed/unparseable request body (bad JSON, wrong type for a field, etc.) — arrives before
+     * Bean Validation even runs, so {@link MethodArgumentNotValidException} never fires for this
+     * case. Previously fell through to {@link #handleUnexpected}, i.e. a client mistake surfaced
+     * as a 500.
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponseEnvelope<Void>> handleUnreadableBody(HttpMessageNotReadableException ex, HttpServletRequest request) {
+        return respond(ErrorCodes.VALIDATION_FAILED, HttpStatus.BAD_REQUEST, request, "Malformed or missing request body");
+    }
+
+    /**
+     * Bean Validation on {@code @RequestParam}/{@code @PathVariable} (requires {@code @Validated}
+     * at the controller class level) — a different exception type than
+     * {@link MethodArgumentNotValidException}, which only covers {@code @Valid @RequestBody}.
+     * Previously fell through to {@link #handleUnexpected} (500) instead of a field-level 400.
+     */
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ApiResponseEnvelope<Void>> handleConstraintViolation(ConstraintViolationException ex, HttpServletRequest request) {
+        List<ApiError> errors = ex.getConstraintViolations().stream()
+                .map(cv -> new ApiError("VALIDATION_FIELD_ERROR", cv.getMessage(), lastPathSegment(cv.getPropertyPath())))
+                .collect(Collectors.toList());
+        return respond(ErrorCodes.VALIDATION_FAILED, HttpStatus.BAD_REQUEST, request, errors);
+    }
+
+    private String lastPathSegment(jakarta.validation.Path path) {
+        String full = path.toString();
+        int lastDot = full.lastIndexOf('.');
+        return lastDot >= 0 ? full.substring(lastDot + 1) : full;
     }
 
     @ExceptionHandler(ResourceNotFoundException.class)
