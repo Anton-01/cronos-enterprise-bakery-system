@@ -10,6 +10,7 @@ public record UpdateCategoryRequest(
         @Size(max = 100)
         String name,
 
+        @NotBlank(message = "{validation.category.description.required}")
         @Size(max = 500)
         String description
 ) { }

@@ -77,7 +77,7 @@ public class CategoryServiceImplementation implements CategoryService {
 
         Category updated = category.toBuilder()
                 .name(newName)
-                .description(request.description() == null ? null : request.description().trim())
+                .description(request.description().trim())
                 .build();
 
         updated = categoryRepository.save(updated);
