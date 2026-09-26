@@ -21,6 +21,8 @@ public class AuditLogMapper {
                 .details(entity.getDetails())
                 .ipAddress(entity.getIpAddress())
                 .userAgent(entity.getUserAgent())
+                .traceId(entity.getTraceId())
+                .changes(entity.getChanges())
                 .createdAt(entity.getCreatedAt())
                 .build();
     }
@@ -39,6 +41,8 @@ public class AuditLogMapper {
                 .details(domain.getDetails())
                 .ipAddress(domain.getIpAddress())
                 .userAgent(domain.getUserAgent())
+                .traceId(domain.getTraceId())
+                .changes(domain.getChanges())
                 .createdAt(domain.getCreatedAt())
                 .build();
     }

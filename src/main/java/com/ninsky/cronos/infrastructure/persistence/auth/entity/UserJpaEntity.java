@@ -92,4 +92,11 @@ public class UserJpaEntity extends AuditableEntity {
 
     @Column(name = "password_needs_change", nullable = false)
     private boolean passwordNeedsChange = false;
+
+    @Column(name = "avatar_key", length = 255)
+    private String avatarKey;
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
 }

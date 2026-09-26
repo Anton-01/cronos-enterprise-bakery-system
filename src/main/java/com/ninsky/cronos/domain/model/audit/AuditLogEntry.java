@@ -24,5 +24,8 @@ public class AuditLogEntry {
     private String details;
     private String ipAddress;
     private String userAgent;
+    private String traceId;
+    /** Field-level diff as JSON ({@code {"field": {"from": .., "to": ..}}}), PII already masked. */
+    private String changes;
     private LocalDateTime createdAt;
 }

@@ -51,6 +51,14 @@ public class User {
     private LocalDateTime lastLoginAt;
     @Builder.Default
     private boolean passwordNeedsChange = false;
+    /** Content-addressed avatar object key ({@code avatars/{id}/{hash}.jpg}), null when no avatar. */
+    private String avatarKey;
+    /**
+     * Optimistic-lock version. Must round-trip through every load/save: {@code UserRepositoryAdapter}
+     * rebuilds the entity from this aggregate, and a null version on an existing id would be treated
+     * as a new row.
+     */
+    private Long version;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

@@ -11,5 +11,12 @@ public enum AuditAction {
     USER_TWO_FACTOR_DISABLED,
     USER_PASSWORD_RESET_INITIATED,
     ROLE_CREATED,
-    ROLE_UPDATED
+    ROLE_UPDATED,
+    // Account settings (self-service, actor == target)
+    PROFILE_CHANGED,
+    AVATAR_CHANGED,
+    AVATAR_REMOVED,
+    FISCAL_DATA_CREATED,
+    FISCAL_DATA_UPDATED,
+    PASSWORD_CHANGED
 }

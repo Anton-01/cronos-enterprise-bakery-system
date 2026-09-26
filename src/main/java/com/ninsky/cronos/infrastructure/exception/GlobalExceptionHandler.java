@@ -1,30 +1,51 @@
 package com.ninsky.cronos.infrastructure.exception;
 
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
+import com.ninsky.cronos.account.shared.api.AccountErrorMapper;
+import com.ninsky.cronos.account.shared.domain.AccountDomainError;
+import com.ninsky.cronos.account.shared.domain.AccountDomainException;
+import com.ninsky.cronos.account.shared.domain.DomainValidationException;
 import com.ninsky.cronos.application.response.envelope.ApiError;
 import com.ninsky.cronos.application.response.envelope.ApiResponseEnvelope;
 import com.ninsky.cronos.domain.port.ErrorCatalogEntry;
 import com.ninsky.cronos.domain.port.ErrorCatalogPort;
 import com.ninsky.cronos.infrastructure.web.RequestLocaleResolver;
 import com.ninsky.cronos.infrastructure.web.TraceIdFilter;
+import jakarta.persistence.OptimisticLockException;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
+import jakarta.validation.ElementKind;
+import jakarta.validation.Path;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.context.MessageSource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
+import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -40,15 +61,29 @@ public class GlobalExceptionHandler {
 
     private final ErrorCatalogPort errorCatalogPort;
     private final MessageSource messageSource;
+    private final AccountErrorMapper accountErrorMapper;
 
     private static final String VALIDATION_ERROR_IMAGE_URL = "/assets/errors/validation.svg";
 
+    /** "Required" constraints win over shape/size ones when a field fails several at once. */
+    private static final Set<String> PRIMARY_CONSTRAINTS = Set.of("NotNull", "NotBlank", "NotEmpty");
+
+    /**
+     * Every field error at once (never fail-fast), one per field: sorted deterministically (field,
+     * then required-before-shape, then constraint name) because Hibernate Validator hands violations
+     * over in hash order, then de-duplicated into an insertion-ordered map so the first error per
+     * field wins. {@code field} is the request-body JSON path ({@code address.zipCode}).
+     */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponseEnvelope<Void>> handleValidation(MethodArgumentNotValidException ex, HttpServletRequest request) {
         Locale locale = RequestLocaleResolver.resolve(request);
         List<ApiError> fieldErrors = ex.getBindingResult().getFieldErrors().stream()
-                .map(fe -> new ApiError("VALIDATION_FIELD_ERROR", resolveFieldMessage(fe, locale), fe.getField(), VALIDATION_ERROR_IMAGE_URL))
-                .collect(Collectors.toList());
+                .sorted(Comparator.comparing(FieldError::getField)
+                        .thenComparing(fe -> PRIMARY_CONSTRAINTS.contains(fe.getCode()) ? 0 : 1)
+                        .thenComparing(fe -> Objects.toString(fe.getCode(), "")))
+                .map(fe -> new ApiError(AccountDomainError.VALIDATION_FIELD_ERROR, resolveFieldMessage(fe, locale), fe.getField(), VALIDATION_ERROR_IMAGE_URL))
+                .collect(Collectors.toMap(ApiError::field, Function.identity(), (first, ignored) -> first, LinkedHashMap::new))
+                .sequencedValues().stream().toList();
         return respond(ErrorCodes.VALIDATION_FAILED, HttpStatus.BAD_REQUEST, request, fieldErrors);
     }
 
@@ -75,7 +110,40 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ApiResponseEnvelope<Void>> handleUnreadableBody(HttpMessageNotReadableException ex, HttpServletRequest request) {
+        UnrecognizedPropertyException unknown = findCause(ex, UnrecognizedPropertyException.class);
+        if (unknown != null) {
+            // Only reachable for @RejectUnknownProperties DTOs (mass-assignment guard on account endpoints).
+            String field = jsonPath(unknown.getPath());
+            String message = messageSource.getMessage("account.validation.unknownProperty", new Object[]{field},
+                    "Property not allowed", RequestLocaleResolver.resolve(request));
+            return respond(ErrorCodes.VALIDATION_FAILED, HttpStatus.BAD_REQUEST, request,
+                    List.of(new ApiError(AccountDomainError.VALIDATION_ERROR, message, field)));
+        }
         return respond(ErrorCodes.VALIDATION_FAILED, HttpStatus.BAD_REQUEST, request, "Malformed or missing request body");
+    }
+
+    private static <T extends Throwable> T findCause(Throwable ex, Class<T> type) {
+        for (Throwable cause = ex.getCause(); cause != null && cause != cause.getCause(); cause = cause.getCause()) {
+            if (type.isInstance(cause)) {
+                return type.cast(cause);
+            }
+        }
+        return null;
+    }
+
+    private static String jsonPath(List<JsonMappingException.Reference> references) {
+        StringBuilder path = new StringBuilder();
+        for (JsonMappingException.Reference reference : references) {
+            if (reference.getFieldName() != null) {
+                if (!path.isEmpty()) {
+                    path.append('.');
+                }
+                path.append(reference.getFieldName());
+            } else if (reference.getIndex() >= 0) {
+                path.append('[').append(reference.getIndex()).append(']');
+            }
+        }
+        return path.toString();
     }
 
     /**
@@ -87,15 +155,101 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<ApiResponseEnvelope<Void>> handleConstraintViolation(ConstraintViolationException ex, HttpServletRequest request) {
         List<ApiError> errors = ex.getConstraintViolations().stream()
-                .map(cv -> new ApiError("VALIDATION_FIELD_ERROR", cv.getMessage(), lastPathSegment(cv.getPropertyPath()), VALIDATION_ERROR_IMAGE_URL))
-                .collect(Collectors.toList());
+                .sorted(Comparator.comparing((ConstraintViolation<?> cv) -> jsonPath(cv.getPropertyPath()))
+                        .thenComparing(cv -> Objects.toString(cv.getMessage(), "")))
+                .map(cv -> new ApiError(AccountDomainError.VALIDATION_FIELD_ERROR, cv.getMessage(), jsonPath(cv.getPropertyPath()), VALIDATION_ERROR_IMAGE_URL))
+                .collect(Collectors.toMap(ApiError::field, Function.identity(), (first, ignored) -> first, LinkedHashMap::new))
+                .sequencedValues().stream().toList();
         return respond(ErrorCodes.VALIDATION_FAILED, HttpStatus.BAD_REQUEST, request, errors);
     }
 
-    private String lastPathSegment(jakarta.validation.Path path) {
-        String full = path.toString();
-        int lastDot = full.lastIndexOf('.');
-        return lastDot >= 0 ? full.substring(lastDot + 1) : full;
+    /**
+     * Method-validation paths look like {@code upsert.request.address.zipCode}: drop the method and
+     * parameter nodes and keep the bean-property path the client sent. A constraint on the parameter
+     * itself (no property nodes) reports the parameter name, e.g. {@code file}.
+     */
+    static String jsonPath(Path path) {
+        StringBuilder json = new StringBuilder();
+        String parameterName = null;
+        for (Path.Node node : path) {
+            ElementKind kind = node.getKind();
+            if (kind == ElementKind.METHOD || kind == ElementKind.CONSTRUCTOR || kind == ElementKind.RETURN_VALUE
+                    || kind == ElementKind.CROSS_PARAMETER) {
+                continue;
+            }
+            if (kind == ElementKind.PARAMETER) {
+                parameterName = node.getName();
+                continue;
+            }
+            if (node.getName() == null || node.getName().startsWith("<")) {
+                continue;
+            }
+            if (node.getIndex() != null) {
+                json.append('[').append(node.getIndex()).append(']');
+            }
+            if (!json.isEmpty()) {
+                json.append('.');
+            }
+            json.append(node.getName());
+        }
+        return json.isEmpty() ? Objects.toString(parameterName, path.toString()) : json.toString();
+    }
+
+    // -- Account settings module --
+
+    @ExceptionHandler(AccountDomainException.class)
+    public ResponseEntity<ApiResponseEnvelope<Void>> handleAccountDomain(AccountDomainException ex, HttpServletRequest request) {
+        AccountErrorMapper.MappedError mapped = accountErrorMapper.map(ex, RequestLocaleResolver.resolve(request));
+        ResponseEntity<ApiResponseEnvelope<Void>> response = respondWithStatus(mapped.catalogCode(), mapped.status(), request, mapped.errors());
+        if (mapped.retryAfterSeconds() == null) {
+            return response;
+        }
+        return ResponseEntity.status(response.getStatusCode())
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(mapped.retryAfterSeconds()))
+                .body(response.getBody());
+    }
+
+    /** A value object rejected input that Bean Validation should already have caught — still a client error, never a 500. */
+    @ExceptionHandler(DomainValidationException.class)
+    public ResponseEntity<ApiResponseEnvelope<Void>> handleDomainValidation(DomainValidationException ex, HttpServletRequest request) {
+        String message = messageSource.getMessage(ex.messageKey(), ex.args().toArray(), ex.messageKey(), RequestLocaleResolver.resolve(request));
+        return respond(ErrorCodes.VALIDATION_FAILED, HttpStatus.BAD_REQUEST, request,
+                List.of(new ApiError(AccountDomainError.VALIDATION_ERROR, message, null)));
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponseEnvelope<Void>> handleMaxUploadSize(MaxUploadSizeExceededException ex, HttpServletRequest request) {
+        String message = messageSource.getMessage("account.avatar.file.tooLarge", new Object[]{2}, "File too large", RequestLocaleResolver.resolve(request));
+        return respondWithStatus(ErrorCodes.VALIDATION_FAILED, HttpStatus.PAYLOAD_TOO_LARGE, request,
+                List.of(new ApiError(AccountDomainError.VALIDATION_FIELD_ERROR, message, "file")));
+    }
+
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    public ResponseEntity<ApiResponseEnvelope<Void>> handleMissingPart(MissingServletRequestPartException ex, HttpServletRequest request) {
+        String message = messageSource.getMessage("account.avatar.file.required", null, "File is required", RequestLocaleResolver.resolve(request));
+        return respond(ErrorCodes.VALIDATION_FAILED, HttpStatus.BAD_REQUEST, request,
+                List.of(new ApiError(AccountDomainError.VALIDATION_FIELD_ERROR, message, ex.getRequestPartName())));
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ApiResponseEnvelope<Void>> handleUnsupportedMediaType(HttpMediaTypeNotSupportedException ex, HttpServletRequest request) {
+        String message = messageSource.getMessage("account.validation.unsupportedMediaType", null, "Unsupported media type", RequestLocaleResolver.resolve(request));
+        return respondWithStatus(ErrorCodes.VALIDATION_FAILED, HttpStatus.UNSUPPORTED_MEDIA_TYPE, request,
+                List.of(new ApiError(AccountDomainError.VALIDATION_ERROR, message, null)));
+    }
+
+    /** Lost update between our version check and the flush — someone else committed first. */
+    @ExceptionHandler({ObjectOptimisticLockingFailureException.class, OptimisticLockException.class})
+    public ResponseEntity<ApiResponseEnvelope<Void>> handleOptimisticLock(Exception ex, HttpServletRequest request) {
+        log.info("Optimistic lock conflict on {} {}: {}", request.getMethod(), request.getRequestURI(), ex.getMessage());
+        String message = messageSource.getMessage("account.concurrency.conflict", null, "Modified concurrently", RequestLocaleResolver.resolve(request));
+        return respondWithStatus(ErrorCodes.SYSTEM_RESOURCE_CONFLICT, HttpStatus.CONFLICT, request,
+                List.of(new ApiError(AccountDomainError.SYSTEM_RESOURCE_CONFLICT, message, null)));
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiResponseEnvelope<Void>> handleAccessDenied(AccessDeniedException ex, HttpServletRequest request) {
+        return respond(ErrorCodes.UNAUTHORIZED_MODIFICATION, HttpStatus.FORBIDDEN, request, (String) null);
     }
 
     @ExceptionHandler(ResourceNotFoundException.class)
@@ -194,6 +348,19 @@ public class GlobalExceptionHandler {
         List<ApiError> enrichedErrors = catalogEntry.map(e -> enrichWithCatalogDetail(errors, e, locale)).orElse(errors);
 
         return ResponseEntity.status(status).body(ApiResponseEnvelope.error(traceId, message, enrichedErrors));
+    }
+
+    /**
+     * Like {@link #respond(String, HttpStatus, HttpServletRequest, List)} but the status is fixed by
+     * the caller: the catalog only supplies the localized title (e.g. a 413/415 reuses the
+     * "Validation Failed" title whose catalog row says 400).
+     */
+    private ResponseEntity<ApiResponseEnvelope<Void>> respondWithStatus(String catalogCode, HttpStatus status,
+                                                                          HttpServletRequest request, List<ApiError> errors) {
+        Locale locale = RequestLocaleResolver.resolve(request);
+        String traceId = MDC.get(TraceIdFilter.TRACE_ID_MDC_KEY);
+        String message = errorCatalogPort.findByCode(catalogCode).map(e -> e.title(locale)).orElse(catalogCode);
+        return ResponseEntity.status(status).body(ApiResponseEnvelope.error(traceId, message, errors));
     }
 
     /** For errors with no exception-specific detail (404, 500), fall back to the catalog's description + image. */

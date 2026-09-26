@@ -68,6 +68,8 @@ public class SecurityConfig {
         configuration.setAllowedOrigins(List.of(DEFAULT_ALLOWED_ORIGINS));
         configuration.setAllowedMethods(Arrays.asList(DEFAULT_ALLOWED_METHODS_HTTP));
         configuration.setAllowedHeaders(List.of("*"));
+        // Readable by the SPA: ETag (If-Match on account-settings PUTs), Retry-After (429s), trace id.
+        configuration.setExposedHeaders(List.of("ETag", "Retry-After", "X-Trace-Id"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
 

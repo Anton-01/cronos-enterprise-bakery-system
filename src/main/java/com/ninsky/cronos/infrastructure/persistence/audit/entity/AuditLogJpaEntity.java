@@ -2,6 +2,8 @@ package com.ninsky.cronos.infrastructure.persistence.audit.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
@@ -46,6 +48,13 @@ public class AuditLogJpaEntity {
 
     @Column(name = "user_agent", length = 500)
     private String userAgent;
+
+    @Column(name = "trace_id", length = 64)
+    private String traceId;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "changes", columnDefinition = "jsonb")
+    private String changes;
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)

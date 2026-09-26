@@ -28,6 +28,10 @@ public interface UserJpaRepository extends JpaRepository<UserJpaEntity, UUID>, J
     @Query("SELECT COUNT(u) > 0 FROM UserJpaEntity u WHERE u.username = :username AND u.id != :userId")
     boolean existsByUsernameAndIdNot(@Param("username") String username, @Param("userId") UUID userId);
 
+    /** Case-insensitive, matching the {@code lower(username)} unique index. */
+    @Query("SELECT COUNT(u) > 0 FROM UserJpaEntity u WHERE lower(u.username) = lower(:username) AND u.id <> :userId")
+    boolean existsByUsernameIgnoreCaseAndIdNot(@Param("username") String username, @Param("userId") UUID userId);
+
     @Query("SELECT COUNT(u) > 0 FROM UserJpaEntity u WHERE u.emailBlindIndex = :emailBlindIndex AND u.id != :userId")
     boolean existsByEmailBlindIndexAndIdNot(@Param("emailBlindIndex") String emailBlindIndex, @Param("userId") UUID userId);
 
