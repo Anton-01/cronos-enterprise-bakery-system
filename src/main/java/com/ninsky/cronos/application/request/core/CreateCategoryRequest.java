@@ -12,8 +12,7 @@ public record CreateCategoryRequest(
         @Size(max = 100)
         String name,
 
-        /** Optional by design — {@code CategoryServiceImplementation} treats a null/blank
-         *  description as legitimate input, not a data error. */
+        @NotBlank(message = "{validation.category.description.required}")
         @Size(max = 500)
         String description,
 

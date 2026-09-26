@@ -52,7 +52,7 @@ public class CategoryServiceImplementation implements CategoryService {
 
         Category category = Category.builder()
                 .name(name)
-                .description(request.description() == null ? null : request.description().trim())
+                .description(request.description().trim())
                 .type(request.type())
                 .scope(CategoryScope.USER)
                 .userId(currentUserId)
