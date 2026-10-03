@@ -26,6 +26,8 @@ public class CatalogAuditTrail {
     public static final String TARGET_UNIT_TYPE = "UNIT_TYPE";
     public static final String TARGET_MEASUREMENT_UNIT = "MEASUREMENT_UNIT";
     public static final String TARGET_DATA_IMPORT = "DATA_IMPORT";
+    public static final String TARGET_CATEGORY = "CATEGORY";
+    public static final String TARGET_ALLERGEN = "ALLERGEN";
 
     private static final int USER_AGENT_MAX_LENGTH = 500;
     private static final int IP_MAX_LENGTH = 45;

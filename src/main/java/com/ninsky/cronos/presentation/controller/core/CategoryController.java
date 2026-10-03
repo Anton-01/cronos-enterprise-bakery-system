@@ -9,6 +9,7 @@ import com.ninsky.cronos.application.response.imports.core.CsvImportResponse;
 import com.ninsky.cronos.application.service.CategoryService;
 import com.ninsky.cronos.domain.entity.enums.CategoryType;
 import com.ninsky.cronos.infrastructure.security.CronosUserPrincipal;
+import com.ninsky.cronos.presentation.controller.support.CatalogAccess;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -19,6 +20,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -82,11 +84,15 @@ public class CategoryController {
         return ResponseEntity.ok(ApiResponse.success(PaginatedResponse.fromPage(categories)));
     }
 
-    @Operation(summary = "Bulk-import SYSTEM categories from a CSV file", description = "CSV columns: name, description, type (PRODUCT|INGREDIENT).")
+    @PreAuthorize(CatalogAccess.CAN_MANAGE)
+    @Operation(summary = "Bulk-import SYSTEM categories from a CSV file (catalog managers only)",
+            description = "UTF-8 CSV, columns: name, description, type (PRODUCT|INGREDIENT). All-or-nothing: any invalid row "
+                    + "rejects the file with 400 and one error per problem (line + column).")
     @PostMapping(value = "/import", consumes = "multipart/form-data")
-    public ResponseEntity<ApiResponse<CsvImportResponse>> importCsv(@RequestParam("file") MultipartFile file) {
+    public ResponseEntity<ApiResponse<CsvImportResponse>> importCsv(@RequestParam("file") MultipartFile file,
+                                                                    @AuthenticationPrincipal CronosUserPrincipal principal) {
         log.info("Import categories from a CSV file {}", file.getOriginalFilename());
-        CsvImportResponse result = categoryService.importCategoriesFromCsv(file);
+        CsvImportResponse result = categoryService.importCategoriesFromCsv(file, CatalogAccess.actorOf(principal));
         return ResponseEntity.ok(ApiResponse.success("Category CSV import completed", result));
     }
 }

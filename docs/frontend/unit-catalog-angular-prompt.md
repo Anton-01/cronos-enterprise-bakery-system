@@ -282,3 +282,14 @@ darla de alta.
   inválido.
 - Textos en los archivos de i18n existentes (es/en); nada hardcodeado en templates.
 - No dupliques modelos: un `unit-catalog.models.ts` con las interfaces de arriba.
+
+## 7. Categorías y alérgenos (cambio relacionado)
+
+- `POST /category/import`, `POST /allergen`, `PUT /allergen/{id}`, `PATCH /allergen/{id}/status` y
+  `POST /allergen/import` ahora requieren `SUPER_ADMIN` o `MANAGE_CATALOGS` (403 para el resto):
+  oculta esos botones para usuarios sin permiso. Las lecturas no cambian.
+- Las importaciones CSV de categorías (`name,description,type`) y alérgenos
+  (`name,alternativeName,description`) son todo-o-nada: si algo falla responden **400** con
+  `errors[]`, un elemento por problema, `message` ya traducido con el prefijo de línea
+  ("Línea 3: …") y `field` = columna. Muéstralos en una tabla/lista en el diálogo de importación.
+  El archivo debe ser "CSV UTF-8" (máx. 2 000 filas).

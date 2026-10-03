@@ -302,6 +302,20 @@ public class GlobalExceptionHandler {
         return respond(ErrorCodes.DATA_INTEGRITY_VIOLATION, HttpStatus.CONFLICT, request, (String) null);
     }
 
+    /** Catalog CSV refused as a whole: one localized error per problem, prefixed with its CSV line. */
+    @ExceptionHandler(CsvImportRejectedException.class)
+    public ResponseEntity<ApiResponseEnvelope<Void>> handleCsvImportRejected(CsvImportRejectedException ex, HttpServletRequest request) {
+        Locale locale = RequestLocaleResolver.resolve(request);
+        List<ApiError> errors = ex.errors().stream().map(error -> {
+            String message = messageSource.getMessage(error.messageKey(), error.args().toArray(), error.messageKey(), locale);
+            if (error.line() != null) {
+                message = messageSource.getMessage("import.csv.line", new Object[]{error.line(), message}, message, locale);
+            }
+            return new ApiError(ErrorCodes.VALIDATION_FAILED, message, error.column());
+        }).toList();
+        return respond(ErrorCodes.VALIDATION_FAILED, HttpStatus.BAD_REQUEST, request, errors);
+    }
+
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiResponseEnvelope<Void>> handleBusinessException(BusinessException ex, HttpServletRequest request) {
         return respond(ErrorCodes.BUSINESS_CONFLICT, HttpStatus.CONFLICT, request, ex.getMessage());

@@ -129,3 +129,15 @@ Breaking API changes (coordinate with the Angular release): `PUT /measurement-un
   (density rules are still written with a placeholder user id 1). Per-user units/rules need a
   migration of their own.
 - `recipe_ingredients.unit_id` has no foreign key; adding one needs an orphan clean-up first.
+
+## Related: SYSTEM categories and allergens
+
+The same `CatalogAccess.CAN_MANAGE` rule now guards `POST /category/import` and every allergen write
+(`POST /allergen`, `PUT /allergen/{id}`, `PATCH /allergen/{id}/status`, `POST /allergen/import`):
+allergens have no owner (every row is shared and `create` produces system rows), so any write is
+catalog maintenance. Both CSV imports are now all-or-nothing: `CsvCatalogFile` validates the whole
+file first (required headers, strict UTF-8 with BOM support, 2 000-row limit, required/length/enum
+checks, formula-injection guard, in-file duplicates) and answers **400** with one localized error per
+problem (`"Line 3: …"`, `field` = column) instead of the former 500; nothing is written unless every
+row is valid, and each committed import is recorded as `DATA_IMPORT_COMMITTED` in `audit_log`
+(target `CATEGORY` / `ALLERGEN`).
