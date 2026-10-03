@@ -13,7 +13,6 @@ import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -34,7 +33,7 @@ import java.util.UUID;
 @Slf4j
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
-    private final UserDetailsService userDetailsService;
+    private final CustomUserDetailsService userDetailsService;
     private final TokenBlacklistService tokenBlacklistService;
     private final DpopProofValidator dpopProofValidator;
     private final DpopConfig dpopConfig;
@@ -58,12 +57,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         try {
+            final UUID userId = jwtService.extractUserId(jwt);
             final String username = jwtService.extractUsername(jwt);
 
-            if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+            if ((userId != null || username != null) && SecurityContextHolder.getContext().getAuthentication() == null) {
+                // Access tokens carry the immutable userId claim: resolve by it so a username change
+                // (PUT /users/me) keeps existing sessions alive. Tokens without it fall back to sub.
+                UserDetails userDetails = userId != null
+                        ? userDetailsService.loadUserById(userId)
+                        : userDetailsService.loadUserByUsername(username);
+                boolean tokenValid = userId != null
+                        ? jwtService.isTokenValidForUserId(jwt, userId)
+                        : jwtService.isTokenValid(jwt, userDetails.getUsername());
 
-                if (jwtService.isTokenValid(jwt, userDetails.getUsername()) && !isRevoked(jwt) && isProofOfPossessionSatisfied(jwt, dpopScheme, request)) {
+                if (tokenValid && !isRevoked(jwt) && isProofOfPossessionSatisfied(jwt, dpopScheme, request)) {
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                             userDetails,
                             null,

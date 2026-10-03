@@ -1,10 +1,16 @@
 package com.ninsky.cronos.application.service.auth;
 
+import com.ninsky.cronos.account.avatar.application.port.AvatarStorage;
+import com.ninsky.cronos.account.avatar.domain.AvatarKey;
+import com.ninsky.cronos.account.shared.application.port.AuditTrail;
+import com.ninsky.cronos.account.shared.domain.AccountDomainError.InvalidField;
+import com.ninsky.cronos.account.shared.domain.AccountDomainException;
+import com.ninsky.cronos.account.shared.domain.DomainValidationException;
+import com.ninsky.cronos.account.shared.domain.audit.AuditChange;
 import com.ninsky.cronos.application.request.core.auth.ChangePasswordRequest;
 import com.ninsky.cronos.application.request.core.auth.CreateUserRequest;
 import com.ninsky.cronos.application.request.core.auth.UpdateUserRequest;
 import com.ninsky.cronos.application.request.core.auth.VerifyTwoFactorRequest;
-import com.ninsky.cronos.application.request.user.UpdateProfileRequest;
 import com.ninsky.cronos.application.response.auth.TwoFactorSetupResponse;
 import com.ninsky.cronos.application.response.auth.UserResponse;
 import com.ninsky.cronos.domain.model.auth.Role;
@@ -39,6 +45,8 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final PasswordValidationService passwordValidationService;
     private final TwoFactorService twoFactorService;
+    private final AvatarStorage avatarStorage;
+    private final AuditTrail auditTrail;
 
     @Transactional
     @CacheEvict(value = "users", allEntries = true)
@@ -141,72 +149,30 @@ public class UserService {
 
     @Transactional
     @CacheEvict(value = "users", key = "#userId")
-    public UserResponse updateUserProfile(UUID userId, UpdateProfileRequest request) {
-        log.info("Starting profile update process for user ID: {}", userId);
-
-        User user = userRepository.findById(userId).orElseThrow(() -> {
-            log.error("Profile update failed. User not found with ID: {}", userId);
-            return new UserNotFoundException("User not found");
-        });
-
-        UserProfile profile = userProfileRepository.findByUserId(userId).orElseGet(() -> {
-            log.warn("UserProfile not found for user ID: {}. Initializing a new empty profile.", userId);
-            return UserProfile.builder().userId(user.getId()).build();
-        });
-
-        boolean isUpdated = false;
-
-        if (request.firstName() != null && !request.firstName().equals(profile.getFirstName())) {
-            profile.setFirstName(request.firstName());
-            isUpdated = true;
-        }
-        if (request.lastName() != null && !request.lastName().equals(profile.getLastName())) {
-            profile.setLastName(request.lastName());
-            isUpdated = true;
-        }
-        if (request.phoneNumber() != null && !request.phoneNumber().equals(profile.getPhoneNumber())) {
-            profile.setPhoneNumber(request.phoneNumber());
-            isUpdated = true;
-        }
-        if (request.businessName() != null && !request.businessName().equals(profile.getBusinessName())) {
-            profile.setBusinessName(request.businessName());
-            isUpdated = true;
-        }
-        if (request.businessType() != null && !request.businessType().equals(profile.getBusinessType())) {
-            profile.setBusinessType(request.businessType());
-            isUpdated = true;
-        }
-
-        if (isUpdated) {
-            userProfileRepository.save(profile);
-            log.info("Profile successfully updated and persisted for user ID: {}", userId);
-        } else {
-            log.info("No changes detected in profile update request for user ID: {}. Skipping DB write.", userId);
-        }
-
-        return mapToUserResponse(user);
-    }
-
-    @Transactional
-    @CacheEvict(value = "users", key = "#userId")
     public void changePassword(UUID userId, ChangePasswordRequest request) {
         User user = userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException("User not found"));
 
+        // Field-level 400s (not 401): a wrong *current* password on this form must not look like an
+        // expired session to the frontend's auth interceptor.
         if (!passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
-            throw new BadCredentialsException("Current password is incorrect");
+            throw new AccountDomainException(InvalidField.of("currentPassword", "account.password.currentIncorrect"));
         }
 
+        // Also enforced by @PasswordChange at the API edge; kept for non-HTTP callers.
+        if (request.newPassword().equals(request.currentPassword())) {
+            throw new AccountDomainException(InvalidField.of("newPassword", "account.password.sameAsCurrent"));
+        }
         if (!request.newPassword().equals(request.confirmPassword())) {
-            throw new ValidationException("New password and confirmation do not match");
+            throw new AccountDomainException(InvalidField.of("confirmPassword", "account.password.confirmationMismatch"));
         }
 
         List<String> passwordErrors = passwordValidationService.validatePassword(request.newPassword());
         if (!passwordErrors.isEmpty()) {
-            throw new ValidationException("Password validation failed: " + String.join(", ", passwordErrors));
+            throw new AccountDomainException(InvalidField.of("newPassword", "account.password.policy", String.join(", ", passwordErrors)));
         }
 
         if (passwordValidationService.isPasswordReused(user, request.newPassword())) {
-            throw new ValidationException("Password has been used recently. Choose a different password.");
+            throw new AccountDomainException(InvalidField.of("newPassword", "account.password.reused"));
         }
 
         String encodedPassword = passwordEncoder.encode(request.newPassword());
@@ -215,6 +181,7 @@ public class UserService {
         userRepository.save(user);
 
         passwordValidationService.savePasswordHistory(user, encodedPassword);
+        auditTrail.record(new AuditChange.PasswordChanged(userId));
         log.info("Password changed successfully for user: {}", user.getUsername());
     }
 
@@ -316,6 +283,16 @@ public class UserService {
         userProfileRepository.findByUserId(user.getId()).ifPresent(profile -> responseBuilder.firstName(profile.getFirstName()).lastName(profile.getLastName())
                 .phoneNumber(profile.getPhoneNumber()));
 
+        responseBuilder.avatarUrl(avatarUrlOf(user));
         return responseBuilder.build();
+    }
+
+    private String avatarUrlOf(User user) {
+        try {
+            AvatarKey key = AvatarKey.ofNullable(user.getAvatarKey());
+            return key == null ? null : avatarStorage.publicUrl(key).toString();
+        } catch (DomainValidationException e) {
+            return null;
+        }
     }
 }

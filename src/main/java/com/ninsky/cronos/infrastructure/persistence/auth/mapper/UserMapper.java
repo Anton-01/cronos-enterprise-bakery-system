@@ -43,6 +43,8 @@ public class UserMapper {
                 .passwordChangedAt(entity.getPasswordChangedAt())
                 .lastLoginAt(entity.getLastLoginAt())
                 .passwordNeedsChange(entity.isPasswordNeedsChange())
+                .avatarKey(entity.getAvatarKey())
+                .version(entity.getVersion())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .build();
@@ -85,6 +87,8 @@ public class UserMapper {
                 .passwordChangedAt(domain.getPasswordChangedAt())
                 .lastLoginAt(domain.getLastLoginAt())
                 .passwordNeedsChange(domain.isPasswordNeedsChange())
+                .avatarKey(domain.getAvatarKey())
+                .version(domain.getVersion())
                 .build();
     }
 }

@@ -76,6 +76,20 @@ public class JwtService {
         }
     }
 
+    /**
+     * Signature + expiry check for a token whose holder was resolved by its {@code userId} claim.
+     * Deliberately does NOT compare {@code sub} (the username at issue time): usernames are
+     * user-editable, and a rename must not log the user out.
+     */
+    public boolean isTokenValidForUserId(String token, UUID userId) {
+        try {
+            return userId != null && userId.equals(extractUserId(token)) && !isTokenExpired(token);
+        } catch (Exception e) {
+            log.error("Token validation error: {}", e.getMessage());
+            return false;
+        }
+    }
+
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
     }

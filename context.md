@@ -187,3 +187,26 @@ used to re-enter the same outer `catch (BadCredentialsException e)` block that h
 password, double-incrementing the lockout counter and overwriting the login-history failure reason.
 Both are fixed by narrowing the `catch` to wrap only the `authenticationManager.authenticate(...)`
 call, so a 2FA failure and a password failure are two independent, single-handled paths.
+
+## Account Settings
+
+### ADR: Resolve the authenticated principal by `userId`, not `sub`
+
+**Context.** Access tokens carry `sub` = username (at issue time) and a `userId` claim.
+`JwtAuthenticationFilter` used to reload the principal by `sub`, so the new self-service username
+change (`PUT /users/me`) would have invalidated every live session of that user at once.
+
+**Decision.** The filter resolves the principal through `UserAuthLookupPort#findById` (cached as
+`userAuth` / `id:{uuid}`) whenever the token has a `userId` claim, and validates signature + expiry
+without comparing `sub`. Tokens without the claim keep the old username path. After a committed
+rename, `AuthCacheEvictionListener` evicts the old-username, new-username and `id:` cache entries.
+
+**Consequence.** Sessions survive renames; `Authentication#getName()` (and therefore the JPA
+auditor) reflects the new username as soon as the cache entry is evicted. Refresh tokens were
+already keyed by user id.
+
+### ADR: Account module is feature-first and owns its error/audit vocabulary
+
+See `docs/account-settings.md` for the full list of conflicts with the pre-existing conventions and
+how each was resolved (envelope shape, `user_profiles` encryption, GCS instead of S3, reuse of the
+V4 `audit_log` ledger, per-user Bucket4j limits, scoped strict JSON).

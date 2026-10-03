@@ -52,6 +52,13 @@ public class JdbcUserAuthAdapter implements UserAuthLookupPort {
             WHERE username = ? OR email_blind_index = ?
             """;
 
+    private static final String SELECT_USER_BY_ID = """
+            SELECT id, username, email, password, enabled, account_non_locked,
+                   account_non_expired, credentials_non_expired, two_factor_enabled, locked_until
+            FROM users
+            WHERE id = ?
+            """;
+
     private static final String SELECT_ROLES_AND_PERMISSIONS = """
             SELECT r.name AS role_name, p.name AS permission_name
             FROM roles r
@@ -75,7 +82,21 @@ public class JdbcUserAuthAdapter implements UserAuthLookupPort {
     @Cacheable(value = "userAuth", key = "#loginId")
     public Optional<AuthUserProjection> findByUsernameOrEmail(String loginId) {
         String emailBlindIndex = blindIndexService.hmac(EMAIL_FIELD_CONTEXT, loginId);
-        List<Map<String, Object>> rows = jdbcTemplate.queryForList(SELECT_USER, loginId, emailBlindIndex);
+        return toProjection(jdbcTemplate.queryForList(SELECT_USER, loginId, emailBlindIndex));
+    }
+
+    /**
+     * Keyed by the immutable user id so an access token keeps authenticating after a username
+     * change (the {@code sub} claim still carries the old name). Evicted on username change by
+     * {@code AuthCacheEvictionListener}.
+     */
+    @Override
+    @Cacheable(value = "userAuth", key = "'id:' + #userId")
+    public Optional<AuthUserProjection> findById(UUID userId) {
+        return toProjection(jdbcTemplate.queryForList(SELECT_USER_BY_ID, userId));
+    }
+
+    private Optional<AuthUserProjection> toProjection(List<Map<String, Object>> rows) {
         if (rows.isEmpty()) {
             return Optional.empty();
         }

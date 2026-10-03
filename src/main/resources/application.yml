@@ -53,6 +53,11 @@ spring:
       mail.smtp.connectiontimeout: 5000
       mail.smtp.timeout: 5000
       mail.smtp.writetimeout: 5000
+  servlet:
+    multipart:
+      # Avatar uploads (PUT /users/me/avatar). Exceeding max-file-size → 413 on field "file".
+      max-file-size: 2MB
+      max-request-size: 3MB
   messages:
     basename: i18n/messages
     encoding: UTF-8
@@ -89,6 +94,20 @@ app:
       max-size: 500
   mail:
     sender-address: "no-reply@antonlogic.com"
+  # Account settings (profile / avatar / fiscal)
+  avatars:
+    storage: ${AVATAR_STORAGE:local}            # local | gcs
+    # Prefix of every avatarUrl. Default: served by PublicAvatarController under /public/avatars/**.
+    # In prod point it at the CDN in front of the bucket (e.g. https://cdn.example.com).
+    public-base-url: ${AVATAR_PUBLIC_BASE_URL:http://localhost:9191/api/v1/public}
+    local-directory: ${AVATAR_LOCAL_DIR:./uploads}
+    # gcs-bucket: defaults to gcp.bucket-name
+  account:
+    rate-limit:
+      avatar-uploads-per-window: 10
+      profile-writes-per-window: 30
+      fiscal-writes-per-window: 30
+      window: 1h
 
 server:
   port: 9191
@@ -98,6 +117,10 @@ server:
   forward-headers-strategy: native
   servlet:
     context-path: /api/v1
+  tomcat:
+    # Let Tomcat read (and discard) an oversized upload so the client receives the 413 envelope
+    # instead of a connection reset.
+    max-swallow-size: 10MB
   error:
     include-message: always
     include-binding-errors: always

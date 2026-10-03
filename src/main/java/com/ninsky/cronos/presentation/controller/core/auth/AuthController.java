@@ -1,5 +1,8 @@
 package com.ninsky.cronos.presentation.controller.core.auth;
 
+import com.ninsky.cronos.account.shared.api.AccountMessages;
+import com.ninsky.cronos.account.shared.application.port.CurrentUserProvider;
+import com.ninsky.cronos.application.request.core.auth.ChangePasswordRequest;
 import com.ninsky.cronos.application.request.core.auth.CreateUserRequest;
 import com.ninsky.cronos.application.request.core.auth.LoginRequest;
 import com.ninsky.cronos.application.request.core.auth.RefreshTokenRequest;
@@ -31,6 +34,8 @@ public class AuthController {
 
     private final AuthenticationService authenticationService;
     private final UserService userService;
+    private final CurrentUserProvider currentUserProvider;
+    private final AccountMessages messages;
 
     @PostMapping("/register")
     @RateLimitEndpoint(key = "register")
@@ -54,6 +59,16 @@ public class AuthController {
     public ResponseEntity<ApiResponse<TokenResponse>> refresh(@Valid @RequestBody RefreshTokenRequest request) {
         TokenResponse response = authenticationService.refreshToken(request);
         return ResponseEntity.ok(ApiResponse.success("Token refreshed successfully", response));
+    }
+
+    @PostMapping("/change-password")
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(summary = "Change my password",
+            description = "newPassword must differ from currentPassword and equal confirmPassword; errors are per field "
+                    + "(currentPassword / newPassword / confirmPassword). Existing sessions stay valid.")
+    public ResponseEntity<ApiResponse<Void>> changePassword(@Valid @RequestBody ChangePasswordRequest request) {
+        userService.changePassword(currentUserProvider.currentUserId(), request);
+        return ResponseEntity.ok(ApiResponse.success(messages.get("account.password.changed"), null));
     }
 
     @PostMapping("/logout")

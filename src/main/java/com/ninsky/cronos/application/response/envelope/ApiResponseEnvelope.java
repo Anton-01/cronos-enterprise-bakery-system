@@ -9,13 +9,17 @@ import java.util.List;
  * Uniform outer shape for every HTTP response (success and error alike). Success responses are
  * wrapped into this via {@link com.ninsky.cronos.infrastructure.web.EnvelopeResponseBodyAdvice};
  * error responses are built directly by the global exception handling layer.
+ * <p>
+ * {@code data} is always serialized, even when null: "no resource" is a meaningful success answer
+ * (e.g. {@code GET /users/me/fiscal} before registration, {@code DELETE /users/me/avatar}) and the
+ * frontend distinguishes {@code data: null} from a missing key.
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record ApiResponseEnvelope<T>(
         Meta meta,
         String status,
         String message,
-        T data,
+        @JsonInclude(JsonInclude.Include.ALWAYS) T data,
         List<ApiError> errors
 ) {
     public record Meta(String traceId, Instant timestamp) {

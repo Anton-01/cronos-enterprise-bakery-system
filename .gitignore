@@ -48,3 +48,6 @@ logs/
 ### scripts/ (Node verification harness, not part of the Maven build) ###
 scripts/node_modules/
 scripts/package-lock.json
+
+# Local avatar storage (app.avatars.storage=local)
+uploads/
