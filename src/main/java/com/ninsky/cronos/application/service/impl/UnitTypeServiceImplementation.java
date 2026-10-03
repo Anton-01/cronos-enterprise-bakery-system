@@ -1,130 +1,148 @@
 package com.ninsky.cronos.application.service.impl;
 
+import com.ninsky.cronos.application.event.UnitCatalogChangedEvent;
 import com.ninsky.cronos.application.request.core.UnitTypeRequest;
-import com.ninsky.cronos.application.request.status.ChangeStatusRequest;
 import com.ninsky.cronos.application.response.core.UnitTypeResponse;
+import com.ninsky.cronos.application.service.UnitCatalogResponseMapper;
 import com.ninsky.cronos.application.service.UnitTypeService;
+import com.ninsky.cronos.application.service.audit.CatalogAuditTrail;
+import com.ninsky.cronos.application.service.catalog.UnitCatalogCaches;
+import com.ninsky.cronos.application.service.catalog.UnitCatalogPolicy;
+import com.ninsky.cronos.domain.entity.enums.RecordStatus;
+import com.ninsky.cronos.domain.model.audit.Actor;
+import com.ninsky.cronos.domain.model.audit.AuditAction;
+import com.ninsky.cronos.domain.model.audit.FieldChange;
 import com.ninsky.cronos.domain.model.core.UnitType;
 import com.ninsky.cronos.domain.port.core.MeasurementUnitRepositoryPort;
+import com.ninsky.cronos.domain.port.core.UnitCatalogLockPort;
 import com.ninsky.cronos.domain.port.core.UnitTypeRepositoryPort;
-import com.ninsky.cronos.infrastructure.exception.DataIntegrityViolationException;
-import com.ninsky.cronos.infrastructure.exception.DuplicateResourceException;
-import com.ninsky.cronos.infrastructure.exception.ResourceNotFoundException;
-import com.ninsky.cronos.domain.port.auth.UserRepositoryPort;
+import com.ninsky.cronos.domain.port.core.UnitTypeSearchCriteria;
+import com.ninsky.cronos.infrastructure.exception.CatalogException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-@Service @Slf4j
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import static com.ninsky.cronos.application.service.catalog.RuleViolation.throwFirst;
+
+/**
+ * Unit types are system-wide master data: every write is serialized through the catalog lock,
+ * validated by {@link UnitCatalogPolicy} and recorded in the audit ledger.
+ */
+@Slf4j
+@Service
 @RequiredArgsConstructor
 public class UnitTypeServiceImplementation implements UnitTypeService {
 
     private final UnitTypeRepositoryPort unitTypeRepository;
     private final MeasurementUnitRepositoryPort measurementUnitRepository;
-    private final UserRepositoryPort userRepository;
+    private final UnitCatalogLockPort catalogLock;
+    private final CatalogAuditTrail auditTrail;
+    private final ApplicationEventPublisher eventPublisher;
 
-    /**
-     * Creates a new unitType
-     */
-    @Transactional
     @Override
-    @CacheEvict(value = "unitTypesSystem", allEntries = true)
-    public UnitTypeResponse createUnitType(UnitTypeRequest request) {
-        if (unitTypeRepository.existsByName(request.name())) {
-            throw new DuplicateResourceException("UnitType already exists in our records.");
-        }
+    @Transactional
+    public UnitTypeResponse createUnitType(UnitTypeRequest request, Actor actor) {
+        catalogLock.lockForWrite();
+        UnitType candidate = UnitType.builder()
+                .codeIdentity(request.codeIdentity())
+                .name(request.name())
+                .dimension(request.dimension())
+                .build();
+        throwFirst(policy().admitUnitType(candidate));
 
-        UnitType unit = UnitType.builder().codeIdentity(request.codeIdentity())
-                .name(request.name()).dimension(request.dimension()).build();
-
-        unit = unitTypeRepository.save(unit);
-
-        log.info("UnitType created: {}, codeIdentity: {} ", unit.getName(), request.codeIdentity());
-
-        return mapToResponse(unit);
+        UnitType saved = unitTypeRepository.save(candidate);
+        auditTrail.record(actor, AuditAction.UNIT_TYPE_CREATED, CatalogAuditTrail.TARGET_UNIT_TYPE, saved.getId(),
+                FieldChange.created(UnitCatalogResponseMapper.snapshot(saved)), null);
+        eventPublisher.publishEvent(new UnitCatalogChangedEvent(AuditAction.UNIT_TYPE_CREATED.name()));
+        log.info("UnitType created: id={}, code={}, dimension={}, by={}", saved.getId(), saved.getCodeIdentity(), saved.getDimension(), actor.username());
+        return UnitCatalogResponseMapper.toResponse(saved);
     }
 
-    /**
-     * Gets all unitTypes available for users
-     */
+    @Override
+    @Transactional
+    public UnitTypeResponse updateUnitType(Long id, UnitTypeRequest request, Actor actor) {
+        catalogLock.lockForWrite();
+        UnitType current = requireUnitType(id);
+        UnitType candidate = current.toBuilder()
+                .codeIdentity(request.codeIdentity())
+                .name(request.name())
+                .dimension(request.dimension())
+                .build();
+        throwFirst(policy().admitUnitType(candidate));
+
+        UnitType saved = unitTypeRepository.save(candidate);
+        auditTrail.record(actor, AuditAction.UNIT_TYPE_UPDATED, CatalogAuditTrail.TARGET_UNIT_TYPE, id,
+                FieldChange.diff(UnitCatalogResponseMapper.snapshot(current), UnitCatalogResponseMapper.snapshot(saved)), null);
+        eventPublisher.publishEvent(new UnitCatalogChangedEvent(AuditAction.UNIT_TYPE_UPDATED.name()));
+        log.info("UnitType updated: id={}, by={}", id, actor.username());
+        return UnitCatalogResponseMapper.toResponse(saved);
+    }
+
     @Override
     @Transactional(readOnly = true)
-    @Cacheable(value = "unitTypesSystem", key = "#pageable.pageNumber + '-' + #pageable.pageSize + '-' + #pageable.sort")
-    public Page<UnitTypeResponse> getUnitTypes(Pageable pageable) {
-        log.debug("Caché MISS - Fetching from DB. Page: {}, Size: {}", pageable.getPageNumber(), pageable.getPageSize());
-        return unitTypeRepository.findAll(pageable).map(this::mapToResponse);
+    public UnitTypeResponse getUnitType(Long id) {
+        return UnitCatalogResponseMapper.toResponse(requireUnitType(id));
     }
 
-    /**
-     * Update a new unitType
-     */
-    @Transactional
     @Override
-    @CacheEvict(value = "unitTypesSystem", allEntries = true)
-    public UnitTypeResponse updateUnitType(String username, Long unitTypeId, UnitTypeRequest request) {
-        userRepository.findByUsername(username).orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado o token inválido"));
+    @Transactional(readOnly = true)
+    public Page<UnitTypeResponse> searchUnitTypes(UnitTypeSearchCriteria criteria, Pageable pageable) {
+        return unitTypeRepository.search(criteria, pageable).map(UnitCatalogResponseMapper::toResponse);
+    }
 
-        UnitType unit = unitTypeRepository.findById(unitTypeId)
-                .orElseThrow(() -> new ResourceNotFoundException("UnitType not found with id: " + unitTypeId));
-
-        if (!unit.getCodeIdentity().equalsIgnoreCase(request.codeIdentity()) && unitTypeRepository.existsByCodeIdentityEqualsIgnoreCase(request.codeIdentity().trim())) {
-            throw new DuplicateResourceException(String.format("The identification code: %s, is already in our records.", request.codeIdentity()));
-        }
-
-        if (!unit.getName().equalsIgnoreCase(request.name().trim()) && unitTypeRepository.existsByName(request.name().trim())) {
-            throw new DuplicateResourceException("UnitType name already exists in our records.");
-        }
-
-        unit.setCodeIdentity(request.codeIdentity());
-        unit.setName(request.name());
-        unit.setDimension(request.dimension());
-
-        unit = unitTypeRepository.save(unit);
-        log.info("UnitType updated: ID {}, Name: {}", unit.getId(), unit.getName());
-
-        return mapToResponse(unit);
+    @Override
+    @Transactional(readOnly = true)
+    @Cacheable(cacheNames = UnitCatalogCaches.UNIT_TYPES, key = "'active'")
+    public List<UnitTypeResponse> getActiveCatalog() {
+        return unitTypeRepository.findAllActive().stream().map(UnitCatalogResponseMapper::toResponse).toList();
     }
 
     @Override
     @Transactional
-    @CacheEvict(value = "unitTypesSystem", allEntries = true)
-    public void deleteUnitType(Long id) {
-        log.debug("Starting business logic to soft-delete UnitType with ID: {}", id);
+    public void deleteUnitType(Long id, Actor actor) {
+        catalogLock.lockForWrite();
+        UnitType current = requireUnitType(id);
+        throwFirst(policy().checkUnitTypeDeletion(current));
 
-        UnitType unitType = unitTypeRepository.findById(id).orElseThrow(() -> {
-            log.warn("Deletion failed: UnitType with ID '{}' not found or already deleted.", id);
-            return new RuntimeException("The Unit Type with ID: " + id + " does not exist or has already been deleted.");
-        });
-
-        if (measurementUnitRepository.countByUnitTypeId(unitType.getId()) > 0) {
-            log.info("Deletion failed: UnitType with ID '{}' is already linked to Measurement Units.", id);
-            throw new DataIntegrityViolationException(String.format("No es posible eliminar '%s' porque está vinculado a unidades de medida.", unitType.getName()));
-        }
-        unitTypeRepository.delete(unitType);
-
-        log.info("Successfully soft-deleted UnitType with ID: {}", id);
+        unitTypeRepository.delete(current);
+        auditTrail.record(actor, AuditAction.UNIT_TYPE_DELETED, CatalogAuditTrail.TARGET_UNIT_TYPE, id,
+                FieldChange.diff(UnitCatalogResponseMapper.snapshot(current), Map.of()), null);
+        eventPublisher.publishEvent(new UnitCatalogChangedEvent(AuditAction.UNIT_TYPE_DELETED.name()));
+        log.info("UnitType soft-deleted: id={}, by={}", id, actor.username());
     }
 
+    @Override
     @Transactional
-    public void changeStatus(Long id, ChangeStatusRequest request) {
-        log.info("Updating the status of UnitType with ID {} to {}", id, request.status());
-
-        int updatedRows = unitTypeRepository.updateStatus(id, request.status());
-
-        if (updatedRows == 0) {
-            log.warn("Attempt to change the status of a non-existent UnitType: {}", id);
-            throw new ResourceNotFoundException("El Tipo de Unidad con ID " + id + " no existe.");
+    public void changeStatus(Long id, RecordStatus status, Actor actor) {
+        catalogLock.lockForWrite();
+        UnitType current = requireUnitType(id);
+        if (current.getStatus() == status) {
+            return;
         }
+        throwFirst(policy().admitUnitType(current.toBuilder().status(status).build()));
+
+        unitTypeRepository.updateStatus(id, status, actor.username());
+        auditTrail.record(actor, AuditAction.UNIT_TYPE_STATUS_CHANGED, CatalogAuditTrail.TARGET_UNIT_TYPE, id,
+                FieldChange.diff(Map.of("status", current.getStatus().name()), Map.of("status", status.name())), null);
+        eventPublisher.publishEvent(new UnitCatalogChangedEvent(AuditAction.UNIT_TYPE_STATUS_CHANGED.name()));
+        log.info("UnitType status changed: id={}, {} -> {}, by={}", id, current.getStatus(), status, actor.username());
     }
 
-    private UnitTypeResponse mapToResponse(UnitType unitType) {
-        return UnitTypeResponse.builder().id(unitType.getId()).name(unitType.getName())
-                .codeIdentity(unitType.getCodeIdentity()).dimension(unitType.getDimension())
-                .status(unitType.getStatus().name()).build();
+    private UnitType requireUnitType(Long id) {
+        return unitTypeRepository.findById(id).orElseThrow(() -> CatalogException.notFound("catalog.unitType.notFound", id));
+    }
+
+    /** Unit-type rules never depend on unit usage, so no usage lookup is needed for this snapshot. */
+    private UnitCatalogPolicy policy() {
+        return UnitCatalogPolicy.of(unitTypeRepository.findAll(), measurementUnitRepository.findAll(), Set.of());
     }
 }

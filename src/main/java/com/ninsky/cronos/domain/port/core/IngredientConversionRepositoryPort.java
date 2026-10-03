@@ -12,7 +12,8 @@ public interface IngredientConversionRepositoryPort {
 
     void delete(IngredientConversion conversion);
 
-    Optional<IngredientConversion> findByIngredientId(UUID ingredientId);
+    /** Every density rule of the ingredient (one per volume unit), oldest first. */
+    List<IngredientConversion> findAllByIngredientId(UUID ingredientId);
 
     Optional<IngredientConversion> findByIngredientIdAndVolumeUnitIdAndUserId(UUID ingredientId, Long volumeUnitId, Long userId);
 

@@ -277,6 +277,31 @@ public class GlobalExceptionHandler {
         return respond(ErrorCodes.DATA_INTEGRITY_VIOLATION, HttpStatus.CONFLICT, request, ex.getMessage());
     }
 
+    /** Unit catalog / import rule failures: message resolved from the i18n bundle in the caller's language. */
+    @ExceptionHandler(CatalogException.class)
+    public ResponseEntity<ApiResponseEnvelope<Void>> handleCatalog(CatalogException ex, HttpServletRequest request) {
+        String message = messageSource.getMessage(ex.messageKey(), ex.args(), ex.messageKey(), RequestLocaleResolver.resolve(request));
+        String errorCode = ex.reason().errorCode();
+        HttpStatus fallbackStatus = switch (ex.reason()) {
+            case NOT_FOUND -> HttpStatus.NOT_FOUND;
+            case INVALID -> HttpStatus.BAD_REQUEST;
+            case DUPLICATE, INTEGRITY, BUSINESS_RULE -> HttpStatus.CONFLICT;
+        };
+        return respond(errorCode, fallbackStatus, request, List.of(new ApiError(errorCode, message, ex.field())));
+    }
+
+    /**
+     * A database constraint (unique index, CHECK, FK) caught what an application-level check let
+     * through — typically two concurrent writers racing past the same "exists?" check. A conflict
+     * on the caller's input, not a server fault: 409 instead of the former 500. The constraint
+     * detail stays in the log; the client never sees SQL.
+     */
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<ApiResponseEnvelope<Void>> handleConstraintRace(org.springframework.dao.DataIntegrityViolationException ex, HttpServletRequest request) {
+        log.warn("Database constraint rejected {} {}: {}", request.getMethod(), request.getRequestURI(), ex.getMostSpecificCause().getMessage());
+        return respond(ErrorCodes.DATA_INTEGRITY_VIOLATION, HttpStatus.CONFLICT, request, (String) null);
+    }
+
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiResponseEnvelope<Void>> handleBusinessException(BusinessException ex, HttpServletRequest request) {
         return respond(ErrorCodes.BUSINESS_CONFLICT, HttpStatus.CONFLICT, request, ex.getMessage());

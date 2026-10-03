@@ -108,6 +108,11 @@ app:
       profile-writes-per-window: 30
       fiscal-writes-per-window: 30
       window: 1h
+  # Bulk .xlsx catalog imports (POST /unit-type/import, /measurement-unit/import). max-file-size must
+  # stay <= spring.servlet.multipart.max-file-size, which rejects bigger uploads first (413).
+  imports:
+    max-file-size: 2MB
+    max-rows: 2000
 
 server:
   port: 9191

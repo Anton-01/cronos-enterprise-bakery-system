@@ -1,176 +1,200 @@
 package com.ninsky.cronos.application.service.impl;
 
-import com.ninsky.cronos.application.request.core.CreateMeasurementUnitRequest;
-import com.ninsky.cronos.application.request.core.UpdateMeasurementUnitRequest;
-import com.ninsky.cronos.application.request.status.ChangeStatusRequest;
+import com.ninsky.cronos.application.event.UnitCatalogChangedEvent;
+import com.ninsky.cronos.application.request.core.MeasurementUnitRequest;
+import com.ninsky.cronos.application.request.core.UnitConversionRequest;
+import com.ninsky.cronos.application.response.core.MeasurementUnitOptionResponse;
 import com.ninsky.cronos.application.response.core.MeasurementUnitResponse;
+import com.ninsky.cronos.application.response.core.UnitConversionResponse;
 import com.ninsky.cronos.application.service.MeasurementUnitService;
-import com.ninsky.cronos.domain.model.auth.User;
+import com.ninsky.cronos.application.service.UnitCatalogResponseMapper;
+import com.ninsky.cronos.application.service.UnitConversionService;
+import com.ninsky.cronos.application.service.audit.CatalogAuditTrail;
+import com.ninsky.cronos.application.service.catalog.UnitCatalogCaches;
+import com.ninsky.cronos.application.service.catalog.UnitCatalogPolicy;
+import com.ninsky.cronos.domain.entity.enums.RecordStatus;
+import com.ninsky.cronos.domain.model.audit.Actor;
+import com.ninsky.cronos.domain.model.audit.AuditAction;
+import com.ninsky.cronos.domain.model.audit.FieldChange;
 import com.ninsky.cronos.domain.model.core.MeasurementUnit;
-import com.ninsky.cronos.domain.model.core.UnitType;
+import com.ninsky.cronos.domain.model.core.MeasurementUnitView;
+import com.ninsky.cronos.domain.model.core.RawMaterial;
+import com.ninsky.cronos.domain.model.core.UnitConversionResult;
 import com.ninsky.cronos.domain.port.core.MeasurementUnitRepositoryPort;
+import com.ninsky.cronos.domain.port.core.MeasurementUnitSearchCriteria;
+import com.ninsky.cronos.domain.port.core.MeasurementUnitUsagePort;
+import com.ninsky.cronos.domain.port.core.RawMaterialRepositoryPort;
+import com.ninsky.cronos.domain.port.core.UnitCatalogLockPort;
 import com.ninsky.cronos.domain.port.core.UnitTypeRepositoryPort;
-import com.ninsky.cronos.infrastructure.exception.DataIntegrityViolationException;
-import com.ninsky.cronos.infrastructure.exception.DuplicateResourceException;
-import com.ninsky.cronos.infrastructure.exception.ResourceNotFoundException;
-import com.ninsky.cronos.domain.port.auth.UserRepositoryPort;
+import com.ninsky.cronos.infrastructure.exception.CatalogException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.util.Optional;
 
-@Service
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+
+import static com.ninsky.cronos.application.service.catalog.RuleViolation.throwFirst;
+
+/**
+ * Measurement units are system-wide master data: every write is serialized through the catalog
+ * lock, validated by {@link UnitCatalogPolicy} (same rules as the .xlsx import) and recorded in the
+ * audit ledger. Units created here are system units ({@code isSystemDefault = true}).
+ */
 @Slf4j
+@Service
 @RequiredArgsConstructor
 public class MeasurementUnitServiceImplementation implements MeasurementUnitService {
 
     private final MeasurementUnitRepositoryPort measurementUnitRepository;
     private final UnitTypeRepositoryPort unitTypeRepository;
-    private final UserRepositoryPort userRepository;
+    private final MeasurementUnitUsagePort usagePort;
+    private final RawMaterialRepositoryPort rawMaterialRepository;
+    private final UnitConversionService unitConversionService;
+    private final UnitCatalogLockPort catalogLock;
+    private final CatalogAuditTrail auditTrail;
+    private final ApplicationEventPublisher eventPublisher;
 
-    /**
-     * Creates a new category
-     */
-    @Transactional
     @Override
-    public MeasurementUnitResponse createMeasurementUnit(CreateMeasurementUnitRequest request, String authentication) {
-        if (measurementUnitRepository.existsByNameIgnoreCase(request.name())) {
-            throw new DuplicateResourceException("MeasurementUnit already exists with name: " + request.name());
-        }
+    @Transactional
+    public MeasurementUnitResponse createMeasurementUnit(MeasurementUnitRequest request, Actor actor) {
+        catalogLock.lockForWrite();
+        MeasurementUnit candidate = applyRequest(MeasurementUnit.builder().isSystemDefault(true).build(), request);
+        UnitCatalogPolicy policy = policy(Set.of());
+        throwFirst(policy.admitMeasurementUnit(candidate));
+        throwFirst(policy.verifyBaseUnits());
 
-        UnitType unitType = unitTypeRepository.findById(request.unitTypeId())
-                .orElseThrow(() -> new ResourceNotFoundException("UnitType not found with id: " + request.unitTypeId()));
-
-        if (request.isBaseUnit()) {
-            Optional<MeasurementUnit> currentBase = measurementUnitRepository.findByUnitTypeIdAndIsBaseUnitTrue(unitType.getId());
-            if (currentBase.isPresent()) {
-                throw new DataIntegrityViolationException(
-                        String.format("Data integrity error: UnitType '%s' already has a base unit ('%s').",
-                                unitType.getName(), currentBase.get().getName())
-                );
-            }
-        }
-
-        MeasurementUnit unit = MeasurementUnit.builder().codeIdentity(request.codeIdentity())
-                .name(request.name()).namePlural(request.namePlural()).multiplierToBase(request.multiplierToBase())
-                .unitTypeId(unitType.getId()).isBaseUnit(request.isBaseUnit()).isSystemDefault(true)
-                .build();
-
-        unit = measurementUnitRepository.save(unit);
-
-        log.info("MeasurementUnit created: {}, code: {} ", unit.getName(), unit.getCodeIdentity());
-
-        return mapToResponse(unit, unitType);
+        MeasurementUnit saved = measurementUnitRepository.save(candidate);
+        auditTrail.record(actor, AuditAction.MEASUREMENT_UNIT_CREATED, CatalogAuditTrail.TARGET_MEASUREMENT_UNIT, saved.getId(),
+                FieldChange.created(UnitCatalogResponseMapper.snapshot(saved)), null);
+        eventPublisher.publishEvent(new UnitCatalogChangedEvent(AuditAction.MEASUREMENT_UNIT_CREATED.name()));
+        log.info("MeasurementUnit created: id={}, code={}, by={}", saved.getId(), saved.getCodeIdentity(), actor.username());
+        return toResponse(saved.getId(), false);
     }
 
+    @Override
+    @Transactional
+    public MeasurementUnitResponse updateMeasurementUnit(Long id, MeasurementUnitRequest request, Actor actor) {
+        catalogLock.lockForWrite();
+        MeasurementUnit current = requireUnit(id);
+        MeasurementUnit candidate = applyRequest(current.toBuilder().build(), request);
+        UnitCatalogPolicy policy = policy(usagePort.findReferencedUnitIds(Set.of(id)));
+        throwFirst(policy.admitMeasurementUnit(candidate));
+        throwFirst(policy.verifyBaseUnits());
 
-    /**
-     * Gets system measurement units by user - paginated
-     */
+        MeasurementUnit saved = measurementUnitRepository.save(candidate);
+        auditTrail.record(actor, AuditAction.MEASUREMENT_UNIT_UPDATED, CatalogAuditTrail.TARGET_MEASUREMENT_UNIT, id,
+                FieldChange.diff(UnitCatalogResponseMapper.snapshot(current), UnitCatalogResponseMapper.snapshot(saved)), null);
+        eventPublisher.publishEvent(new UnitCatalogChangedEvent(AuditAction.MEASUREMENT_UNIT_UPDATED.name()));
+        log.info("MeasurementUnit updated: id={}, by={}", id, actor.username());
+        return toResponse(id, policy.isReferenced(id));
+    }
+
+    @Override
     @Transactional(readOnly = true)
-    @Override
-    public Page<MeasurementUnitResponse> getUserMeasurementUnits(Pageable pageable, String username) {
-        log.info("Fetching paginated Measurement Unit by User: {}. Page: {}, Size: {}", username, pageable.getPageNumber(), pageable.getPageSize());
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
-        return measurementUnitRepository.findSystemMeasurementUnits(pageable).map(this::mapToResponse);
+    public MeasurementUnitResponse getMeasurementUnit(Long id) {
+        return toResponse(id, usagePort.isReferenced(id));
     }
 
-    /**
-     * Gets system measurement units by system - paginated
-     */
+    @Override
     @Transactional(readOnly = true)
+    public Page<MeasurementUnitResponse> searchMeasurementUnits(MeasurementUnitSearchCriteria criteria, Pageable pageable) {
+        Page<MeasurementUnitView> page = measurementUnitRepository.search(criteria, pageable);
+        Set<Long> referenced = usagePort.findReferencedUnitIds(page.getContent().stream().map(view -> view.unit().getId()).toList());
+        return page.map(view -> UnitCatalogResponseMapper.toResponse(view, referenced.contains(view.unit().getId())));
+    }
+
     @Override
-    public Page<MeasurementUnitResponse> getSystemMeasurementUnits(Pageable pageable, String username) {
-        log.info("Fetching paginated Measurement Unit by System. Page: {}, Size: {}", pageable.getPageNumber(), pageable.getPageSize());
-        userRepository.findByUsername(username).orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
-        return measurementUnitRepository.findSystemMeasurementUnits(pageable).map(this::mapToResponse);
+    @Transactional(readOnly = true)
+    @Cacheable(cacheNames = UnitCatalogCaches.MEASUREMENT_UNITS, key = "'selectable'")
+    public List<MeasurementUnitOptionResponse> getSelectableCatalog() {
+        return measurementUnitRepository.findSelectableViews().stream().map(UnitCatalogResponseMapper::toOption).toList();
     }
 
-    /**
-     * Update a MeasurementUnit
-     */
-    @Transactional
     @Override
-    public MeasurementUnitResponse updateMeasurementUnit(UpdateMeasurementUnitRequest request, String username) {
-
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
-
-        MeasurementUnit existingUnit = measurementUnitRepository.findById(request.id())
-                .orElseThrow(() -> new ResourceNotFoundException("MeasurementUnit not found with id: " + request.id()));
-
-        if (!existingUnit.getName().equalsIgnoreCase(request.name())
-                && measurementUnitRepository.existsByNameIgnoreCase(request.name())) {
-            throw new DuplicateResourceException("Another MeasurementUnit already exists with name: " + request.name());
-        }
-
-        UnitType unitType = unitTypeRepository.findById(request.unitTypeId())
-                .orElseThrow(() -> new ResourceNotFoundException("UnitType not found with id: " + request.unitTypeId()));
-
-        if (request.isBaseUnit()) {
-            // Si la estamos marcando como base, verificamos que no exista OTRA unidad base en la misma categoría
-            Optional<MeasurementUnit> currentBase = measurementUnitRepository.findByUnitTypeIdAndIsBaseUnitTrue(unitType.getId());
-            if (currentBase.isPresent() && !currentBase.get().getId().equals(request.id())) {
-                throw new DataIntegrityViolationException(
-                        String.format("Cannot set as base. UnitType '%s' already has '%s' as its base unit.",
-                                unitType.getName(), currentBase.get().getName())
-                );
-            }
-        } else {
-            // Si la estamos marcando como NO base, y actualmente SÍ lo es, debemos bloquearlo.
-            // Regla: No puedes dejar una categoría sin base. Debes asignar la base a otra unidad primero.
-            if (existingUnit.isBaseUnit()) {
-                throw new DataIntegrityViolationException(
-                        "Cannot remove the base unit flag. Please assign another measurement unit as the base for this category first to ensure data integrity."
-                );
-            }
-        }
-
-        existingUnit.setCodeIdentity(request.codeIdentity());
-        existingUnit.setName(request.name());
-        existingUnit.setNamePlural(request.namePlural());
-        existingUnit.setMultiplierToBase(request.multiplierToBase());
-        existingUnit.setUnitTypeId(unitType.getId());
-        existingUnit.setBaseUnit(request.isBaseUnit());
-        existingUnit.setStatus(request.status());
-
-        measurementUnitRepository.save(existingUnit);
-
-        log.info("MeasurementUnit updated: {}, code: {}", existingUnit.getName(), existingUnit.getCodeIdentity());
-
-        return mapToResponse(existingUnit, unitType);
-    }
-
     @Transactional
-    public void changeStatus(Long id, ChangeStatusRequest request) {
-        log.info("Updating the status of MeasurementUnit with ID {} to {}", id, request.status());
+    public void deleteMeasurementUnit(Long id, Actor actor) {
+        catalogLock.lockForWrite();
+        MeasurementUnit current = requireUnit(id);
+        throwFirst(policy(usagePort.findReferencedUnitIds(Set.of(id))).checkMeasurementUnitDeletion(current));
 
-        int updatedRows = measurementUnitRepository.updateStatus(id, request.status());
+        measurementUnitRepository.delete(current);
+        auditTrail.record(actor, AuditAction.MEASUREMENT_UNIT_DELETED, CatalogAuditTrail.TARGET_MEASUREMENT_UNIT, id,
+                FieldChange.diff(UnitCatalogResponseMapper.snapshot(current), Map.of()), null);
+        eventPublisher.publishEvent(new UnitCatalogChangedEvent(AuditAction.MEASUREMENT_UNIT_DELETED.name()));
+        log.info("MeasurementUnit soft-deleted: id={}, by={}", id, actor.username());
+    }
 
-        if (updatedRows == 0) {
-            log.warn("Attempt to change the status of a non-existent MeasurementUnit: {}", id);
-            throw new ResourceNotFoundException("La Unidad de Medida con ID " + id + " no existe.");
+    @Override
+    @Transactional
+    public void changeStatus(Long id, RecordStatus status, Actor actor) {
+        catalogLock.lockForWrite();
+        MeasurementUnit current = requireUnit(id);
+        if (current.getStatus() == status) {
+            return;
         }
+        throwFirst(policy(Set.of()).admitMeasurementUnit(current.toBuilder().status(status).build()));
+
+        measurementUnitRepository.updateStatus(id, status, actor.username());
+        auditTrail.record(actor, AuditAction.MEASUREMENT_UNIT_STATUS_CHANGED, CatalogAuditTrail.TARGET_MEASUREMENT_UNIT, id,
+                FieldChange.diff(Map.of("status", current.getStatus().name()), Map.of("status", status.name())), null);
+        eventPublisher.publishEvent(new UnitCatalogChangedEvent(AuditAction.MEASUREMENT_UNIT_STATUS_CHANGED.name()));
+        log.info("MeasurementUnit status changed: id={}, {} -> {}, by={}", id, current.getStatus(), status, actor.username());
     }
 
-    private MeasurementUnitResponse mapToResponse(MeasurementUnit unit, UnitType unitType) {
-        return MeasurementUnitResponse.builder()
-                .id(unit.getId()).codeIdentity(unit.getCodeIdentity())
-                .name(unit.getName()).namePlural(unit.getNamePlural())
-                .unitType(unitType.getName())
-                .multiplierToBase(unit.getMultiplierToBase())
-                .isBaseUnit(unit.isBaseUnit()).isSystemDefault(unit.isSystemDefault())
-                .status(unit.getStatus().name())
-                .build();
+    @Override
+    @Transactional(readOnly = true)
+    public UnitConversionResponse convert(UnitConversionRequest request, Actor actor) {
+        MeasurementUnit from = requireUnit(request.fromUnitId());
+        MeasurementUnit to = requireUnit(request.toUnitId());
+        UUID ingredientId = request.rawMaterialId() == null ? null : requireOwnedRawMaterial(request.rawMaterialId(), actor).getId();
+
+        UnitConversionResult result = unitConversionService.convertWithTrace(request.quantity(), from, to, ingredientId);
+        return new UnitConversionResponse(
+                UnitCatalogResponseMapper.plain(request.quantity()),
+                from.getId(), from.getCodeIdentity(),
+                to.getId(), to.getCodeIdentity(),
+                UnitCatalogResponseMapper.plain(result.quantity()),
+                result.path().name(),
+                result.densityRuleId(),
+                request.rawMaterialId());
     }
 
-    private MeasurementUnitResponse mapToResponse(MeasurementUnit unit) {
-        UnitType unitType = unitTypeRepository.findById(unit.getUnitTypeId())
-                .orElseThrow(() -> new ResourceNotFoundException("UnitType not found with id: " + unit.getUnitTypeId()));
-        return mapToResponse(unit, unitType);
+    private static MeasurementUnit applyRequest(MeasurementUnit target, MeasurementUnitRequest request) {
+        target.setCodeIdentity(request.codeIdentity());
+        target.setName(request.name());
+        target.setNamePlural(request.namePlural());
+        target.setUnitTypeId(request.unitTypeId());
+        target.setMultiplierToBase(request.multiplierToBase());
+        target.setBaseUnit(request.isBaseUnit());
+        return target;
+    }
+
+    private MeasurementUnit requireUnit(Long id) {
+        return measurementUnitRepository.findById(id).orElseThrow(() -> CatalogException.notFound("catalog.unit.notFound", id));
+    }
+
+    /** Someone else's raw material answers exactly like a missing one: no existence oracle across tenants. */
+    private RawMaterial requireOwnedRawMaterial(UUID rawMaterialId, Actor actor) {
+        return rawMaterialRepository.findById(rawMaterialId)
+                .filter(material -> actor.userId().equals(material.getUserId()))
+                .orElseThrow(() -> CatalogException.notFound("catalog.conversion.rawMaterialNotFound", rawMaterialId));
+    }
+
+    private MeasurementUnitResponse toResponse(Long id, boolean inUse) {
+        MeasurementUnitView view = measurementUnitRepository.findViewById(id)
+                .orElseThrow(() -> CatalogException.notFound("catalog.unit.notFound", id));
+        return UnitCatalogResponseMapper.toResponse(view, inUse);
+    }
+
+    private UnitCatalogPolicy policy(Set<Long> referencedUnitIds) {
+        return UnitCatalogPolicy.of(unitTypeRepository.findAll(), measurementUnitRepository.findAll(), referencedUnitIds);
     }
 }
