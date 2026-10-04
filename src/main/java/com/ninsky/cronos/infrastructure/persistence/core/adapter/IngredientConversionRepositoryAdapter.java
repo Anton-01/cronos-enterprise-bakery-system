@@ -43,8 +43,8 @@ public class IngredientConversionRepositoryAdapter implements IngredientConversi
     }
 
     @Override
-    public Optional<IngredientConversion> findByIngredientId(UUID ingredientId) {
-        return jpaRepository.findByIngredientId(ingredientId).map(mapper::toDomain);
+    public List<IngredientConversion> findAllByIngredientId(UUID ingredientId) {
+        return jpaRepository.findAllByIngredientIdOrderByIdAsc(ingredientId).stream().map(mapper::toDomain).toList();
     }
 
     @Override

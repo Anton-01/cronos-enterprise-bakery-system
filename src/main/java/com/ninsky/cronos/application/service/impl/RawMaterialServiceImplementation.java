@@ -12,11 +12,13 @@ import com.ninsky.cronos.domain.model.auth.User;
 import com.ninsky.cronos.domain.model.core.IngredientConversion;
 import com.ninsky.cronos.domain.model.core.MeasurementUnit;
 import com.ninsky.cronos.domain.model.core.RawMaterial;
+import com.ninsky.cronos.domain.model.core.ReservedUnitCodes;
 import com.ninsky.cronos.domain.port.core.IngredientConversionRepositoryPort;
 import com.ninsky.cronos.domain.port.core.MeasurementUnitRepositoryPort;
 import com.ninsky.cronos.domain.port.core.RawMaterialRepositoryPort;
 import com.ninsky.cronos.domain.port.core.RecipeRecalculationPort;
 import com.ninsky.cronos.domain.service.core.RawMaterialCostingService;
+import com.ninsky.cronos.infrastructure.exception.CatalogException;
 import com.ninsky.cronos.infrastructure.exception.ResourceNotFoundException;
 import com.ninsky.cronos.infrastructure.exception.ValidationException;
 import com.ninsky.cronos.domain.port.auth.UserRepositoryPort;
@@ -82,6 +84,7 @@ public class RawMaterialServiceImplementation implements RawMaterialService {
         // 2. Obtener catálogos
         MeasurementUnit purchaseUnit = measurementUnitRepository.findById(request.purchaseUnitId())
                 .orElseThrow(() -> new ResourceNotFoundException("Unidad de compra no encontrada."));
+        requireSelectable(purchaseUnit);
 
         // 3. El Motor de Costos: Calcular el costo real por unidad base (Ej. Costo por 1 Gramo descontando merma)
         BigDecimal baseUnitCost = costingService.calculateBaseUnitCost(
@@ -130,6 +133,9 @@ public class RawMaterialServiceImplementation implements RawMaterialService {
 
         MeasurementUnit purchaseUnit = measurementUnitRepository.findById(request.purchaseUnitId())
                 .orElseThrow(() -> new ResourceNotFoundException("Unidad de compra no encontrada."));
+        if (!purchaseUnit.getId().equals(existingMaterial.getPurchaseUnitId())) {
+            requireSelectable(purchaseUnit);
+        }
 
         boolean financialImpactDetected = false;
 
@@ -200,23 +206,23 @@ public class RawMaterialServiceImplementation implements RawMaterialService {
 
     private void saveDensityConversions(UUID rawMaterialId, DensityConversionRequest densityReq) {
         // Idealmente búscala por su código 'g' para no hardcodear IDs.
-        MeasurementUnit gramsUnit = measurementUnitRepository.findByCodeIdentity("g").orElseThrow(() -> new IllegalStateException("Unidad 'g' (Gramos) no encontrada en el sistema."));
+        MeasurementUnit gramsUnit = measurementUnitRepository.findByCodeIdentity(ReservedUnitCodes.GRAM).orElseThrow(() -> new IllegalStateException("Unidad 'g' (Gramos) no encontrada en el sistema."));
 
         // 2. Guardar conversión para Tazas (cup)
         if (densityReq.gramsPerCup() != null) {
-            MeasurementUnit cupUnit = measurementUnitRepository.findByCodeIdentity("cup").orElseThrow(() -> new IllegalStateException("Unidad 'cup' (Tazas) no encontrada."));
+            MeasurementUnit cupUnit = measurementUnitRepository.findByCodeIdentity(ReservedUnitCodes.CUP).orElseThrow(() -> new IllegalStateException("Unidad 'cup' (Tazas) no encontrada."));
             createAndSaveConversion(rawMaterialId, cupUnit, gramsUnit, densityReq.gramsPerCup(), DENSITY_CONVERSION_USER_ID_PLACEHOLDER);
         }
 
         // 3. Guardar conversión para Cucharadas (tbsp)
         if (densityReq.gramsPerTablespoon() != null) {
-            MeasurementUnit tbspUnit = measurementUnitRepository.findByCodeIdentity("tbsp").orElseThrow(() -> new IllegalStateException("Unidad 'tbsp' (Cucharadas) no encontrada."));
+            MeasurementUnit tbspUnit = measurementUnitRepository.findByCodeIdentity(ReservedUnitCodes.TABLESPOON).orElseThrow(() -> new IllegalStateException("Unidad 'tbsp' (Cucharadas) no encontrada."));
             createAndSaveConversion(rawMaterialId, tbspUnit, gramsUnit, densityReq.gramsPerTablespoon(), DENSITY_CONVERSION_USER_ID_PLACEHOLDER);
         }
 
         // 4. Guardar conversión para Cucharaditas (tsp)
         if (densityReq.gramsPerTeaspoon() != null) {
-            MeasurementUnit tspUnit = measurementUnitRepository.findByCodeIdentity("tsp").orElseThrow(() -> new IllegalStateException("Unidad 'tsp' (Cucharaditas) no encontrada."));
+            MeasurementUnit tspUnit = measurementUnitRepository.findByCodeIdentity(ReservedUnitCodes.TEASPOON).orElseThrow(() -> new IllegalStateException("Unidad 'tsp' (Cucharaditas) no encontrada."));
             createAndSaveConversion(rawMaterialId, tspUnit, gramsUnit, densityReq.gramsPerTeaspoon(), DENSITY_CONVERSION_USER_ID_PLACEHOLDER);
         }
     }
@@ -237,9 +243,9 @@ public class RawMaterialServiceImplementation implements RawMaterialService {
 
     // EL CONTROLADOR MAESTRO DE LAS ACTUALIZACIONES DE DENSIDAD
     private void updateDensityConversions(UUID rawMaterialId, DensityConversionRequest densityReq, Long userId) {
-        upsertOrDeleteConversion(rawMaterialId, "cup", densityReq.gramsPerCup(), userId);
-        upsertOrDeleteConversion(rawMaterialId, "tbsp", densityReq.gramsPerTablespoon(), userId);
-        upsertOrDeleteConversion(rawMaterialId, "tsp", densityReq.gramsPerTeaspoon(), userId);
+        upsertOrDeleteConversion(rawMaterialId, ReservedUnitCodes.CUP, densityReq.gramsPerCup(), userId);
+        upsertOrDeleteConversion(rawMaterialId, ReservedUnitCodes.TABLESPOON, densityReq.gramsPerTablespoon(), userId);
+        upsertOrDeleteConversion(rawMaterialId, ReservedUnitCodes.TEASPOON, densityReq.gramsPerTeaspoon(), userId);
     }
 
     // LÓGICA DINÁMICA: Inserta, Actualiza o Elimina según lo que mande Angular
@@ -262,10 +268,17 @@ public class RawMaterialServiceImplementation implements RawMaterialService {
                 ingredientConversionRepository.save(existing);
             } else {
                 // Escenario 3: No existía. Lo creamos (Insert).
-                MeasurementUnit gramsUnit = measurementUnitRepository.findByCodeIdentity("g")
+                MeasurementUnit gramsUnit = measurementUnitRepository.findByCodeIdentity(ReservedUnitCodes.GRAM)
                         .orElseThrow(() -> new IllegalStateException("Unidad 'g' no encontrada."));
                 createAndSaveConversion(materialId, volumeUnit, gramsUnit, newFactor, userId);
             }
+        }
+    }
+
+    /** A retired (inactive) unit keeps converting for existing data but can't be newly chosen. */
+    private static void requireSelectable(MeasurementUnit unit) {
+        if (!unit.isActive()) {
+            throw CatalogException.businessRule("catalog.unit.inactive", unit.getName());
         }
     }
 
@@ -307,9 +320,9 @@ public class RawMaterialServiceImplementation implements RawMaterialService {
                     .map(MeasurementUnit::getCodeIdentity)
                     .orElse(null);
             switch (unitCode == null ? "" : unitCode) {
-                case "cup" -> cup = conv.getFactor();
-                case "tbsp" -> tbsp = conv.getFactor();
-                case "tsp" -> tsp = conv.getFactor();
+                case ReservedUnitCodes.CUP -> cup = conv.getFactor();
+                case ReservedUnitCodes.TABLESPOON -> tbsp = conv.getFactor();
+                case ReservedUnitCodes.TEASPOON -> tsp = conv.getFactor();
                 default -> { /* not a known display unit, ignore */ }
             }
         }

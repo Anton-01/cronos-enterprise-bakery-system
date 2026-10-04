@@ -10,7 +10,7 @@ import java.util.UUID;
 
 @Repository
 public interface IngredientConversionJpaRepository extends JpaRepository<IngredientConversionJpaEntity, Long> {
-    Optional<IngredientConversionJpaEntity> findByIngredientId(UUID ingredientId);
+    List<IngredientConversionJpaEntity> findAllByIngredientIdOrderByIdAsc(UUID ingredientId);
     Optional<IngredientConversionJpaEntity> findByIngredientIdAndVolumeUnitIdAndUserId(UUID ingredientId, Long volumeUnitId, Long userId);
     List<IngredientConversionJpaEntity> findAllByIngredientIdAndUserId(UUID materialId, Long userId);
 }

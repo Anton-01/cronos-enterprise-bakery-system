@@ -1,10 +1,15 @@
 package com.ninsky.cronos.application.service.impl;
 
+import com.ninsky.cronos.application.imports.ImportProperties;
+import com.ninsky.cronos.application.imports.csv.CsvCatalogFile;
 import com.ninsky.cronos.application.request.core.AllergenRequest;
 import com.ninsky.cronos.application.request.status.ChangeStatusRequest;
 import com.ninsky.cronos.application.response.core.AllergenResponse;
 import com.ninsky.cronos.application.response.imports.core.CsvImportResponse;
 import com.ninsky.cronos.application.service.AllergenService;
+import com.ninsky.cronos.application.service.audit.CatalogAuditTrail;
+import com.ninsky.cronos.domain.model.audit.Actor;
+import com.ninsky.cronos.domain.model.audit.AuditAction;
 import com.ninsky.cronos.domain.model.core.Allergen;
 import com.ninsky.cronos.domain.port.core.AllergenRepositoryPort;
 import com.ninsky.cronos.infrastructure.exception.DuplicateResourceException;
@@ -13,28 +18,35 @@ import com.ninsky.cronos.infrastructure.exception.SystemResourceException;
 import com.ninsky.cronos.domain.port.auth.UserRepositoryPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.csv.CSVFormat;
-import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 @Service @Slf4j
 @RequiredArgsConstructor
 public class AllergenServiceImplementation implements AllergenService {
 
+    private static final String COLUMN_NAME = "name";
+    private static final String COLUMN_ALTERNATIVE_NAME = "alternativeName";
+    private static final String COLUMN_DESCRIPTION = "description";
+    private static final int NAME_MAX_LENGTH = 100;
+    private static final int DESCRIPTION_MAX_LENGTH = 500;
+
     private final AllergenRepositoryPort allergenRepository;
     private final UserRepositoryPort userRepository;
+    private final CatalogAuditTrail auditTrail;
+    private final ImportProperties importProperties;
 
     /**
      * Creates a new Allergen
@@ -108,49 +120,50 @@ public class AllergenServiceImplementation implements AllergenService {
     }
 
     /**
-     * Imports System Allergens
+     * Imports system allergens (upsert by name). All-or-nothing: every row is validated first and
+     * nothing is written if any row is invalid.
      */
     @Transactional
     @Override
-    public CsvImportResponse importAllergensFromCsv(MultipartFile file) {
+    public CsvImportResponse importAllergensFromCsv(MultipartFile file, Actor actor) {
+        CsvCatalogFile csv = CsvCatalogFile.parse(file, Set.of(COLUMN_NAME, COLUMN_ALTERNATIVE_NAME, COLUMN_DESCRIPTION),
+                importProperties.maxRows());
+        Map<String, Integer> firstLineOfKey = new HashMap<>();
+        List<Allergen> rows = new ArrayList<>();
+
+        for (CSVRecord record : csv.records()) {
+            Optional<String> name = csv.requiredText(record, COLUMN_NAME, NAME_MAX_LENGTH);
+            Optional<String> alternativeName = csv.requiredText(record, COLUMN_ALTERNATIVE_NAME, NAME_MAX_LENGTH);
+            Optional<String> description = csv.optionalText(record, COLUMN_DESCRIPTION, DESCRIPTION_MAX_LENGTH);
+            if (csv.hasErrors(record) || csv.isDuplicate(record, COLUMN_NAME, name.get(), name.get().toLowerCase(Locale.ROOT), firstLineOfKey)) {
+                continue;
+            }
+            rows.add(Allergen.builder().name(name.get()).alternativeName(alternativeName.get())
+                    .description(description.orElse(null)).isSystemDefault(true).build());
+        }
+        csv.rejectIfInvalid();
+
         List<String> created = new ArrayList<>();
         List<String> updated = new ArrayList<>();
-        int total = 0;
-
-        CSVFormat csvFormat = CSVFormat.Builder.create().setHeader().setSkipHeaderRecord(true).setIgnoreSurroundingSpaces(true).get();
-
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8)); CSVParser csvParser = csvFormat.parse(reader)) {
-
-            for (CSVRecord record : csvParser) {
-                String name = record.get("name").trim();
-                String alternativeName = record.get("alternativeName").trim();
-                String description = record.get("description").trim();
-
-                Optional<Allergen> existingAllergen = allergenRepository.findByName(name);
-
-                if (existingAllergen.isPresent()) {
-                    Allergen allergen = existingAllergen.get();
-                    allergen.setAlternativeName(alternativeName);
-                    allergen.setDescription(description);
-                    allergenRepository.save(allergen);
-                    updated.add(name);
-                } else {
-                    Allergen allergen = Allergen.builder().name(name).alternativeName(alternativeName).description(description)
-                            .isSystemDefault(true).build();
-
-                    allergenRepository.save(allergen);
-                    created.add(name);
-                }
-                total++;
+        for (Allergen row : rows) {
+            Optional<Allergen> existing = allergenRepository.findByName(row.getName());
+            if (existing.isPresent()) {
+                Allergen allergen = existing.get();
+                allergen.setAlternativeName(row.getAlternativeName());
+                allergen.setDescription(row.getDescription());
+                allergenRepository.save(allergen);
+                updated.add(row.getName());
+            } else {
+                allergenRepository.save(row);
+                created.add(row.getName());
             }
-            log.info("CSV Processed: {} categories ({} created, {} updated)", total, created.size(), updated.size());
-
-        } catch (Exception e) {
-            log.error("Error processing Allergen CSV file", e);
-            throw new RuntimeException("Error processing CSV file: " + e.getMessage());
         }
+        String summary = "System allergens CSV '%s': %d rows, %d created, %d updated".formatted(
+                file.getOriginalFilename(), rows.size(), created.size(), updated.size());
+        auditTrail.record(actor, AuditAction.DATA_IMPORT_COMMITTED, CatalogAuditTrail.TARGET_ALLERGEN, null, null, summary);
+        log.info("{} (by {})", summary, actor.username());
 
-        return CsvImportResponse.builder().createdCategories(created).updatedCategories(updated).totalProcessed(total).build();
+        return CsvImportResponse.builder().createdCategories(created).updatedCategories(updated).totalProcessed(rows.size()).build();
     }
 
     @Transactional

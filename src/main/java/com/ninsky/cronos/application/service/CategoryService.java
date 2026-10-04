@@ -5,6 +5,7 @@ import com.ninsky.cronos.application.request.core.UpdateCategoryRequest;
 import com.ninsky.cronos.application.response.core.CategoryResponse;
 import com.ninsky.cronos.application.response.imports.core.CsvImportResponse;
 import com.ninsky.cronos.domain.entity.enums.CategoryType;
+import com.ninsky.cronos.domain.model.audit.Actor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.web.multipart.MultipartFile;
@@ -28,6 +29,10 @@ public interface CategoryService {
     /** Same ownership checks as {@link #updateCategory}; soft-deletes (status -> TRASHED) on success. */
     void trashCategory(Long id, UUID currentUserId);
 
-    /** Bulk-creates/updates SYSTEM categories only — see {@code CategoryServiceImplementation} for why. */
-    CsvImportResponse importCategoriesFromCsv(MultipartFile file);
+    /**
+     * Bulk-creates/updates SYSTEM categories only — see {@code CategoryServiceImplementation} for why.
+     * All-or-nothing; throws {@link com.ninsky.cronos.infrastructure.exception.CsvImportRejectedException}
+     * listing every invalid row.
+     */
+    CsvImportResponse importCategoriesFromCsv(MultipartFile file, Actor actor);
 }

@@ -14,6 +14,7 @@ import com.ninsky.cronos.domain.port.recipe.RecipeRepositoryPort;
 import com.ninsky.cronos.domain.port.recipe.UserFixedCostRepositoryPort;
 import com.ninsky.cronos.domain.service.core.RawMaterialCostingService;
 import com.ninsky.cronos.infrastructure.exception.BusinessException;
+import com.ninsky.cronos.infrastructure.exception.CatalogException;
 import com.ninsky.cronos.infrastructure.exception.ResourceNotFoundException;
 import com.ninsky.cronos.domain.port.auth.UserRepositoryPort;
 import lombok.RequiredArgsConstructor;
@@ -48,6 +49,10 @@ public class RecipeDetailService {
 
         RawMaterial material = rawMaterialRepository.findById(request.rawMaterialId()).orElseThrow();
         MeasurementUnit recipeUnit = unitRepository.findById(request.unitId()).orElseThrow(() -> new ResourceNotFoundException("Unidad de medida no encontrada"));
+        if (!recipeUnit.isActive()) {
+            // A retired unit still converts for existing lines (syncRecipeCosts) but can't be newly chosen.
+            throw CatalogException.businessRule("catalog.unit.inactive", recipeUnit.getName());
+        }
         MeasurementUnit purchaseUnit = unitRepository.findById(material.getPurchaseUnitId()).orElseThrow(() -> new ResourceNotFoundException("Unidad de compra no encontrada"));
 
         // UNIT CONVERSION CALCULATOR

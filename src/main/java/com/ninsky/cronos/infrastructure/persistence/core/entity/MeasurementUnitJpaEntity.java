@@ -4,6 +4,9 @@ import com.ninsky.cronos.domain.entity.base.AuditableEntity;
 import com.ninsky.cronos.domain.entity.enums.RecordStatus;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.SQLRestriction;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -11,6 +14,8 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 @Entity @Getter @Setter
+@SQLDelete(sql = "UPDATE measurement_units SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?")
+@SQLRestriction("deleted_at IS NULL")
 @Table(name = "measurement_units")
 public class MeasurementUnitJpaEntity extends AuditableEntity {
 
@@ -18,7 +23,7 @@ public class MeasurementUnitJpaEntity extends AuditableEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 20)
+    @Column(nullable = false, length = 20)
     private String codeIdentity;
 
     @Column(nullable = false, length = 100)
@@ -35,9 +40,10 @@ public class MeasurementUnitJpaEntity extends AuditableEntity {
     private BigDecimal multiplierToBase;
 
     @Column(name = "is_base_unit", nullable = false)
-    private boolean isBaseUnit = false;
+    private boolean isBaseUnit;
 
     @Column(name = "is_system_default", nullable = false)
+    @Builder.Default
     private boolean isSystemDefault = true;
 
     @Column(name = "user_id")

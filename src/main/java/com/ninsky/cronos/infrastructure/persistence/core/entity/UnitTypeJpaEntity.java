@@ -2,6 +2,7 @@ package com.ninsky.cronos.infrastructure.persistence.core.entity;
 
 import com.ninsky.cronos.domain.entity.base.AuditableEntity;
 import com.ninsky.cronos.domain.entity.enums.RecordStatus;
+import com.ninsky.cronos.domain.entity.enums.UnitDimension;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.SQLDelete;
@@ -21,14 +22,15 @@ public class UnitTypeJpaEntity extends AuditableEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 20)
+    @Column(nullable = false, length = 20)
     private String codeIdentity;
 
     @Column(nullable = false, length = 100)
     private String name;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
-    private String dimension; // MASS, VOLUME, COUNT, LENGTH
+    private UnitDimension dimension;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

@@ -210,3 +210,23 @@ already keyed by user id.
 See `docs/account-settings.md` for the full list of conflicts with the pre-existing conventions and
 how each was resolved (envelope shape, `user_profiles` encryption, GCS instead of S3, reuse of the
 V4 `audit_log` ledger, per-user Bucket4j limits, scoped strict JSON).
+
+## Unit Catalog
+
+### ADR: One rule set for every catalog write path, enforced again by the database
+
+**Context.** Unit types and measurement units are system-wide master data: a factor change restates
+every cost computed with it. Writes were open to any authenticated user, rules were partly
+application-only (base-unit uniqueness, name uniqueness), conversions routed on the free-text strings
+`MASA`/`VOLUMEN`, and a bulk `.xlsx` load was required.
+
+**Decision.** All cross-record rules live in `UnitCatalogPolicy` (in-memory snapshot of the tiny
+catalog), called by both the REST services and the import handlers; writes are serialized with a
+PostgreSQL advisory transaction lock and restricted to `SUPER_ADMIN`/`MANAGE_CATALOGS`; V8 adds the
+same invariants as constraints (deferrable where a multi-row import may cross them mid-flight);
+`UnitDimension` is an enum; units referenced by business data have frozen conversion semantics.
+Imports are all-or-nothing with a mandatory-by-default dry run, and every attempt lands in the
+append-only `data_import_batches` ledger (SHA-256, actor, traceId, full report) besides `audit_log`.
+
+**Consequence.** See `docs/unit-catalog.md` — includes the breaking API changes for the Angular client
+and the V8 deployment notes (it aborts with an explicit list if existing rows violate a new constraint).

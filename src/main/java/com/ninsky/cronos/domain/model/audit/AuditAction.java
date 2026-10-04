@@ -18,5 +18,18 @@ public enum AuditAction {
     AVATAR_REMOVED,
     FISCAL_DATA_CREATED,
     FISCAL_DATA_UPDATED,
-    PASSWORD_CHANGED
+    PASSWORD_CHANGED,
+    // Unit catalog (system-wide master data; every change restates conversions for all users)
+    UNIT_TYPE_CREATED,
+    UNIT_TYPE_UPDATED,
+    UNIT_TYPE_STATUS_CHANGED,
+    UNIT_TYPE_DELETED,
+    MEASUREMENT_UNIT_CREATED,
+    MEASUREMENT_UNIT_UPDATED,
+    MEASUREMENT_UNIT_STATUS_CHANGED,
+    MEASUREMENT_UNIT_DELETED,
+    // Bulk imports: one entry per batch outcome; row-level detail lives in data_import_batches
+    DATA_IMPORT_COMMITTED,
+    DATA_IMPORT_REJECTED,
+    DATA_IMPORT_FAILED
 }

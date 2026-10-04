@@ -1,6 +1,7 @@
 package com.ninsky.cronos.infrastructure.persistence.core.mapper;
 
 import com.ninsky.cronos.domain.model.core.MeasurementUnit;
+import com.ninsky.cronos.domain.model.core.MeasurementUnitView;
 import com.ninsky.cronos.infrastructure.persistence.core.entity.MeasurementUnitJpaEntity;
 import com.ninsky.cronos.infrastructure.persistence.core.entity.UnitTypeJpaEntity;
 import org.springframework.stereotype.Component;
@@ -23,15 +24,28 @@ public class MeasurementUnitMapper {
                 .isSystemDefault(entity.isSystemDefault())
                 .userId(entity.getUserId())
                 .status(entity.getStatus())
+                .createdAt(entity.getCreatedAt())
+                .createdBy(entity.getCreatedBy())
+                .updatedAt(entity.getUpdatedAt())
+                .updatedBy(entity.getUpdatedBy())
                 .build();
     }
 
-    /** Caller resolves {@code unitType} (via {@code UnitTypeRepositoryPort}) before persisting. */
+    /** Requires {@code entity.unitType} to be initialized (fetched through the entity graph). */
+    public MeasurementUnitView toView(MeasurementUnitJpaEntity entity) {
+        UnitTypeJpaEntity unitType = entity.getUnitType();
+        return new MeasurementUnitView(toDomain(entity), unitType.getCodeIdentity(), unitType.getName(), unitType.getDimension());
+    }
+
+    /**
+     * Caller resolves {@code unitType} (via {@code UnitTypeRepositoryPort}) before persisting.
+     * Carries the creation audit fields across, see {@link UnitTypeMapper#toEntity}.
+     */
     public MeasurementUnitJpaEntity toEntity(MeasurementUnit domain, UnitTypeJpaEntity unitType) {
         if (domain == null) {
             return null;
         }
-        return MeasurementUnitJpaEntity.builder()
+        MeasurementUnitJpaEntity entity = MeasurementUnitJpaEntity.builder()
                 .id(domain.getId())
                 .codeIdentity(domain.getCodeIdentity())
                 .name(domain.getName())
@@ -43,5 +57,8 @@ public class MeasurementUnitMapper {
                 .userId(domain.getUserId())
                 .status(domain.getStatus())
                 .build();
+        entity.setCreatedAt(domain.getCreatedAt());
+        entity.setCreatedBy(domain.getCreatedBy());
+        return entity;
     }
 }
