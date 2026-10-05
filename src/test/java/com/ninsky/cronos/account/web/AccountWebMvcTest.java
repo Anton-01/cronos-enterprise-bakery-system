@@ -1,6 +1,7 @@
 package com.ninsky.cronos.account.web;
 
 import com.ninsky.cronos.account.avatar.infrastructure.AvatarUrlMapping;
+import com.ninsky.cronos.infrastructure.exception.StrictContractResponder;
 import com.ninsky.cronos.account.fiscal.infrastructure.FiscalDataMapperImpl;
 import com.ninsky.cronos.account.profile.infrastructure.UserProfileMapperImpl;
 import com.ninsky.cronos.account.shared.api.AccountErrorMapper;
@@ -34,7 +35,8 @@ import java.lang.annotation.Target;
 @WebMvcTest(excludeFilters = @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE,
         classes = {JwtAuthenticationFilter.class, JweFilter.class, RateLimitInterceptor.class, WebMvcConfig.class, SecurityConfig.class}))
 @Import({AccountErrorMapper.class, AccountMessages.class, AccountInfrastructureConfig.class, ValidationConfig.class,
-        AccountWebMvcTestConfig.class, UserProfileMapperImpl.class, FiscalDataMapperImpl.class, AvatarUrlMapping.class})
+        AccountWebMvcTestConfig.class, UserProfileMapperImpl.class, FiscalDataMapperImpl.class, AvatarUrlMapping.class,
+        StrictContractResponder.class})
 public @interface AccountWebMvcTest {
 
     @AliasFor(annotation = WebMvcTest.class, attribute = "controllers")
