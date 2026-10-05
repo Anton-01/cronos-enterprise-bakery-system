@@ -58,6 +58,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import com.ninsky.cronos.iam.access.UserAccessService;
+import com.ninsky.cronos.iam.access.UserAccessState;
+import java.util.Locale;
 
 @Slf4j
 @Service
@@ -74,6 +77,7 @@ public class AuthenticationService {
     private final RoleRepositoryPort roleRepository;
     private final PermissionRepositoryPort permissionRepository;
     private final MenuPort menuPort;
+    private final UserAccessService userAccessService;
 
     private final RefreshTokenRepositoryPort refreshTokenRepository;
     private final UserSessionRepositoryPort userSessionRepository;
@@ -165,10 +169,10 @@ public class AuthenticationService {
         // Create the Physical Session in the Database
         UserSession session = createUserSession(user, deviceFingerprint, dpopJkt);
 
-        RoleAndPermissionNames grants = resolveRoleAndPermissionNames(user.getRoleIds());
+        RoleAndPermissionNames grants = resolveRoleAndPermissionNames(user.getId());
 
         // Generate Tokens (JWT for Access, OPAQUE UUID for Refresh)
-        String accessToken = jwtService.generateAccessToken(user, session.getId(), grants.roleNames(), grants.permissionNames(), dpopJkt);
+        String accessToken = jwtService.generateAccessToken(user, session.getId(), grants.roleNames(), grants.permissionNames(), dpopJkt, grants.accessVersion());
         String opaqueRefreshToken = UUID.randomUUID().toString();
 
         saveRefreshToken(user, session, opaqueRefreshToken);
@@ -219,8 +223,8 @@ public class AuthenticationService {
         session.setLastActivityAt(LocalDateTime.now());
         userSessionRepository.save(session);
 
-        RoleAndPermissionNames grants = resolveRoleAndPermissionNames(user.getRoleIds());
-        String newAccessToken = jwtService.generateAccessToken(user, session.getId(), grants.roleNames(), grants.permissionNames(), session.getDpopJkt());
+        RoleAndPermissionNames grants = resolveRoleAndPermissionNames(user.getId());
+        String newAccessToken = jwtService.generateAccessToken(user, session.getId(), grants.roleNames(), grants.permissionNames(), session.getDpopJkt(), grants.accessVersion());
 
         // Refresh Token Rotation (OAuth 2.0 Security Best Practice)
         String newOpaqueRefreshToken = UUID.randomUUID().toString();
@@ -311,8 +315,8 @@ public class AuthenticationService {
         // logins always issue unbound tokens.
         UserSession session = createUserSession(user, deviceFingerprint, null);
 
-        RoleAndPermissionNames grants = resolveRoleAndPermissionNames(user.getRoleIds());
-        String accessToken = jwtService.generateAccessToken(user, session.getId(), grants.roleNames(), grants.permissionNames(), null);
+        RoleAndPermissionNames grants = resolveRoleAndPermissionNames(user.getId());
+        String accessToken = jwtService.generateAccessToken(user, session.getId(), grants.roleNames(), grants.permissionNames(), null, grants.accessVersion());
         String opaqueRefreshToken = UUID.randomUUID().toString();
 
         saveRefreshToken(user, session, opaqueRefreshToken);
@@ -328,20 +332,19 @@ public class AuthenticationService {
 
     // ROLE/PERMISSION/MENU RESOLUTION
 
-    private record RoleAndPermissionNames(List<String> roleNames, List<String> permissionNames, List<String> policies) {
+    private record RoleAndPermissionNames(List<String> roleNames, List<String> permissionNames, List<String> policies,
+                                          long accessVersion) {
     }
 
-    private RoleAndPermissionNames resolveRoleAndPermissionNames(Set<Long> roleIds) {
-        List<Role> roles = roleRepository.findAllById(roleIds);
-        Set<Long> permissionIds = roles.stream().flatMap(r -> r.getPermissionIds().stream()).collect(Collectors.toCollection(LinkedHashSet::new));
-        List<Permission> permissions = permissionRepository.findAllById(permissionIds);
-
-        List<String> roleNames = roles.stream().map(Role::getName).toList();
-        // Effective, not just granted: the token's "permissions" claim must match what @PreAuthorize allows.
-        List<String> permissionNames = EffectivePermissions.of(roleNames, permissions.stream().map(Permission::getName).toList());
-        List<String> policies = permissions.stream().map(Permission::toUrn).distinct().toList();
-
-        return new RoleAndPermissionNames(roleNames, permissionNames, policies);
+    /** Role codes, effective permission codes and access version from the IAM resolver (spec §1.4.3). */
+    private RoleAndPermissionNames resolveRoleAndPermissionNames(UUID userId) {
+        UserAccessState access = userAccessService.current(userId);
+        List<String> permissionNames = List.copyOf(access.permissionClaim());
+        List<String> policies = access.access().granted().stream()
+                .map(code -> code.split("\\."))
+                .map(parts -> "urn:cronos:" + parts[1].toLowerCase(Locale.ROOT) + ":" + parts[2].toLowerCase(Locale.ROOT))
+                .distinct().toList();
+        return new RoleAndPermissionNames(access.roleCodes(), permissionNames, policies, access.accessVersion());
     }
 
     private List<MenuItemResponse> buildNavigation(List<String> grantedPermissionNames) {

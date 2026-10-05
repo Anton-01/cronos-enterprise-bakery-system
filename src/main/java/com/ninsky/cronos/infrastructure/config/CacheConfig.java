@@ -7,6 +7,7 @@ import org.springframework.cache.caffeine.CaffeineCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 
 @Configuration
@@ -22,7 +23,18 @@ public class CacheConfig {
     public CacheManager cacheManager() {
         CaffeineCacheManager cacheManager = new CaffeineCacheManager();
         cacheManager.setCaffeine(caffeineConfig());
+        // Access data must converge across instances quickly (spec §1.4.5: ≤ 30 s).
+        cacheManager.registerCustomCache("accessVersion", shortLived(Duration.ofSeconds(30), 10_000));
+        cacheManager.registerCustomCache("effectiveAccess", shortLived(Duration.ofMinutes(10), 5_000));
+        cacheManager.registerCustomCache("userAuth", shortLived(Duration.ofSeconds(30), 10_000));
+        cacheManager.registerCustomCache("sodRules", shortLived(Duration.ofMinutes(5), 10));
+        cacheManager.registerCustomCache("securityPolicy", shortLived(Duration.ofSeconds(30), 10));
+        cacheManager.registerCustomCache("financeSettings", shortLived(Duration.ofSeconds(30), 10));
         return cacheManager;
+    }
+
+    private static com.github.benmanes.caffeine.cache.Cache<Object, Object> shortLived(Duration ttl, long maxSize) {
+        return Caffeine.newBuilder().expireAfterWrite(ttl).maximumSize(maxSize).recordStats().build();
     }
 
     Caffeine<Object, Object> caffeineConfig() {

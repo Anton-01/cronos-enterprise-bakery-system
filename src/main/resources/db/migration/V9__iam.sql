@@ -84,6 +84,19 @@ UPDATE roles SET code = 'ROLE' || id WHERE code IS NULL OR code !~ '^[A-Z][A-Z0-
 ALTER TABLE roles ALTER COLUMN code SET NOT NULL;
 ALTER TABLE roles ADD CONSTRAINT ck_roles_code CHECK (code ~ '^[A-Z][A-Z0-9_]{1,49}$');
 CREATE UNIQUE INDEX ux_roles_code ON roles (code);
+-- Legacy writers (/admin/roles) know nothing about codes: derive one from the name on insert.
+CREATE OR REPLACE FUNCTION roles_default_code() RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.code IS NULL THEN
+        NEW.code := left(regexp_replace(regexp_replace(upper(regexp_replace(NEW.name, '^ROLE_', '', 'i')), '[^A-Z0-9]+', '_', 'g'), '^_+|_+$', '', 'g'), 50);
+        IF NEW.code !~ '^[A-Z][A-Z0-9_]{1,49}$' OR EXISTS (SELECT 1 FROM roles WHERE code = NEW.code) THEN
+            NEW.code := 'CUSTOM_' || upper(substr(md5(random()::text), 1, 10));
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+CREATE TRIGGER roles_default_code BEFORE INSERT ON roles FOR EACH ROW EXECUTE FUNCTION roles_default_code();
 CREATE UNIQUE INDEX ux_roles_name_ci ON roles (lower(name));
 -- Display names ("Gerente de ventas") need more room than the legacy 50 chars.
 ALTER TABLE roles ALTER COLUMN name TYPE VARCHAR(100);

@@ -12,7 +12,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -63,14 +62,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if ((userId != null || username != null) && SecurityContextHolder.getContext().getAuthentication() == null) {
                 // Access tokens carry the immutable userId claim: resolve by it so a username change
                 // (PUT /users/me) keeps existing sessions alive. Tokens without it fall back to sub.
-                UserDetails userDetails = userId != null
+                CronosUserPrincipal userDetails = userId != null
                         ? userDetailsService.loadUserById(userId)
-                        : userDetailsService.loadUserByUsername(username);
+                        : (CronosUserPrincipal) userDetailsService.loadUserByUsername(username);
                 boolean tokenValid = userId != null
                         ? jwtService.isTokenValidForUserId(jwt, userId)
                         : jwtService.isTokenValid(jwt, userDetails.getUsername());
 
-                if (tokenValid && !isRevoked(jwt) && isProofOfPossessionSatisfied(jwt, dpopScheme, request)) {
+                if (tokenValid && isAccessVersionCurrent(jwt, userDetails) && !isRevoked(jwt)
+                        && isProofOfPossessionSatisfied(jwt, dpopScheme, request)) {
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                             userDetails,
                             null,
@@ -85,6 +85,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    /** Rejects tokens minted before the user's last access change (spec §1.4.5). */
+    private boolean isAccessVersionCurrent(String jwt, CronosUserPrincipal principal) {
+        Long tokenVersion = jwtService.extractAccessVersion(jwt);
+        long current = principal.getAccessVersion();
+        return tokenVersion == null ? current == 0 : tokenVersion >= current;
     }
 
     /** Redis-backed revocation check — one round-trip per authenticated request, after standard JWT validation. */

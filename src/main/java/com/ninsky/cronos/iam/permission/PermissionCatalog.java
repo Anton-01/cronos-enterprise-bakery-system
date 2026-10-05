@@ -67,7 +67,7 @@ public final class PermissionCatalog {
             PermissionDefinition.of(FINANCE_CURRENCY_MANAGE, MEDIUM),
             PermissionDefinition.of(FINANCE_TAX_RATE_READ, LOW),
             PermissionDefinition.of(FINANCE_TAX_RATE_MANAGE, HIGH),
-            PermissionDefinition.of(FINANCE_SETTINGS_UPDATE, HIGH, FINANCE_CURRENCY_READ, FINANCE_TAX_RATE_READ),
+            PermissionDefinition.standalone(FINANCE_SETTINGS_UPDATE, HIGH, FINANCE_CURRENCY_READ, FINANCE_TAX_RATE_READ),
 
             PermissionDefinition.of(IAM_USER_READ, MEDIUM),
             PermissionDefinition.of(IAM_USER_CREATE, HIGH),

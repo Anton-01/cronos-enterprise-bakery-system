@@ -22,6 +22,8 @@ import java.util.function.Function;
 @Slf4j
 public class JwtService {
 
+    public static final String ACCESS_VERSION_CLAIM = "pv";
+
     private final JwtConfig jwtConfig;
 
     /**
@@ -36,7 +38,16 @@ public class JwtService {
      * only presentable thereafter via the {@code DPoP} auth scheme with a matching proof.
      */
     public String generateAccessToken(User user, UUID sessionId, List<String> roleNames, List<String> permissionNames, String dpopJkt) {
+        return generateAccessToken(user, sessionId, roleNames, permissionNames, dpopJkt, null);
+    }
+
+    /** {@code accessVersion} becomes the {@code pv} claim; tokens below the user's current version are rejected. */
+    public String generateAccessToken(User user, UUID sessionId, List<String> roleNames, List<String> permissionNames, String dpopJkt,
+                                      Long accessVersion) {
         Map<String, Object> claims = new HashMap<>();
+        if (accessVersion != null) {
+            claims.put(ACCESS_VERSION_CLAIM, accessVersion);
+        }
         claims.put("jti", UUID.randomUUID().toString());
         claims.put("userId", user.getId().toString());
         claims.put("sessionId", sessionId != null ? sessionId.toString() : null);
@@ -103,6 +114,12 @@ public class JwtService {
     public UUID extractSessionId(String token) {
         String sessionIdStr = extractClaim(token, claims -> claims.get("sessionId", String.class));
         return sessionIdStr != null ? UUID.fromString(sessionIdStr) : null;
+    }
+
+    /** Null for tokens minted before access versions existed. */
+    public Long extractAccessVersion(String token) {
+        Number pv = extractClaim(token, claims -> claims.get(ACCESS_VERSION_CLAIM, Number.class));
+        return pv == null ? null : pv.longValue();
     }
 
     public Date extractIssuedAt(String token) {

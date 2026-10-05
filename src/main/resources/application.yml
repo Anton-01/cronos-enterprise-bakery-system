@@ -59,7 +59,7 @@ spring:
       max-file-size: 2MB
       max-request-size: 3MB
   messages:
-    basename: i18n/messages
+    basename: i18n/messages,i18n/api,i18n/iam,i18n/finance
     encoding: UTF-8
     fallback-to-system-locale: false
   web:

@@ -1,16 +1,15 @@
 package com.ninsky.cronos.infrastructure.config.seed;
 
-import com.ninsky.cronos.domain.model.auth.Permission;
 import com.ninsky.cronos.domain.model.auth.Role;
 import com.ninsky.cronos.domain.model.auth.User;
 import com.ninsky.cronos.domain.model.auth.UserProfile;
-import com.ninsky.cronos.domain.port.auth.PermissionRepositoryPort;
 import com.ninsky.cronos.domain.port.auth.RoleRepositoryPort;
 import com.ninsky.cronos.domain.port.auth.UserProfileRepositoryPort;
 import com.ninsky.cronos.domain.port.auth.UserRepositoryPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,7 +21,7 @@ import java.util.Set;
 public class DataSeeder implements CommandLineRunner {
 
     private final RoleRepositoryPort roleRepository;
-    private final PermissionRepositoryPort permissionRepository;
+    private final JdbcTemplate jdbcTemplate;
     private final UserRepositoryPort userRepository;
     private final UserProfileRepositoryPort userProfileRepository;
     private final PasswordEncoder passwordEncoder;
@@ -32,30 +31,15 @@ public class DataSeeder implements CommandLineRunner {
     public void run(String... args) {
         log.info(":: CRONOS :: Starting seed data verification ...");
 
-        // We only populate the table if there are no records in the database
-        if (roleRepository.findAll().isEmpty()) {
-            seedSecurityData();
-            seedSuperAdmin();
-            log.info(":: CRONOS :: Seed data has been successfully entered.");
-        } else {
-            log.info(":: CRONOS :: The database already contains data. The seeder is skipped.");
+        // Roles and permissions are seeded by Flyway (V11); only the first root account is created here.
+        Boolean rootExists = jdbcTemplate.queryForObject("""
+                SELECT EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE r.code = 'SUPER_ADMIN')""", Boolean.class);
+        if (Boolean.TRUE.equals(rootExists)) {
+            log.info(":: CRONOS :: A SUPER_ADMIN account already exists. The seeder is skipped.");
+            return;
         }
-    }
-
-    private void seedSecurityData() {
-        // 1. Create basic permissions
-        Permission allAccess = createPermission("ALL_ACCESS", "Acceso total al sistema", "SYSTEM", "ALL");
-        Permission manageUsers = createPermission("MANAGE_USERS", "Gestión de usuarios", "USERS", "ALL");
-        Permission viewDashboard = createPermission("VIEW_DASHBOARD", "Ver panel principal", "DASHBOARD", "READ");
-
-        // 2. Create Roles and assign permissions
-        Role superAdminRole = Role.builder().name("SUPER_ADMIN").description("Administrador maestro del sistema")
-                .permissionIds(Set.of(allAccess.getId(), manageUsers.getId(), viewDashboard.getId())).build();
-
-        roleRepository.save(superAdminRole);
-
-        Role userRole = Role.builder().name("USER").description("Usuario estándar del sistema").permissionIds(Set.of(viewDashboard.getId())).build();
-        roleRepository.save(userRole);
+        seedSuperAdmin();
+        log.info(":: CRONOS :: Seed data has been successfully entered.");
     }
 
     private void seedSuperAdmin() {
@@ -76,12 +60,5 @@ public class DataSeeder implements CommandLineRunner {
                 .emailNotifications(true).pushNotifications(true).build();
 
         userProfileRepository.save(adminProfile);
-    }
-
-    private Permission createPermission(String name, String description, String resource, String action) {
-        Permission permission = Permission.builder().name(name).description(description)
-                .resource(resource).action(action).build();
-
-        return permissionRepository.save(permission);
     }
 }

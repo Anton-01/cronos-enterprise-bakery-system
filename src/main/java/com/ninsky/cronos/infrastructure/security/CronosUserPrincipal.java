@@ -7,22 +7,39 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 /**
  * Bridges the pure {@code AuthUserProjection} read model to Spring Security's {@code UserDetails}
  * — the domain layer never implements framework interfaces, so this small adapter is what
- * actually sits in the {@code SecurityContext}. Replaces the previous design where the JPA
- * {@code User} entity implemented {@code UserDetails} directly.
+ * actually sits in the {@code SecurityContext}. Authorities are {@code ROLE_<code>} per active role
+ * plus every effective permission code, resolved by the IAM module when available.
  */
 public class CronosUserPrincipal implements UserDetails {
 
-    private final AuthUserProjection projection;
+    private static final Set<String> LOGIN_STATUSES = Set.of("ACTIVE", "PENDING_ACTIVATION");
 
+    private final AuthUserProjection projection;
+    private final Set<String> permissions;
+    private final Set<String> roleCodes;
+    private final boolean superAdmin;
+
+    /** Legacy resolution from the projection's role permissions. */
     public CronosUserPrincipal(AuthUserProjection projection) {
+        this(projection, projection.roleNames(),
+                Set.copyOf(EffectivePermissions.of(projection.roleNames(), projection.permissionNames())),
+                projection.roleNames().stream().anyMatch(EffectivePermissions.SUPER_ADMIN_ROLE::equalsIgnoreCase));
+    }
+
+    public CronosUserPrincipal(AuthUserProjection projection, Collection<String> roleCodes, Collection<String> permissions, boolean superAdmin) {
         this.projection = projection;
+        this.roleCodes = Set.copyOf(roleCodes);
+        this.permissions = Set.copyOf(permissions);
+        this.superAdmin = superAdmin;
     }
 
     public UUID getId() {
@@ -37,12 +54,37 @@ public class CronosUserPrincipal implements UserDetails {
         return projection.twoFactorEnabled();
     }
 
+    public long getAccessVersion() {
+        return projection.accessVersion();
+    }
+
+    public String getStatus() {
+        return projection.status();
+    }
+
+    public boolean isMustChangePassword() {
+        return projection.mustChangePassword();
+    }
+
+    /** Effective permission codes (plus transitional aliases). */
+    public Set<String> getPermissions() {
+        return permissions;
+    }
+
+    public Set<String> getRoleCodes() {
+        return roleCodes;
+    }
+
+    public boolean isSuperAdmin() {
+        return superAdmin;
+    }
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        Set<SimpleGrantedAuthority> authorities = new HashSet<>();
-        projection.roleNames().forEach(roleName -> authorities.add(new SimpleGrantedAuthority("ROLE_" + roleName.toUpperCase())));
-        EffectivePermissions.of(projection.roleNames(), projection.permissionNames())
-                .forEach(permissionName -> authorities.add(new SimpleGrantedAuthority(permissionName.toUpperCase())));
+        Set<SimpleGrantedAuthority> authorities = new LinkedHashSet<>();
+        Stream.concat(roleCodes.stream().map(code -> "ROLE_" + code.toUpperCase(Locale.ROOT)), permissions.stream())
+                .map(SimpleGrantedAuthority::new)
+                .forEach(authorities::add);
         return authorities;
     }
 
@@ -73,6 +115,6 @@ public class CronosUserPrincipal implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return projection.enabled();
+        return projection.enabled() && (projection.status() == null || LOGIN_STATUSES.contains(projection.status()));
     }
 }
