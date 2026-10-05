@@ -7,8 +7,10 @@ audit trail and an append-only import ledger.
 
 ## Endpoints (`/api/v1` +)
 
-Writes (✎) require `ROLE_SUPER_ADMIN` or the `MANAGE_CATALOGS` permission (seeded by V8, grant it to
-a role through the admin roles API). Reads are open to any authenticated user.
+Writes (✎) require the `MANAGE_CATALOGS` permission (seeded by V8): granted to a role through the
+admin roles API, or implied by `SUPER_ADMIN` (`EffectivePermissions`). The same effective set is put
+in the access token's `permissions` claim (top-level array of strings, next to `roles`), so the SPA
+shows exactly the actions the server allows. Reads are open to any authenticated user.
 
 | Method | Path | Notes |
 |---|---|---|

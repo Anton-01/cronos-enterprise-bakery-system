@@ -1,6 +1,7 @@
 package com.ninsky.cronos.infrastructure.security;
 
 import com.ninsky.cronos.domain.model.auth.AuthUserProjection;
+import com.ninsky.cronos.domain.model.auth.EffectivePermissions;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -40,7 +41,8 @@ public class CronosUserPrincipal implements UserDetails {
     public Collection<? extends GrantedAuthority> getAuthorities() {
         Set<SimpleGrantedAuthority> authorities = new HashSet<>();
         projection.roleNames().forEach(roleName -> authorities.add(new SimpleGrantedAuthority("ROLE_" + roleName.toUpperCase())));
-        projection.permissionNames().forEach(permissionName -> authorities.add(new SimpleGrantedAuthority(permissionName.toUpperCase())));
+        EffectivePermissions.of(projection.roleNames(), projection.permissionNames())
+                .forEach(permissionName -> authorities.add(new SimpleGrantedAuthority(permissionName.toUpperCase())));
         return authorities;
     }
 

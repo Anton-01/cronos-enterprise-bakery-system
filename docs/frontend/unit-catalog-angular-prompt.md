@@ -64,10 +64,12 @@ LENGTH = Longitud/Length.
 ### Permisos
 
 Las **escrituras** (crear, editar, eliminar, cambiar estatus, importar, descargar plantilla, historial
-de importaciones) requieren el rol `SUPER_ADMIN` o el permiso `MANAGE_CATALOGS`. Las lecturas y
-`/convert` son para cualquier usuario autenticado. Oculta/deshabilita botones de escritura si el
-usuario no tiene esos permisos (usa el mecanismo de permisos que ya tenga el front) y maneja el 403
-de todas formas.
+de importaciones) requieren el permiso `MANAGE_CATALOGS`. Las lecturas y `/convert` son para
+cualquier usuario autenticado. El access token trae el claim `permissions` (array de strings, al
+mismo nivel que `roles`) con los permisos **efectivos**: un `SUPER_ADMIN` siempre incluye
+`MANAGE_CATALOGS`. Basta con `TokenService.hasPermission('MANAGE_CATALOGS')` para mostrar/ocultar
+botones; no hace falta revisar roles. Maneja el 403 de todas formas (un token emitido antes del
+despliegue no lo trae hasta el siguiente refresh).
 
 ## 2. Tipos de unidad — `/unit-type`
 
