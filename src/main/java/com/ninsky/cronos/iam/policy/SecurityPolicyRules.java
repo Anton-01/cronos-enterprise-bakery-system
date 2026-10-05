@@ -55,8 +55,11 @@ public final class SecurityPolicyRules {
     private SecurityPolicyRules() {
     }
 
-    /** Every violation at once; {@code activeRoleIds} are the requested ids that exist and are ACTIVE. */
-    public static Violations validate(SecurityPolicyRequest request, Set<Long> activeRoleIds) {
+    /**
+     * Every violation at once; {@code activeRoleIds} are the requested ids that exist and are ACTIVE,
+     * {@code superAdminRoleId} is never allowed (break-glass rule, contract §8.3).
+     */
+    public static Violations validate(SecurityPolicyRequest request, Set<Long> activeRoleIds, Long superAdminRoleId) {
         Violations violations = new Violations();
         RANGES.forEach(range -> {
             Integer value = range.value().apply(request);
@@ -69,7 +72,7 @@ public final class SecurityPolicyRules {
                 && request.sessionIdleMinutes() > request.sessionAbsoluteHours() * 60) {
             violations.invalid("sessionIdleMinutes", "security.policy.idleExceedsAbsolute", request.sessionAbsoluteHours() * 60);
         }
-        validateRoles(request.twoFactorRequiredRoleIds(), activeRoleIds, violations);
+        validateRoles(request.twoFactorRequiredRoleIds(), activeRoleIds, superAdminRoleId, violations);
         violations.invalidIf(request.version() == null, "version", "api.validation.required");
         return violations;
     }
@@ -99,7 +102,7 @@ public final class SecurityPolicyRules {
         return values;
     }
 
-    private static void validateRoles(List<Long> roleIds, Set<Long> activeRoleIds, Violations violations) {
+    private static void validateRoles(List<Long> roleIds, Set<Long> activeRoleIds, Long superAdminRoleId, Violations violations) {
         if (roleIds == null) {
             violations.invalid("twoFactorRequiredRoleIds", "api.validation.required");
             return;
@@ -110,6 +113,8 @@ public final class SecurityPolicyRules {
             String field = "twoFactorRequiredRoleIds[" + i + "]";
             if (id == null) {
                 violations.invalid(field, "api.validation.required");
+            } else if (id.equals(superAdminRoleId)) {
+                violations.invalid(field, "security.policy.superAdminTwoFactorForbidden");
             } else if (!seen.add(id)) {
                 violations.invalid(field, "api.validation.duplicateEntry");
             } else if (!activeRoleIds.contains(id)) {

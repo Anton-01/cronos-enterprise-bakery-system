@@ -15,10 +15,11 @@ import static org.assertj.core.api.Assertions.tuple;
 
 class SecurityPolicyRulesTest {
 
-    private static final Set<Long> ACTIVE = Set.of(1L, 2L, 3L);
+    private static final Set<Long> ACTIVE = Set.of(1L, 2L, 3L, 9L);
+    private static final Long SUPER_ADMIN = 9L;
 
     private static List<ApiException.Violation> violations(SecurityPolicyRequest request) {
-        Violations violations = SecurityPolicyRules.validate(request, ACTIVE);
+        Violations violations = SecurityPolicyRules.validate(request, ACTIVE, SUPER_ADMIN);
         try {
             violations.throwIfAny();
             return List.of();
@@ -33,7 +34,7 @@ class SecurityPolicyRulesTest {
 
     @Test
     void validRequestPasses() {
-        assertThat(SecurityPolicyRules.validate(PolicyFixtures.request(), ACTIVE).isEmpty()).isTrue();
+        assertThat(SecurityPolicyRules.validate(PolicyFixtures.request(), ACTIVE, SUPER_ADMIN).isEmpty()).isTrue();
     }
 
     @Test
@@ -116,7 +117,14 @@ class SecurityPolicyRulesTest {
 
     @Test
     void validationErrorsSurfaceAsApiException() {
-        assertThatThrownBy(() -> SecurityPolicyRules.validate(with(5, 30, 12, List.of(), 1L), ACTIVE).throwIfAny())
+        assertThatThrownBy(() -> SecurityPolicyRules.validate(with(5, 30, 12, List.of(), 1L), ACTIVE, SUPER_ADMIN).throwIfAny())
                 .isInstanceOf(ApiException.class);
+    }
+
+    @Test
+    void rejectsSuperAdminAsTwoFactorMandatoryRole() {
+        assertThat(violations(with(12, 30, 12, List.of(1L, SUPER_ADMIN), 1L)))
+                .extracting(ApiException.Violation::field)
+                .containsExactly("twoFactorRequiredRoleIds[1]");
     }
 }

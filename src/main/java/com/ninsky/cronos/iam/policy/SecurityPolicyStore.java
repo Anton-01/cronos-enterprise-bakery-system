@@ -59,6 +59,12 @@ public class SecurityPolicyStore {
         return true;
     }
 
+    /** Id of the SUPER_ADMIN role, if seeded. */
+    public Long superAdminRoleId() {
+        return jdbc.queryForList("SELECT id FROM roles WHERE code = 'SUPER_ADMIN'", Map.of(), Long.class)
+                .stream().findFirst().orElse(null);
+    }
+
     /** The subset of {@code ids} that are existing ACTIVE roles. */
     public Set<Long> activeRoleIds(Collection<Long> ids) {
         if (ids.isEmpty()) {
