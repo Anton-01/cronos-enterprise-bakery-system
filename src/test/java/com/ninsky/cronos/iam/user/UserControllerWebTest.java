@@ -55,7 +55,7 @@ class UserControllerWebTest {
     private MockMvc mvc;
 
     @MockitoBean
-    private UserService users;
+    private IamUserService users;
     @MockitoBean
     private UserStatusService statuses;
     @MockitoBean

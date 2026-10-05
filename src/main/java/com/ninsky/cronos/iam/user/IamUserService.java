@@ -20,11 +20,11 @@ import com.ninsky.cronos.iam.token.CredentialDelivery;
 import com.ninsky.cronos.iam.token.IssuedToken;
 import com.ninsky.cronos.iam.token.TokenPurpose;
 import com.ninsky.cronos.iam.token.UserTokens;
-import com.ninsky.cronos.iam.user.api.CreateUserRequest;
-import com.ninsky.cronos.iam.user.api.CreateUserRequest.ActivationMode;
+import com.ninsky.cronos.iam.user.api.CreateIamUserRequest;
+import com.ninsky.cronos.iam.user.api.CreateIamUserRequest.ActivationMode;
 import com.ninsky.cronos.iam.user.api.IamUserDetail;
 import com.ninsky.cronos.iam.user.api.IamUserSummary;
-import com.ninsky.cronos.iam.user.api.UpdateUserRequest;
+import com.ninsky.cronos.iam.user.api.UpdateIamUserRequest;
 import com.ninsky.cronos.iam.user.api.UserAvailability;
 import com.ninsky.cronos.iam.user.api.UserStats;
 import com.ninsky.cronos.infrastructure.exception.ApiException;
@@ -52,7 +52,7 @@ import java.util.UUID;
 
 /** User profile lifecycle (spec §3.5): list, stats, availability, create, read, update. */
 @Service
-public class UserService {
+public class IamUserService {
 
     static final Duration EMAIL_VERIFICATION_TTL = Duration.ofHours(48);
 
@@ -76,7 +76,7 @@ public class UserService {
     private final Clock clock;
     private final KeyedRateLimiter availabilityLimiter = new KeyedRateLimiter(30, Duration.ofMinutes(1));
 
-    public UserService(UserReadRepository reads, UserWriteRepository writes, UserStatsRepository stats, UserViews views,
+    public IamUserService(UserReadRepository reads, UserWriteRepository writes, UserStatsRepository stats, UserViews views,
                        UserProfileRules rules, UserAccessChanges accessChanges, UserAvatarService avatars,
                        AccessGuards guards, ActorProvider actors, AuditRecorder recorder, UserTokens tokens,
                        PasswordPolicy passwordPolicy, SecurityPolicyProvider policies, PasswordEncoder passwordEncoder,
@@ -131,7 +131,7 @@ public class UserService {
     }
 
     /** Image work and storage happen before the transaction; the stored object is dropped if it fails. */
-    public IamUserDetail create(CreateUserRequest request, byte[] avatar, Locale locale) {
+    public IamUserDetail create(CreateIamUserRequest request, byte[] avatar, Locale locale) {
         Actor actor = actors.require();
         UUID id = UUID.randomUUID();
         AvatarKey avatarKey = avatar == null || avatar.length == 0 ? null : avatars.store(id, avatar, "avatar");
@@ -146,7 +146,7 @@ public class UserService {
         }
     }
 
-    private UUID insert(UUID id, CreateUserRequest request, AvatarKey avatarKey, Actor actor, Locale locale) {
+    private UUID insert(UUID id, CreateIamUserRequest request, AvatarKey avatarKey, Actor actor, Locale locale) {
         Violations violations = new Violations();
         UserProfile profile = rules.validate(violations, input(request), null);
         List<Long> roleIds = IamRules.distinctIds(violations, "roleIds", request.roleIds());
@@ -186,7 +186,7 @@ public class UserService {
     }
 
     @Transactional
-    public IamUserDetail update(UUID id, UpdateUserRequest request) {
+    public IamUserDetail update(UUID id, UpdateIamUserRequest request) {
         Actor actor = actors.require();
         UserRow existing = require(id);
         guards.requireCanModify(actor, List.of(id));
@@ -245,12 +245,12 @@ public class UserService {
         return changes;
     }
 
-    private static UserProfileRules.Input input(CreateUserRequest r) {
+    private static UserProfileRules.Input input(CreateIamUserRequest r) {
         return new UserProfileRules.Input(r.username(), r.email(), r.firstName(), r.lastName(), r.phoneNumber(), r.jobTitle(),
                 r.department(), r.employeeNumber(), r.locale(), r.accessExpiresAt(), r.requireTwoFactor());
     }
 
-    private static UserProfileRules.Input input(UpdateUserRequest r) {
+    private static UserProfileRules.Input input(UpdateIamUserRequest r) {
         return new UserProfileRules.Input(r.username(), r.email(), r.firstName(), r.lastName(), r.phoneNumber(), r.jobTitle(),
                 r.department(), r.employeeNumber(), r.locale(), r.accessExpiresAt(), r.requireTwoFactor());
     }

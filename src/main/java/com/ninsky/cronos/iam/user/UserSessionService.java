@@ -11,7 +11,7 @@ import com.ninsky.cronos.iam.shared.ActorProvider;
 import com.ninsky.cronos.iam.shared.TenantTime;
 import com.ninsky.cronos.iam.user.api.LoginAttempt;
 import com.ninsky.cronos.iam.user.api.SessionsRevoked;
-import com.ninsky.cronos.iam.user.api.UserSession;
+import com.ninsky.cronos.iam.user.api.IamUserSession;
 import com.ninsky.cronos.infrastructure.exception.ApiException;
 import com.ninsky.cronos.infrastructure.web.paging.CatalogPage;
 import com.ninsky.cronos.infrastructure.web.paging.PageQuery;
@@ -48,14 +48,14 @@ public class UserSessionService {
 
     /** Only active, unexpired sessions, newest activity first. */
     @Transactional(readOnly = true)
-    public List<UserSession> sessions(UUID userId) {
+    public List<IamUserSession> sessions(UUID userId) {
         target(userId, false);
         return jdbc.query("""
                         SELECT id, ip_address, browser, operating_system, device, location, created_at, last_activity_at, expires_at
                         FROM user_sessions WHERE user_id = :userId AND is_active AND terminated_at IS NULL AND expires_at > :now
                         ORDER BY coalesce(last_activity_at, created_at) DESC""",
                 new MapSqlParameterSource("userId", userId).addValue("now", TenantTime.nowLocal(clock)),
-                (rs, i) -> new UserSession(rs.getObject("id", UUID.class), rs.getString("ip_address"), rs.getString("browser"),
+                (rs, i) -> new IamUserSession(rs.getObject("id", UUID.class), rs.getString("ip_address"), rs.getString("browser"),
                         rs.getString("operating_system"), rs.getString("device"), rs.getString("location"),
                         instant(rs.getTimestamp("created_at")), instant(rs.getTimestamp("last_activity_at")),
                         instant(rs.getTimestamp("expires_at"))));

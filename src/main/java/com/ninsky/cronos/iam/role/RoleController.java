@@ -8,7 +8,7 @@ import com.ninsky.cronos.iam.role.api.IamRoleSummary;
 import com.ninsky.cronos.iam.role.api.MembersAdded;
 import com.ninsky.cronos.iam.role.api.MembersRemoved;
 import com.ninsky.cronos.iam.role.api.MembersRequest;
-import com.ninsky.cronos.iam.role.api.RoleRequest;
+import com.ninsky.cronos.iam.role.api.IamRoleRequest;
 import com.ninsky.cronos.iam.role.api.StatusRequest;
 import com.ninsky.cronos.iam.user.UserReadRepository;
 import com.ninsky.cronos.iam.user.api.IamUserSummary;
@@ -64,7 +64,7 @@ public class RoleController {
     @PostMapping
     @PreAuthorize(Authorities.IAM_ROLE_CREATE)
     @Operation(summary = "Create a role")
-    public ResponseEntity<ApiResponse<IamRoleDetail>> create(@RequestBody RoleRequest request) {
+    public ResponseEntity<ApiResponse<IamRoleDetail>> create(@RequestBody IamRoleRequest request) {
         IamRoleDetail created = roles.create(request, LocaleContextHolder.getLocale());
         return ResponseEntity.created(location(created.summary().id())).body(ApiResponse.success(created));
     }
@@ -72,7 +72,7 @@ public class RoleController {
     @PutMapping("/{id}")
     @PreAuthorize(Authorities.IAM_ROLE_UPDATE)
     @Operation(summary = "Update a role")
-    public ResponseEntity<ApiResponse<IamRoleDetail>> update(@PathVariable long id, @RequestBody RoleRequest request) {
+    public ResponseEntity<ApiResponse<IamRoleDetail>> update(@PathVariable long id, @RequestBody IamRoleRequest request) {
         return ResponseEntity.ok(ApiResponse.success(roles.update(id, request, LocaleContextHolder.getLocale())));
     }
 

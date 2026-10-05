@@ -9,7 +9,7 @@ import com.ninsky.cronos.iam.user.api.AvatarChanged;
 import com.ninsky.cronos.iam.user.api.BulkResult;
 import com.ninsky.cronos.iam.user.api.BulkRolesRequest;
 import com.ninsky.cronos.iam.user.api.BulkStatusRequest;
-import com.ninsky.cronos.iam.user.api.CreateUserRequest;
+import com.ninsky.cronos.iam.user.api.CreateIamUserRequest;
 import com.ninsky.cronos.iam.user.api.IamUserDetail;
 import com.ninsky.cronos.iam.user.api.IamUserSummary;
 import com.ninsky.cronos.iam.user.api.LoginAttempt;
@@ -17,10 +17,10 @@ import com.ninsky.cronos.iam.user.api.PasswordResetIssued;
 import com.ninsky.cronos.iam.user.api.PasswordResetRequest;
 import com.ninsky.cronos.iam.user.api.ReasonRequest;
 import com.ninsky.cronos.iam.user.api.SessionsRevoked;
-import com.ninsky.cronos.iam.user.api.UpdateUserRequest;
+import com.ninsky.cronos.iam.user.api.UpdateIamUserRequest;
 import com.ninsky.cronos.iam.user.api.UserAccessView;
 import com.ninsky.cronos.iam.user.api.UserAvailability;
-import com.ninsky.cronos.iam.user.api.UserSession;
+import com.ninsky.cronos.iam.user.api.IamUserSession;
 import com.ninsky.cronos.iam.user.api.UserStats;
 import com.ninsky.cronos.iam.user.api.UserStatusRequest;
 import com.ninsky.cronos.infrastructure.exception.ApiException;
@@ -68,7 +68,7 @@ public class UserController {
 
     private static final MediaType CSV = new MediaType("text", "csv", StandardCharsets.UTF_8);
 
-    private final UserService users;
+    private final IamUserService users;
     private final UserStatusService statuses;
     private final UserCredentialService credentials;
     private final UserAccessEditor access;
@@ -132,7 +132,7 @@ public class UserController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize(Authorities.IAM_USER_CREATE)
     @Operation(summary = "Create a user (invitation or temporary password), optional avatar")
-    public ResponseEntity<ApiResponse<IamUserDetail>> create(@RequestPart("user") CreateUserRequest request,
+    public ResponseEntity<ApiResponse<IamUserDetail>> create(@RequestPart("user") CreateIamUserRequest request,
                                                              @RequestPart(value = "avatar", required = false) MultipartFile avatar) {
         IamUserDetail created = users.create(request, bytes(avatar, "avatar"), LocaleContextHolder.getLocale());
         return ResponseEntity.created(ServletUriComponentsBuilder.fromCurrentContextPath().path("/iam/users/{id}")
@@ -150,7 +150,7 @@ public class UserController {
     @PutMapping("/{id}")
     @PreAuthorize(Authorities.IAM_USER_UPDATE)
     @Operation(summary = "Replace profile fields")
-    public ResponseEntity<ApiResponse<IamUserDetail>> update(@PathVariable UUID id, @RequestBody UpdateUserRequest request) {
+    public ResponseEntity<ApiResponse<IamUserDetail>> update(@PathVariable UUID id, @RequestBody UpdateIamUserRequest request) {
         return ResponseEntity.ok(ApiResponse.success(users.update(id, request)));
     }
 
@@ -229,7 +229,7 @@ public class UserController {
     @GetMapping("/{id}/sessions")
     @PreAuthorize(Authorities.IAM_USER_MANAGE_SESSIONS)
     @Operation(summary = "Active sessions")
-    public ResponseEntity<ApiResponse<List<UserSession>>> sessions(@PathVariable UUID id) {
+    public ResponseEntity<ApiResponse<List<IamUserSession>>> sessions(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.success(sessions.sessions(id)));
     }
 
