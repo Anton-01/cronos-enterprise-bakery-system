@@ -1,5 +1,6 @@
 package com.ninsky.cronos.presentation.controller.core;
 
+import com.ninsky.cronos.account.avatar.application.port.AvatarStorage;
 import com.ninsky.cronos.account.web.AccountWebMvcTest;
 import com.ninsky.cronos.application.response.imports.core.CsvImportResponse;
 import com.ninsky.cronos.application.service.AllergenService;
@@ -64,6 +65,8 @@ class CatalogImportAuthorizationWebTest {
     private CategoryService categoryService;
     @MockitoBean
     private AllergenService allergenService;
+    @MockitoBean
+    private AvatarStorage avatarStorage;
 
     private static RequestPostProcessor as(Set<String> roles, Set<String> permissions) {
         CronosUserPrincipal principal = new CronosUserPrincipal(new AuthUserProjection(USER_ID, "someone", "a@b.c", "x",

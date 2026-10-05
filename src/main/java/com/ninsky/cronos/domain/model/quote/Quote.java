@@ -1,6 +1,8 @@
 package com.ninsky.cronos.domain.model.quote;
 
 import com.ninsky.cronos.domain.entity.enums.QuoteStatus;
+import com.ninsky.cronos.finance.pricing.FinanceRoundingMode;
+import com.ninsky.cronos.finance.pricing.TaxFactorType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -36,6 +38,12 @@ public class Quote {
     private BigDecimal total;
     @Builder.Default
     private String currency = "MXN";
+    // Pricing snapshot (spec §11.4): recalculations use these, never the current defaults
+    private Integer currencyDecimalPlaces;
+    private Long taxRateId;
+    private TaxFactorType taxFactorType;
+    private Boolean pricesIncludeTax;
+    private FinanceRoundingMode roundingMode;
     private String publicToken;
     @Builder.Default
     private Integer viewsCount = 0;

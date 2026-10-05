@@ -57,10 +57,10 @@ public class QuoteItemJpaEntity extends AuditableEntity {
     @Column(name = "profit_percentage", nullable = false, precision = 5, scale = 2)
     private BigDecimal profitPercentage;
 
-    @Column(name = "unit_price", nullable = false, precision = 15, scale = 2)
+    @Column(name = "unit_price", nullable = false, precision = 17, scale = 4)
     private BigDecimal unitPrice;
 
-    @Column(nullable = false, precision = 15, scale = 2)
+    @Column(nullable = false, precision = 17, scale = 4)
     private BigDecimal subtotal;
 
     @Column(columnDefinition = "TEXT")
