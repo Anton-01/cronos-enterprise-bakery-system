@@ -1,6 +1,7 @@
 package com.ninsky.cronos.infrastructure.exception;
 
 import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
 import com.ninsky.cronos.account.shared.api.AccountErrorMapper;
 import com.ninsky.cronos.account.shared.domain.AccountDomainError;
@@ -21,6 +22,7 @@ import jakarta.validation.Path;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.MessageSource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -62,6 +64,8 @@ public class GlobalExceptionHandler {
     private final ErrorCatalogPort errorCatalogPort;
     private final MessageSource messageSource;
     private final AccountErrorMapper accountErrorMapper;
+    private final StrictContractResponder strict;
+    private final ObjectProvider<AccessDeniedRecorder> accessDeniedRecorder;
 
     private static final String VALIDATION_ERROR_IMAGE_URL = "/assets/errors/validation.svg";
 
@@ -84,7 +88,19 @@ public class GlobalExceptionHandler {
                 .map(fe -> new ApiError(AccountDomainError.VALIDATION_FIELD_ERROR, resolveFieldMessage(fe, locale), fe.getField(), VALIDATION_ERROR_IMAGE_URL))
                 .collect(Collectors.toMap(ApiError::field, Function.identity(), (first, ignored) -> first, LinkedHashMap::new))
                 .sequencedValues().stream().toList();
+        if (strict.applies(request)) {
+            return strict.respondLocalized(ApiErrorCode.VALIDATION_ERROR, fieldErrors, request);
+        }
         return respond(ErrorCodes.VALIDATION_FAILED, HttpStatus.BAD_REQUEST, request, fieldErrors);
+    }
+
+    /** IAM/Finance business failures: every violation, localised, with its own stable code. */
+    @ExceptionHandler(ApiException.class)
+    public ResponseEntity<ApiResponseEnvelope<Void>> handleApiException(ApiException ex, HttpServletRequest request) {
+        if (ex.primaryCode() == ApiErrorCode.PRIVILEGE_ESCALATION || ex.primaryCode() == ApiErrorCode.ACCESS_DENIED) {
+            accessDeniedRecorder.ifAvailable(recorder -> recorder.record(request, ex.primaryCode().name()));
+        }
+        return strict.respond(ex, request);
     }
 
     /**
@@ -118,6 +134,11 @@ public class GlobalExceptionHandler {
                     "Property not allowed", RequestLocaleResolver.resolve(request));
             return respond(ErrorCodes.VALIDATION_FAILED, HttpStatus.BAD_REQUEST, request,
                     List.of(new ApiError(AccountDomainError.VALIDATION_ERROR, message, field)));
+        }
+        if (strict.applies(request)) {
+            InvalidFormatException invalid = findCause(ex, InvalidFormatException.class);
+            String field = invalid == null ? null : jsonPath(invalid.getPath());
+            return strict.respond(ApiErrorCode.VALIDATION_ERROR, field, field == null ? "api.validation.malformedBody" : "api.validation.invalidValue", request);
         }
         return respond(ErrorCodes.VALIDATION_FAILED, HttpStatus.BAD_REQUEST, request, "Malformed or missing request body");
     }
@@ -160,6 +181,9 @@ public class GlobalExceptionHandler {
                 .map(cv -> new ApiError(AccountDomainError.VALIDATION_FIELD_ERROR, cv.getMessage(), jsonPath(cv.getPropertyPath()), VALIDATION_ERROR_IMAGE_URL))
                 .collect(Collectors.toMap(ApiError::field, Function.identity(), (first, ignored) -> first, LinkedHashMap::new))
                 .sequencedValues().stream().toList();
+        if (strict.applies(request)) {
+            return strict.respondLocalized(ApiErrorCode.VALIDATION_ERROR, errors, request);
+        }
         return respond(ErrorCodes.VALIDATION_FAILED, HttpStatus.BAD_REQUEST, request, errors);
     }
 
@@ -219,6 +243,9 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<ApiResponseEnvelope<Void>> handleMaxUploadSize(MaxUploadSizeExceededException ex, HttpServletRequest request) {
+        if (strict.applies(request)) {
+            return strict.respond(ApiErrorCode.PAYLOAD_TOO_LARGE, "file", "api.upload.tooLarge", request);
+        }
         String message = messageSource.getMessage("account.avatar.file.tooLarge", new Object[]{2}, "File too large", RequestLocaleResolver.resolve(request));
         return respondWithStatus(ErrorCodes.VALIDATION_FAILED, HttpStatus.PAYLOAD_TOO_LARGE, request,
                 List.of(new ApiError(AccountDomainError.VALIDATION_FIELD_ERROR, message, "file")));
@@ -226,6 +253,9 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MissingServletRequestPartException.class)
     public ResponseEntity<ApiResponseEnvelope<Void>> handleMissingPart(MissingServletRequestPartException ex, HttpServletRequest request) {
+        if (strict.applies(request)) {
+            return strict.respond(ApiErrorCode.VALIDATION_ERROR, ex.getRequestPartName(), "api.validation.required", request);
+        }
         String message = messageSource.getMessage("account.avatar.file.required", null, "File is required", RequestLocaleResolver.resolve(request));
         return respond(ErrorCodes.VALIDATION_FAILED, HttpStatus.BAD_REQUEST, request,
                 List.of(new ApiError(AccountDomainError.VALIDATION_FIELD_ERROR, message, ex.getRequestPartName())));
@@ -233,6 +263,9 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
     public ResponseEntity<ApiResponseEnvelope<Void>> handleUnsupportedMediaType(HttpMediaTypeNotSupportedException ex, HttpServletRequest request) {
+        if (strict.applies(request)) {
+            return strict.respond(ApiErrorCode.UNSUPPORTED_MEDIA_TYPE, null, "api.upload.unsupportedMediaType", request);
+        }
         String message = messageSource.getMessage("account.validation.unsupportedMediaType", null, "Unsupported media type", RequestLocaleResolver.resolve(request));
         return respondWithStatus(ErrorCodes.VALIDATION_FAILED, HttpStatus.UNSUPPORTED_MEDIA_TYPE, request,
                 List.of(new ApiError(AccountDomainError.VALIDATION_ERROR, message, null)));
@@ -242,6 +275,9 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({ObjectOptimisticLockingFailureException.class, OptimisticLockException.class})
     public ResponseEntity<ApiResponseEnvelope<Void>> handleOptimisticLock(Exception ex, HttpServletRequest request) {
         log.info("Optimistic lock conflict on {} {}: {}", request.getMethod(), request.getRequestURI(), ex.getMessage());
+        if (strict.applies(request)) {
+            return strict.respond(ApiException.concurrentModification(), request);
+        }
         String message = messageSource.getMessage("account.concurrency.conflict", null, "Modified concurrently", RequestLocaleResolver.resolve(request));
         return respondWithStatus(ErrorCodes.SYSTEM_RESOURCE_CONFLICT, HttpStatus.CONFLICT, request,
                 List.of(new ApiError(AccountDomainError.SYSTEM_RESOURCE_CONFLICT, message, null)));
@@ -249,11 +285,18 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiResponseEnvelope<Void>> handleAccessDenied(AccessDeniedException ex, HttpServletRequest request) {
+        accessDeniedRecorder.ifAvailable(recorder -> recorder.record(request, ApiErrorCode.ACCESS_DENIED.name()));
+        if (strict.applies(request)) {
+            return strict.respond(ApiErrorCode.ACCESS_DENIED, null, "api.accessDenied", request);
+        }
         return respond(ErrorCodes.UNAUTHORIZED_MODIFICATION, HttpStatus.FORBIDDEN, request, (String) null);
     }
 
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ApiResponseEnvelope<Void>> handleResourceNotFound(ResourceNotFoundException ex, HttpServletRequest request) {
+        if (strict.applies(request)) {
+            return strict.respond(ApiErrorCode.RESOURCE_NOT_FOUND, null, "api.notFound", request);
+        }
         return respond(ErrorCodes.RESOURCE_NOT_FOUND, HttpStatus.NOT_FOUND, request, ex.getMessage());
     }
 
@@ -299,6 +342,9 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
     public ResponseEntity<ApiResponseEnvelope<Void>> handleConstraintRace(org.springframework.dao.DataIntegrityViolationException ex, HttpServletRequest request) {
         log.warn("Database constraint rejected {} {}: {}", request.getMethod(), request.getRequestURI(), ex.getMostSpecificCause().getMessage());
+        if (strict.applies(request)) {
+            return strict.respond(constraintCode(ex), null, "api.constraint." + constraintCode(ex).name(), request);
+        }
         return respond(ErrorCodes.DATA_INTEGRITY_VIOLATION, HttpStatus.CONFLICT, request, (String) null);
     }
 
@@ -323,6 +369,9 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ApiResponseEnvelope<Void>> handleTypeMismatch(MethodArgumentTypeMismatchException ex, HttpServletRequest request) {
+        if (strict.applies(request)) {
+            return strict.respond(ApiErrorCode.VALIDATION_ERROR, ex.getName(), "api.validation.invalidValue", request);
+        }
         String type = ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "unknown";
         String detail = "'%s' -> '%s' (%s)".formatted(ex.getName(), ex.getValue(), type);
         return respond(ErrorCodes.TYPE_MISMATCH, HttpStatus.BAD_REQUEST, request, detail);
@@ -348,6 +397,9 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(RateLimitExceededException.class)
     public ResponseEntity<ApiResponseEnvelope<Void>> handleRateLimitExceeded(RateLimitExceededException ex, HttpServletRequest request) {
+        if (strict.applies(request)) {
+            return strict.respond(ApiErrorCode.RATE_LIMITED, null, "api.rateLimited.generic", request);
+        }
         return respond(ErrorCodes.RATE_LIMIT_EXCEEDED, HttpStatus.TOO_MANY_REQUESTS, request, ex.getMessage());
     }
 
@@ -365,7 +417,20 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponseEnvelope<Void>> handleUnexpected(Exception ex, HttpServletRequest request) {
         log.error("Unexpected error handling {} {}", request.getMethod(), request.getRequestURI(), ex);
+        if (strict.applies(request)) {
+            return strict.respond(ApiErrorCode.INTERNAL_ERROR, null, "api.internalError", request);
+        }
         return respond(ErrorCodes.UNEXPECTED_ERROR, HttpStatus.INTERNAL_SERVER_ERROR, request, (String) null);
+    }
+
+    /** 23505 unique → duplicate; 23503 foreign key → still referenced; anything else → invalid input. */
+    private static ApiErrorCode constraintCode(org.springframework.dao.DataIntegrityViolationException ex) {
+        java.sql.SQLException sql = findCause(ex, java.sql.SQLException.class);
+        String state = sql == null ? null : sql.getSQLState();
+        if ("23505".equals(state)) {
+            return ApiErrorCode.DUPLICATE_RESOURCE;
+        }
+        return "23503".equals(state) ? ApiErrorCode.RESOURCE_IN_USE : ApiErrorCode.VALIDATION_ERROR;
     }
 
     // -- response construction --
