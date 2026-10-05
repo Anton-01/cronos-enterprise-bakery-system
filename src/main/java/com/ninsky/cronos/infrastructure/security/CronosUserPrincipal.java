@@ -21,7 +21,7 @@ import java.util.stream.Stream;
  */
 public class CronosUserPrincipal implements UserDetails {
 
-    private static final Set<String> LOGIN_STATUSES = Set.of("ACTIVE", "PENDING_ACTIVATION");
+    private static final Set<String> BLOCKED_STATUSES = Set.of("SUSPENDED", "DEACTIVATED");
 
     private final AuthUserProjection projection;
     private final Set<String> permissions;
@@ -115,6 +115,6 @@ public class CronosUserPrincipal implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return projection.enabled() && (projection.status() == null || LOGIN_STATUSES.contains(projection.status()));
+        return projection.enabled() && !BLOCKED_STATUSES.contains(projection.status());
     }
 }
