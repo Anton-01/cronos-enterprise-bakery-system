@@ -47,25 +47,27 @@ public class JdbcUserAuthAdapter implements UserAuthLookupPort {
      */
     private static final String SELECT_USER = """
             SELECT id, username, email, password, enabled, account_non_locked,
-                   account_non_expired, credentials_non_expired, two_factor_enabled, locked_until
+                   account_non_expired, credentials_non_expired, two_factor_enabled, locked_until,
+                   status, access_version, password_needs_change
             FROM users
             WHERE username = ? OR email_blind_index = ?
             """;
 
     private static final String SELECT_USER_BY_ID = """
             SELECT id, username, email, password, enabled, account_non_locked,
-                   account_non_expired, credentials_non_expired, two_factor_enabled, locked_until
+                   account_non_expired, credentials_non_expired, two_factor_enabled, locked_until,
+                   status, access_version, password_needs_change
             FROM users
             WHERE id = ?
             """;
 
     private static final String SELECT_ROLES_AND_PERMISSIONS = """
-            SELECT r.name AS role_name, p.name AS permission_name
+            SELECT r.code AS role_name, p.name AS permission_name
             FROM roles r
             JOIN user_roles ur ON ur.role_id = r.id
             LEFT JOIN role_permissions rp ON rp.role_id = r.id
             LEFT JOIN permissions p ON p.id = rp.permission_id
-            WHERE ur.user_id = ?
+            WHERE ur.user_id = ? AND r.status = 'ACTIVE'
             """;
 
     private final JdbcTemplate jdbcTemplate;
@@ -128,7 +130,10 @@ public class JdbcUserAuthAdapter implements UserAuthLookupPort {
                 (boolean) row.get("two_factor_enabled"),
                 lockedUntil,
                 roleNames,
-                permissionNames
+                permissionNames,
+                (String) row.get("status"),
+                ((Number) row.get("access_version")).longValue(),
+                (boolean) row.get("password_needs_change")
         ));
     }
 

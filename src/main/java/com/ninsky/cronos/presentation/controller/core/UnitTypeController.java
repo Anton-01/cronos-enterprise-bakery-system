@@ -47,7 +47,7 @@ public class UnitTypeController {
     private final CatalogImportService catalogImportService;
 
     @PostMapping
-    @PreAuthorize(CatalogAccess.CAN_MANAGE)
+    @PreAuthorize(CatalogAccess.UNIT_TYPE_MANAGE)
     @Operation(summary = "Create a unit type")
     public ResponseEntity<ApiResponse<UnitTypeResponse>> createUnitType(@Valid @RequestBody UnitTypeRequest request,
                                                                         @AuthenticationPrincipal CronosUserPrincipal principal) {
@@ -56,7 +56,7 @@ public class UnitTypeController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize(CatalogAccess.CAN_MANAGE)
+    @PreAuthorize(CatalogAccess.UNIT_TYPE_MANAGE)
     @Operation(summary = "Update a unit type", description = "The dimension is locked once the unit type has measurement units.")
     public ResponseEntity<ApiResponse<UnitTypeResponse>> updateUnitType(@PathVariable Long id, @Valid @RequestBody UnitTypeRequest request,
                                                                         @AuthenticationPrincipal CronosUserPrincipal principal) {
@@ -89,7 +89,7 @@ public class UnitTypeController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize(CatalogAccess.CAN_MANAGE)
+    @PreAuthorize(CatalogAccess.UNIT_TYPE_MANAGE)
     @Operation(summary = "Delete a unit type (soft delete)", description = "Rejected while the unit type still has measurement units.")
     public ResponseEntity<ApiResponse<Void>> deleteUnitType(@PathVariable Long id, @AuthenticationPrincipal CronosUserPrincipal principal) {
         unitTypeService.deleteUnitType(id, CatalogAccess.actorOf(principal));
@@ -97,7 +97,7 @@ public class UnitTypeController {
     }
 
     @PatchMapping("/{id}/status")
-    @PreAuthorize(CatalogAccess.CAN_MANAGE)
+    @PreAuthorize(CatalogAccess.UNIT_TYPE_MANAGE)
     @Operation(summary = "Change status", description = "ACTIVE, INACTIVE or ARCHIVED. Deactivation is rejected while the type has active units.")
     public ResponseEntity<ApiResponse<Void>> changeStatus(@PathVariable Long id, @Valid @RequestBody ChangeStatusRequest request,
                                                           @AuthenticationPrincipal CronosUserPrincipal principal) {
@@ -106,7 +106,7 @@ public class UnitTypeController {
     }
 
     @PostMapping(value = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize(CatalogAccess.CAN_MANAGE)
+    @PreAuthorize(CatalogAccess.IMPORT_EXECUTE)
     @Operation(summary = "Bulk upsert unit types from .xlsx (sheet 'UnitTypes')",
             description = "All-or-nothing. dryRun=true (default) only validates; dryRun=false applies. The report's status is "
                     + "VALIDATED, COMMITTED or REJECTED; every attempt is recorded in the import ledger (GET /data-imports).")
@@ -121,7 +121,7 @@ public class UnitTypeController {
     }
 
     @GetMapping("/import/template")
-    @PreAuthorize(CatalogAccess.CAN_MANAGE)
+    @PreAuthorize(CatalogAccess.IMPORT_EXECUTE)
     @Operation(summary = "Download the .xlsx template for unit type imports")
     public ResponseEntity<Resource> downloadTemplate() {
         return ImportEndpointSupport.template(ImportResource.UNIT_TYPE);

@@ -1,5 +1,7 @@
 package com.ninsky.cronos.presentation.controller.recipe;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+import com.ninsky.cronos.iam.permission.Authorities;
 import com.ninsky.cronos.application.response.core.ApiResponse;
 import com.ninsky.cronos.application.response.recipe.RecipeFileResponse;
 import com.ninsky.cronos.application.service.recipe.RecipeFileService;
@@ -17,6 +19,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
+@PreAuthorize(Authorities.RECIPE_READ)
 @RequestMapping("/recipes/{recipeId}/files")
 @RequiredArgsConstructor
 @SecurityRequirement(name = "bearerAuth")
@@ -33,6 +36,7 @@ public class RecipeFileController {
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize(Authorities.RECIPE_UPDATE)
     @Operation(summary = "Upload recipe file", description = "Uploads a file and links it to the recipe. Protected against Path Traversal.")
     public ResponseEntity<ApiResponse<RecipeFileResponse>> uploadFile(@PathVariable UUID recipeId, @RequestPart("file") MultipartFile file, @RequestParam(value = "description", required = false) String description, Authentication authentication) {
         RecipeFileResponse response = recipeFileService.uploadRecipeFile(authentication.getName(), recipeId, file, description);
@@ -40,6 +44,7 @@ public class RecipeFileController {
     }
 
     @DeleteMapping("/{fileId}")
+    @PreAuthorize(Authorities.RECIPE_UPDATE)
     @Operation(summary = "Delete recipe file", description = "Permanently deletes a file from the recipe and storage")
     public ResponseEntity<ApiResponse<Void>> deleteFile(@PathVariable UUID recipeId, @PathVariable UUID fileId, Authentication authentication) {
         recipeFileService.deleteRecipeFile(authentication.getName(), recipeId, fileId);

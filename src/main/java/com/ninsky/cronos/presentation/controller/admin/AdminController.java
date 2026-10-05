@@ -29,7 +29,7 @@ import java.util.UUID;
 @RequestMapping("/admin/users")
 @RequiredArgsConstructor
 @SecurityRequirement(name = "bearerAuth")
-@PreAuthorize("hasAnyAuthority('SUPER_ADMIN', 'MANAGE_USERS')")
+@PreAuthorize("hasRole('SUPER_ADMIN')")
 @Tag(name = "Admin User Management", description = "Enterprise endpoints for super admins to manage users")
 public class AdminController {
 

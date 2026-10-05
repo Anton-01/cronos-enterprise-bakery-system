@@ -31,6 +31,10 @@ public class LoginHistoryJpaEntity {
     @Column(name = "status", length = 15)
     private String status;
 
+    /** SUCCESS | FAILURE | LOCKED | TWO_FACTOR_FAILED (spec §3.8). */
+    @Column(name = "outcome", length = 20)
+    private String outcome;
+
     @Column(name = "user_agent", length = 500)
     private String userAgent;
 

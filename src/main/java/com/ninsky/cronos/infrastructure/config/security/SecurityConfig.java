@@ -1,9 +1,14 @@
 package com.ninsky.cronos.infrastructure.config.security;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ninsky.cronos.iam.policy.TwoFactorRequirement;
+import com.ninsky.cronos.iam.signin.TwoFactorGateFilter;
 import com.ninsky.cronos.infrastructure.config.security.handler.OAuth2LoginSuccessHandler;
+import com.ninsky.cronos.infrastructure.exception.StrictContractResponder;
 import com.ninsky.cronos.infrastructure.security.CustomAuthenticationEntryPoint;
 import com.ninsky.cronos.infrastructure.security.JwtAuthenticationFilter;
-import lombok.RequiredArgsConstructor;
+import jakarta.servlet.DispatcherType;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -26,12 +31,22 @@ import java.util.List;
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
-@RequiredArgsConstructor
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthFilter;
     private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
     private final CustomAuthenticationEntryPoint customAuthenticationEntryPoint;
+    private final TwoFactorGateFilter twoFactorGate;
+
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthFilter, OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler,
+                          CustomAuthenticationEntryPoint customAuthenticationEntryPoint, TwoFactorRequirement twoFactorRequirement,
+                          StrictContractResponder strictContractResponder, ObjectMapper objectMapper,
+                          @Value("${app.security.two-factor-gate.enabled:true}") boolean twoFactorGateEnabled) {
+        this.jwtAuthFilter = jwtAuthFilter;
+        this.oAuth2LoginSuccessHandler = oAuth2LoginSuccessHandler;
+        this.customAuthenticationEntryPoint = customAuthenticationEntryPoint;
+        this.twoFactorGate = twoFactorGateEnabled ? new TwoFactorGateFilter(twoFactorRequirement, strictContractResponder, objectMapper) : null;
+    }
 
     public static final String[] DEFAULT_ALLOWED_METHODS_HTTP = {"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"};
     public static final String[] DEFAULT_ALLOWED_ORIGINS = {"http://localhost:3000", "http://localhost:4200"};
@@ -40,7 +55,9 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.csrf(AbstractHttpConfigurer::disable).cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/login","/auth/register","/auth/refresh", "/auth/forgot-password", "/auth/reset-password", "/oauth2/**", "/login/oauth2/**", "/error", "/public/**", "/security/jwe-public-key", "swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**", "/actuator/**").permitAll()
+                        // Streamed downloads resume on an ASYNC dispatch of a request already authorised.
+                        .dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
+                        .requestMatchers("/auth/login","/auth/register","/auth/refresh", "/auth/forgot-password", "/auth/reset-password", "/auth/activate", "/oauth2/**", "/login/oauth2/**", "/error", "/public/**", "/security/jwe-public-key", "swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**", "/actuator/**").permitAll()
                         .anyRequest().authenticated()
                 ).oauth2Login(oauth2 -> oauth2
                         .successHandler(oAuth2LoginSuccessHandler)
@@ -49,6 +66,9 @@ public class SecurityConfig {
                 ).sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 ).addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+        if (twoFactorGate != null) {
+            http.addFilterAfter(twoFactorGate, JwtAuthenticationFilter.class);
+        }
         return http.build();
     }
 

@@ -19,11 +19,13 @@ public record CreateQuoteRequest(
         String clientAddress,
         String notes,
 
-        @NotNull(message = "Tax rate is required")
+        // Optional: omitted → tenant default tax rate (spec §11.4)
         @DecimalMin(value = "0.0", message = "Tax rate cannot be negative")
+        @DecimalMax(value = "100.0", message = "Tax rate cannot exceed 100")
+        @Digits(integer = 3, fraction = 4, message = "Tax rate allows at most 4 decimals")
         BigDecimal taxRate,
 
-        @NotNull(message = "Currency is required")
+        // Optional: omitted → tenant default currency; must be an ACTIVE catalog code
         @Size(min = 3, max = 3)
         String currency,
 
@@ -34,9 +36,14 @@ public record CreateQuoteRequest(
         @Valid
         List<QuoteItemRequest> items,
 
+        @DecimalMin(value = "0.0", message = "Delivery fee cannot be negative")
         BigDecimal deliveryFee,
 
+        @DecimalMin(value = "0.0", message = "Extra fee cannot be negative")
         BigDecimal extraFee,
 
-        String extraFeeDescription
+        String extraFeeDescription,
+
+        // Optional catalog preset; wins over taxRate (which must then match it)
+        Long taxRateId
 ) {}

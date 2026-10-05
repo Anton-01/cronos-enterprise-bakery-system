@@ -1,5 +1,7 @@
 package com.ninsky.cronos.presentation.controller.recipe;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+import com.ninsky.cronos.iam.permission.Authorities;
 import com.ninsky.cronos.application.request.recipe.CreateRecipeRequest;
 import com.ninsky.cronos.application.request.recipe.UpdateRecipeRequest;
 import com.ninsky.cronos.application.response.core.ApiResponse;
@@ -26,6 +28,7 @@ import java.util.UUID;
 
 @Slf4j
 @RestController
+@PreAuthorize(Authorities.RECIPE_READ)
 @RequestMapping("/recipes")
 @RequiredArgsConstructor
 @SecurityRequirement(name = "bearerAuth")
@@ -63,6 +66,7 @@ public class RecipeController {
     }
 
     @PostMapping
+    @PreAuthorize(Authorities.RECIPE_CREATE)
     @Operation(summary = "Create a new recipe", description = "Creates a new draft recipe linked to the authenticated user")
     public ResponseEntity<ApiResponse<RecipeResponse>> createRecipe(Authentication authentication, @Valid @RequestBody CreateRecipeRequest request) {
         RecipeResponse response = recipeService.createRecipe(authentication.getName(), request);
@@ -77,6 +81,7 @@ public class RecipeController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize(Authorities.RECIPE_UPDATE)
     @Operation(summary = "Update recipe", description = "Updates an existing recipe. Validates ownership automatically.")
     public ResponseEntity<ApiResponse<RecipeResponse>> updateRecipe(@PathVariable UUID id, Authentication authentication, @Valid @RequestBody UpdateRecipeRequest request) {
         RecipeResponse response = recipeService.updateRecipe(authentication.getName(), id, request);

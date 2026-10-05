@@ -1,5 +1,7 @@
 package com.ninsky.cronos.presentation.controller.recipe;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+import com.ninsky.cronos.iam.permission.Authorities;
 import com.ninsky.cronos.application.request.recipe.RecipeFixedCostRequest;
 import com.ninsky.cronos.application.request.recipe.RecipeIngredientRequest;
 import com.ninsky.cronos.application.request.recipe.SubstituteIngredientRequest;
@@ -17,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.UUID;
 
 @RestController
+@PreAuthorize(Authorities.RECIPE_UPDATE)
 @RequestMapping("/recipes/{recipeId}")
 @RequiredArgsConstructor
 @SecurityRequirement(name = "bearerAuth")

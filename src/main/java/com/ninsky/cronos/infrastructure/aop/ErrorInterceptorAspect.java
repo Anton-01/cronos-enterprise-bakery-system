@@ -17,6 +17,7 @@ import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.slf4j.MDC;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.security.authentication.AuthenticationServiceException;
 import org.springframework.stereotype.Component;
 
@@ -53,7 +54,8 @@ public class ErrorInterceptorAspect {
 
     private final ErrorCatalogPort errorCatalogPort;
 
-    public ErrorInterceptorAspect(ErrorCatalogPort errorCatalogPort) {
+    /** Lazy: the aspect is built while Flyway's Java migrations are wired, before any JdbcTemplate may exist. */
+    public ErrorInterceptorAspect(@Lazy ErrorCatalogPort errorCatalogPort) {
         this.errorCatalogPort = errorCatalogPort;
     }
 

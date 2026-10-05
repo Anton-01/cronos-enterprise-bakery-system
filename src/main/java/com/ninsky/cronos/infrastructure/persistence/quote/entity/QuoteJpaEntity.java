@@ -2,6 +2,8 @@ package com.ninsky.cronos.infrastructure.persistence.quote.entity;
 
 import com.ninsky.cronos.domain.entity.base.AuditableEntity;
 import com.ninsky.cronos.domain.entity.enums.QuoteStatus;
+import com.ninsky.cronos.finance.pricing.FinanceRoundingMode;
+import com.ninsky.cronos.finance.pricing.TaxFactorType;
 import com.ninsky.cronos.infrastructure.persistence.crypto.EncryptedStringConverter;
 import jakarta.persistence.*;
 import lombok.*;
@@ -58,21 +60,39 @@ public class QuoteJpaEntity extends AuditableEntity {
     @Column(name = "valid_until")
     private LocalDateTime validUntil;
 
-    @Column(nullable = false, precision = 15, scale = 2)
+    @Column(nullable = false, precision = 17, scale = 4)
     private BigDecimal subtotal;
 
-    @Column(name = "tax_rate", nullable = false, precision = 5, scale = 2)
+    @Column(name = "tax_rate", nullable = false, precision = 7, scale = 4)
     private BigDecimal taxRate;
 
-    @Column(name = "tax_amount", nullable = false, precision = 15, scale = 2)
+    @Column(name = "tax_amount", nullable = false, precision = 17, scale = 4)
     private BigDecimal taxAmount;
 
-    @Column(nullable = false, precision = 15, scale = 2)
+    @Column(nullable = false, precision = 17, scale = 4)
     private BigDecimal total;
 
     @Column(nullable = false, length = 3)
     @Builder.Default
     private String currency = "MXN";
+
+    // Pricing snapshot (spec §11.4)
+    @Column(name = "currency_decimal_places", nullable = false)
+    private Short currencyDecimalPlaces;
+
+    @Column(name = "tax_rate_id")
+    private Long taxRateId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tax_factor_type", nullable = false, length = 6)
+    private TaxFactorType taxFactorType;
+
+    @Column(name = "prices_include_tax", nullable = false)
+    private Boolean pricesIncludeTax;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "rounding_mode", nullable = false, length = 10)
+    private FinanceRoundingMode roundingMode;
 
     @Column(name = "public_token", length = 100, unique = true)
     private String publicToken;
@@ -93,11 +113,11 @@ public class QuoteJpaEntity extends AuditableEntity {
     @Builder.Default
     private List<QuoteItemJpaEntity> items = new ArrayList<>();
 
-    @Column(name = "delivery_fee", nullable = false, precision = 15, scale = 2)
+    @Column(name = "delivery_fee", nullable = false, precision = 17, scale = 4)
     @Builder.Default
     private BigDecimal deliveryFee = BigDecimal.ZERO;
 
-    @Column(name = "extra_fee", nullable = false, precision = 15, scale = 2)
+    @Column(name = "extra_fee", nullable = false, precision = 17, scale = 4)
     @Builder.Default
     private BigDecimal extraFee = BigDecimal.ZERO;
 

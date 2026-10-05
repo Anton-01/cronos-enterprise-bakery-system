@@ -31,7 +31,7 @@ public class AuditLogJpaEntity {
     private String actorUsername;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "action", nullable = false, length = 50)
+    @Column(name = "action", nullable = false, length = 60)
     private com.ninsky.cronos.domain.model.audit.AuditAction action;
 
     @Column(name = "target_type", nullable = false, length = 50)
@@ -56,7 +56,24 @@ public class AuditLogJpaEntity {
     @Column(name = "changes", columnDefinition = "jsonb")
     private String changes;
 
+    @Column(name = "category", nullable = false, length = 30)
+    private String category;
+
+    @Column(name = "outcome", nullable = false, length = 10)
+    private String outcome;
+
+    @Column(name = "severity", nullable = false, length = 10)
+    private String severity;
+
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    /** Legacy writers only know the action; classification follows from it. */
+    @PrePersist
+    void classify() {
+        category = category != null ? category : action.category().name();
+        outcome = outcome != null ? outcome : com.ninsky.cronos.domain.model.audit.AuditOutcome.SUCCESS.name();
+        severity = severity != null ? severity : com.ninsky.cronos.domain.model.audit.AuditSeverity.NOTICE.name();
+    }
 }

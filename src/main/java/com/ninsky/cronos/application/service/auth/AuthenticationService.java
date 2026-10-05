@@ -8,25 +8,29 @@ import com.ninsky.cronos.application.response.auth.TokenResponse;
 import com.ninsky.cronos.application.response.menu.MenuItemResponse;
 import com.ninsky.cronos.domain.model.auth.AuthUserProjection;
 import com.ninsky.cronos.domain.model.auth.DeviceFingerprint;
-import com.ninsky.cronos.domain.model.auth.LoginHistory;
-import com.ninsky.cronos.domain.model.auth.SecurityNotification;
-import com.ninsky.cronos.domain.model.auth.EffectivePermissions;
-import com.ninsky.cronos.domain.model.auth.Permission;
 import com.ninsky.cronos.domain.model.auth.RefreshToken;
-import com.ninsky.cronos.domain.model.auth.Role;
+import com.ninsky.cronos.domain.model.auth.SecurityNotification;
 import com.ninsky.cronos.domain.model.auth.User;
 import com.ninsky.cronos.domain.model.auth.UserSession;
 import com.ninsky.cronos.domain.model.menu.MenuNode;
 import com.ninsky.cronos.domain.port.auth.DeviceFingerprintRepositoryPort;
-import com.ninsky.cronos.domain.port.auth.LoginHistoryRepositoryPort;
-import com.ninsky.cronos.domain.port.auth.PermissionRepositoryPort;
 import com.ninsky.cronos.domain.port.auth.RefreshTokenRepositoryPort;
-import com.ninsky.cronos.domain.port.auth.RoleRepositoryPort;
 import com.ninsky.cronos.domain.port.auth.SecurityNotificationRepositoryPort;
 import com.ninsky.cronos.domain.port.auth.UserAuthLookupPort;
 import com.ninsky.cronos.domain.port.auth.UserRepositoryPort;
 import com.ninsky.cronos.domain.port.auth.UserSessionRepositoryPort;
 import com.ninsky.cronos.domain.port.menu.MenuPort;
+import com.ninsky.cronos.iam.access.UserAccessService;
+import com.ninsky.cronos.iam.access.UserAccessState;
+import com.ninsky.cronos.iam.policy.SecurityPolicy;
+import com.ninsky.cronos.iam.policy.SecurityPolicyProvider;
+import com.ninsky.cronos.iam.shared.TenantTime;
+import com.ninsky.cronos.iam.shared.UserDirectory;
+import com.ninsky.cronos.iam.shared.UserRef;
+import com.ninsky.cronos.iam.signin.AccountStanding;
+import com.ninsky.cronos.iam.signin.AccountStandings;
+import com.ninsky.cronos.iam.signin.SignInJournal;
+import com.ninsky.cronos.iam.user.UserStatus;
 import com.ninsky.cronos.infrastructure.config.security.JwtConfig;
 import com.ninsky.cronos.infrastructure.exception.InvalidTokenException;
 import com.ninsky.cronos.infrastructure.exception.UserNotFoundException;
@@ -38,10 +42,13 @@ import com.ninsky.cronos.infrastructure.util.auth.RequestContextUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.security.authentication.AccountExpiredException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,15 +56,15 @@ import org.springframework.transaction.annotation.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Base64;
-import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -71,13 +78,11 @@ public class AuthenticationService {
     private final JwtConfig jwtConfig;
     private final AccountLockoutService lockoutService;
     private final TwoFactorService twoFactorService;
-    private final RoleRepositoryPort roleRepository;
-    private final PermissionRepositoryPort permissionRepository;
     private final MenuPort menuPort;
+    private final UserAccessService userAccessService;
 
     private final RefreshTokenRepositoryPort refreshTokenRepository;
     private final UserSessionRepositoryPort userSessionRepository;
-    private final LoginHistoryRepositoryPort loginHistoryRepository;
     private final DeviceFingerprintRepositoryPort deviceFingerprintRepository;
     private final SecurityNotificationRepositoryPort securityNotificationRepository;
 
@@ -87,124 +92,121 @@ public class AuthenticationService {
     private final TokenBlacklistService tokenBlacklistService;
     private final DpopProofValidator dpopProofValidator;
 
-    @Transactional
+    private final SecurityPolicyProvider securityPolicyProvider;
+    private final AccountStandings accountStandings;
+    private final SignInJournal signInJournal;
+    private final UserDirectory userDirectory;
+    private final Clock clock;
+
+    /**
+     * Sign-in with the policy enforcement points of spec §8. Commits on authentication failures
+     * (noRollbackFor) so attempt counters, lockouts and sign-in history survive the 401.
+     */
+    @Transactional(noRollbackFor = AuthenticationException.class)
     public LoginResponse login(LoginRequest request) {
-        log.info("Login request for user/email: {}", request.username());
+        log.info("Login request received");
 
-        // Lean, JPA-entity-graph-bypassing lookup (see UserAuthLookupPort/AuthUserProjection):
-        // never decrypts email/2FA secret. Everything up to a confirmed-correct password stays on
-        // this path so a nonexistent username, a locked account, or a wrong password never touches
-        // field decryption.
-        AuthUserProjection authUser = userAuthLookupPort.findByUsernameOrEmail(request.username())
-                .orElseThrow(() -> new BadCredentialsException("Invalid credentials"));
-
-        if (authUser.isEffectivelyLocked()) {
-            long remainingMinutes = lockoutService.getRemainingLockoutTime(authUser.lockedUntil());
-            recordFailedLogin(authUser.id(), authUser.username(), "Account locked");
-            throw new LockedException(String.format("Account is locked. Try again in %d minutes", remainingMinutes));
+        // Lean lookup (see UserAuthLookupPort/AuthUserProjection): never decrypts email/2FA secret
+        // until the password is confirmed correct.
+        AuthUserProjection authUser = userAuthLookupPort.findByUsernameOrEmail(request.username()).orElse(null);
+        if (authUser == null) {
+            signInJournal.failed(null, null, SignInJournal.Outcome.FAILURE, SignInJournal.Failure.UNKNOWN_ACCOUNT);
+            throw new BadCredentialsException("Invalid credentials");
         }
+        String label = labelOf(authUser.id(), authUser.username());
+        SecurityPolicy policy = securityPolicyProvider.current();
+        AccountStanding standing = lockoutService.releaseExpiredLock(accountStandings.find(authUser.id())
+                .orElseThrow(() -> new BadCredentialsException("Invalid credentials")), label);
+        rejectUnlessActive(standing, label);
 
         try {
-            // Authenticating credentials with Spring Security (delegates to
-            // CustomUserDetailsService, backed by this same lean UserAuthLookupPort).
+            // Password check through Spring Security (CustomUserDetailsService, same lean lookup).
             authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.username(), request.password()));
-        } catch (BadCredentialsException e) {
-            persistFailedAttemptBestEffort(authUser.id());
-            recordFailedLogin(authUser.id(), authUser.username(), "Invalid credentials");
-            throw e;
+        } catch (AuthenticationException e) {
+            boolean locked = lockoutService.registerFailure(authUser.id(), standing.status(), label);
+            signInJournal.failed(authUser.id(), label, SignInJournal.Outcome.FAILURE, SignInJournal.Failure.INVALID_CREDENTIALS);
+            throw locked ? new LockedException("Account is locked") : new BadCredentialsException("Invalid credentials");
         }
 
-        // Password confirmed correct: only now load the full aggregate (decrypts email/2FA
-        // secret), needed for the rest of this method (JWT claims, session/audit records, response).
+        // Password confirmed: only now load the full aggregate (decrypts email/2FA secret). It is never
+        // saved back here; login bookkeeping is JDBC so it cannot clash with UserStatusWriter's version bumps.
         User user = userRepository.findById(authUser.id())
                 .orElseThrow(() -> new UserNotFoundException("User not found: " + authUser.id()));
 
-        // FieldEncryptionService.decrypt() degrades a corrupted/undecryptable column (rotated or
-        // lost data-encryption-key) to a sentinel instead of throwing, so this row's login must be
-        // rejected explicitly here — otherwise the sentinel string would silently ride along as if
-        // it were the real email/2FA secret (wrong JWT claim, or a TOTP check that can never pass).
+        // A corrupted/undecryptable column degrades to a sentinel instead of throwing: reject explicitly.
         if (isDecryptionCorrupted(user)) {
-            persistFailedAttemptBestEffort(authUser.id());
-            recordFailedLogin(authUser.id(), authUser.username(), "Corrupted encrypted user data");
+            lockoutService.registerFailure(user.getId(), standing.status(), label);
+            signInJournal.failed(user.getId(), label, SignInJournal.Outcome.FAILURE, SignInJournal.Failure.INVALID_CREDENTIALS);
             throw new BadCredentialsException("Invalid credentials");
         }
 
-        // Verification 2FA
         if (user.isTwoFactorEnabled()) {
             if (request.twoFactorCode() == null) {
                 return LoginResponse.builder().requiresTwoFactor(true)
                         .message("Two-factor authentication code required").build();
             }
-
             if (!twoFactorService.isCodeValid(user, request.twoFactorCode())) {
-                lockoutService.handleFailedLogin(user);
-                userRepository.save(user);
-                recordFailedLogin(user.getId(), user.getUsername(), "Invalid 2FA code");
-                throw new BadCredentialsException("Invalid two-factor authentication code");
+                boolean locked = lockoutService.registerFailure(user.getId(), standing.status(), label);
+                signInJournal.failed(user.getId(), label, SignInJournal.Outcome.TWO_FACTOR_FAILED,
+                        SignInJournal.Failure.INVALID_TWO_FACTOR_CODE);
+                throw locked ? new LockedException("Account is locked") : new BadCredentialsException("Invalid two-factor authentication code");
             }
         }
 
-        // Login successful -> Reset lockout counters
-        lockoutService.handleSuccessfulLogin(user);
-        user.setLastLoginAt(LocalDateTime.now());
-        userRepository.save(user);
+        lockoutService.registerSuccess(user.getId());
+        LocalDateTime now = TenantTime.nowLocal(clock);
 
         // Fingerprinting and Security Alerts
         String deviceFingerprint = handleDeviceFingerprinting(user);
 
-        // (Fire-and-Forget)
-        sessionManagementService.cleanupConcurrentSessionsAsync(user, 3);
-
-        // DPoP binding is opt-in: a client that wants a bound token sends a DPoP proof on the
-        // login request itself. No header -> unbound token, today's exact behavior. An invalid
-        // proof fails the login outright rather than silently downgrading (the client explicitly
-        // signaled intent to bind).
+        // DPoP binding is opt-in: a client that wants a bound token sends a DPoP proof on the login
+        // request itself. No header -> unbound token. An invalid proof fails the login outright.
         String dpopProof = requestContextUtil.getHeader("DPoP");
         String dpopJkt = dpopProof != null ? dpopProofValidator.validate(dpopProof, "POST", requestContextUtil.getRequestUrl()) : null;
 
-        // Create the Physical Session in the Database
-        UserSession session = createUserSession(user, deviceFingerprint, dpopJkt);
+        UserSession session = createUserSession(user, deviceFingerprint, dpopJkt, policy, now);
+        sessionManagementService.enforceConcurrencyLimit(user.getId(), policy.maxConcurrentSessions(), now);
 
-        RoleAndPermissionNames grants = resolveRoleAndPermissionNames(user.getRoleIds());
-
-        // Generate Tokens (JWT for Access, OPAQUE UUID for Refresh)
-        String accessToken = jwtService.generateAccessToken(user, session.getId(), grants.roleNames(), grants.permissionNames(), dpopJkt);
+        RoleAndPermissionNames grants = resolveRoleAndPermissionNames(user.getId());
+        String accessToken = jwtService.generateAccessToken(user, session.getId(), grants.roleNames(), grants.permissionNames(), dpopJkt, grants.accessVersion());
         String opaqueRefreshToken = UUID.randomUUID().toString();
 
-        saveRefreshToken(user, session, opaqueRefreshToken);
-        recordSuccessfulLogin(user, user.isTwoFactorEnabled());
-
-        List<MenuItemResponse> navigation = buildNavigation(grants.permissionNames());
+        saveRefreshToken(user, session, opaqueRefreshToken, now);
+        signInJournal.succeeded(user.getId(), label, user.isTwoFactorEnabled());
 
         return LoginResponse.builder().accessToken(accessToken).refreshToken(opaqueRefreshToken)
-                .tokenType("Bearer").expiresIn(900) // 15 minutos (Debe coincidir con jwtConfig)
+                .tokenType("Bearer").expiresIn(accessTokenSeconds())
                 .username(user.getUsername()).email(user.getEmail())
                 .roles(grants.roleNames())
                 .policies(grants.policies())
-                .navigation(navigation)
+                .navigation(buildNavigation(grants.permissionNames()))
+                .mustChangePassword(standing.mustChangePassword(policy, TenantTime.now(clock)))
                 .requiresTwoFactor(false).message("Login successful").build();
     }
 
-    @Transactional
+    /** Session idle/absolute limits are checked here; an expired session is terminated (and that commits). */
+    @Transactional(noRollbackFor = InvalidTokenException.class)
     public TokenResponse refreshToken(RefreshTokenRequest request) {
         String refreshTokenStr = request.refreshToken();
+        LocalDateTime now = TenantTime.nowLocal(clock);
 
-        // Search for the opaque token in the database
         RefreshToken refreshToken = refreshTokenRepository.findByToken(refreshTokenStr).orElseThrow(() -> new InvalidTokenException("Invalid refresh token"));
-
-        // Verify that it has not been revoked or expired
-        if (refreshToken.isRevoked() || refreshToken.getExpiresAt().isBefore(LocalDateTime.now())) {
+        if (refreshToken.isRevoked() || refreshToken.getExpiresAt().isBefore(now)) {
             throw new InvalidTokenException("Refresh token is expired or revoked");
         }
 
-        // Verify that the Parent Session is still active (the user did not close it remotely)
+        // The parent session must still be active (not closed remotely) and within the policy limits.
         UserSession session = refreshToken.getSessionId() != null ? userSessionRepository.findById(refreshToken.getSessionId()).orElse(null) : null;
-        if (session == null || !session.isActive() || session.getExpiresAt().isBefore(LocalDateTime.now())) {
+        if (session == null || !session.isActive()) {
+            throw new InvalidTokenException("Associated session is terminated or expired");
+        }
+        Optional<String> expiry = sessionManagementService.expiry(session, securityPolicyProvider.current(), now);
+        if (expiry.isPresent()) {
+            sessionManagementService.terminate(session, expiry.get(), now);
             throw new InvalidTokenException("Associated session is terminated or expired");
         }
 
-        // A DPoP-bound session can only be refreshed by the same key it was bound to at login —
-        // otherwise a stolen refresh token could mint a newly-bound access token under an attacker's key.
+        // A DPoP-bound session can only be refreshed by the same key it was bound to at login.
         if (session.getDpopJkt() != null) {
             String dpopProof = requestContextUtil.getHeader("DPoP");
             String jkt = dpopProofValidator.validate(dpopProof, "POST", requestContextUtil.getRequestUrl());
@@ -215,133 +217,155 @@ public class AuthenticationService {
 
         User user = userRepository.findById(refreshToken.getUserId()).orElseThrow(() -> new UserNotFoundException("User not found"));
 
-        // Refresh session activity
-        session.setLastActivityAt(LocalDateTime.now());
+        session.setLastActivityAt(now);
         userSessionRepository.save(session);
 
-        RoleAndPermissionNames grants = resolveRoleAndPermissionNames(user.getRoleIds());
-        String newAccessToken = jwtService.generateAccessToken(user, session.getId(), grants.roleNames(), grants.permissionNames(), session.getDpopJkt());
+        RoleAndPermissionNames grants = resolveRoleAndPermissionNames(user.getId());
+        String newAccessToken = jwtService.generateAccessToken(user, session.getId(), grants.roleNames(), grants.permissionNames(), session.getDpopJkt(), grants.accessVersion());
 
         // Refresh Token Rotation (OAuth 2.0 Security Best Practice)
         String newOpaqueRefreshToken = UUID.randomUUID().toString();
-
         refreshToken.setRevoked(true);
-        refreshToken.setRevokedAt(LocalDateTime.now());
+        refreshToken.setRevokedAt(now);
         refreshTokenRepository.save(refreshToken);
+        saveRefreshToken(user, session, newOpaqueRefreshToken, now);
 
-        saveRefreshToken(user, session, newOpaqueRefreshToken);
-
-        return TokenResponse.builder().accessToken(newAccessToken).refreshToken(newOpaqueRefreshToken).tokenType("Bearer").expiresIn(900).build();
+        return TokenResponse.builder().accessToken(newAccessToken).refreshToken(newOpaqueRefreshToken).tokenType("Bearer")
+                .expiresIn(accessTokenSeconds()).build();
     }
 
     @Transactional
     public void logout(String username, String refreshTokenStr) {
-        // Logout never needs email/2FA secret — the lean lookup avoids decrypting anything just to
-        // resolve a user id.
-        UUID userId = userAuthLookupPort.findByUsernameOrEmail(username)
-                .map(AuthUserProjection::id)
+        // Logout never needs email/2FA secret — the lean lookup avoids decrypting anything.
+        AuthUserProjection authUser = userAuthLookupPort.findByUsernameOrEmail(username)
                 .orElseThrow(() -> new UserNotFoundException("User not found"));
+        UUID userId = authUser.id();
+        LocalDateTime now = TenantTime.nowLocal(clock);
 
         if (refreshTokenStr != null) {
-            // Sign out only from this specific device
-            refreshTokenRepository.findByToken(refreshTokenStr).ifPresent(token -> {
+            // Sign out only from this specific device; another user's token is ignored.
+            refreshTokenRepository.findByToken(refreshTokenStr).filter(token -> userId.equals(token.getUserId())).ifPresent(token -> {
                 token.setRevoked(true);
-                token.setRevokedAt(LocalDateTime.now());
+                token.setRevokedAt(now);
                 refreshTokenRepository.save(token);
-
                 if (token.getSessionId() != null) {
-                    userSessionRepository.findById(token.getSessionId()).ifPresent(session -> {
-                        session.setActive(false);
-                        session.setTerminatedAt(LocalDateTime.now());
-                        session.setTerminationReason("USER_LOGOUT");
-                        userSessionRepository.save(session);
-                        tokenBlacklistService.blacklistSession(session.getId(), Duration.ofMillis(jwtConfig.getAccessTokenExpiration()));
-                    });
+                    userSessionRepository.findById(token.getSessionId())
+                            .ifPresent(session -> sessionManagementService.terminate(session, "USER_LOGOUT", now));
                 }
             });
         } else {
             // Sign out of all user sessions (Global logout)
-            refreshTokenRepository.revokeAllUserTokens(userId, LocalDateTime.now());
-            userSessionRepository.terminateAllUserSessions(userId, LocalDateTime.now(), "GLOBAL_LOGOUT");
+            refreshTokenRepository.revokeAllUserTokens(userId, now);
+            userSessionRepository.terminateAllUserSessions(userId, now, "GLOBAL_LOGOUT");
             tokenBlacklistService.blacklistUser(userId, Duration.ofMillis(jwtConfig.getAccessTokenExpiration()));
         }
+        signInJournal.loggedOut(userId, labelOf(userId, authUser.username()), refreshTokenStr == null);
     }
 
     @Transactional
     public LoginResponse processOAuth2Login(OAuth2User oAuth2User, String provider) {
-        // 1. Extraer datos del proveedor (Google/Facebook)
         String email = oAuth2User.getAttribute("email");
-        String providerId = oAuth2User.getAttribute("sub"); // 'sub' es el ID en Google
-
         if (email == null) {
             throw new BadCredentialsException("Email not found from OAuth2 provider");
         }
 
-        // 2. Buscar si el usuario ya existe en nuestra BD
         User user = userRepository.findByEmail(email).orElseGet(() -> {
-            // 3. Si NO existe, lo registramos automáticamente (Auto-Provisioning)
-            log.info("Creating new user from OAuth2 login: {}", email);
+            // Auto-provisioning of a first-time social login
+            log.info("Creating new user from OAuth2 login via {}", provider);
             User newUser = User.builder().email(email)
-                    .username(email) // O generar un username único basado en el nombre
-                    .emailVerified(true) // Confiamos en Google
+                    .username(email)
+                    .emailVerified(true)
                     .enabled(true).accountNonLocked(true)
                     .accountNonExpired(true).credentialsNonExpired(true)
-                    // .password(null) -> ¡Por esto permitimos contraseñas nulas en la BD!
                     .build();
-
-            // Aquí deberías asignarle un Rol por defecto buscando en RoleRepositoryPort
-
             return userRepository.save(newUser);
         });
 
-        // NOTA: Aquí deberías guardar/validar en la tabla UserSocialConnection (para el providerId)
-        // para tener el histórico de qué cuentas de Google están vinculadas.
-
+        accountStandings.find(user.getId()).ifPresent(standing -> rejectUnlessActive(standing, labelOf(user.getId(), user.getUsername())));
         if (user.isCurrentlyLocked()) {
             throw new LockedException("Account is locked.");
         }
 
-        lockoutService.handleSuccessfulLogin(user);
-        user.setLastLoginAt(LocalDateTime.now());
+        user.updateLastLogin();
         userRepository.save(user);
 
+        SecurityPolicy policy = securityPolicyProvider.current();
+        LocalDateTime now = TenantTime.nowLocal(clock);
         String deviceFingerprint = handleDeviceFingerprinting(user);
-        // DPoP binding is deliberately not offered on the OAuth2 flow: the provider-redirect
-        // callback isn't something an SPA can attach a custom header to, so OAuth2-originated
-        // logins always issue unbound tokens.
-        UserSession session = createUserSession(user, deviceFingerprint, null);
+        // DPoP binding is not offered on the OAuth2 flow: the provider-redirect callback cannot carry
+        // a custom header, so OAuth2-originated logins always issue unbound tokens.
+        UserSession session = createUserSession(user, deviceFingerprint, null, policy, now);
+        sessionManagementService.enforceConcurrencyLimit(user.getId(), policy.maxConcurrentSessions(), now);
 
-        RoleAndPermissionNames grants = resolveRoleAndPermissionNames(user.getRoleIds());
-        String accessToken = jwtService.generateAccessToken(user, session.getId(), grants.roleNames(), grants.permissionNames(), null);
+        RoleAndPermissionNames grants = resolveRoleAndPermissionNames(user.getId());
+        String accessToken = jwtService.generateAccessToken(user, session.getId(), grants.roleNames(), grants.permissionNames(), null, grants.accessVersion());
         String opaqueRefreshToken = UUID.randomUUID().toString();
 
-        saveRefreshToken(user, session, opaqueRefreshToken);
-        recordSuccessfulLogin(user, false); // false because OAuth2 bypassed our native 2FA
+        saveRefreshToken(user, session, opaqueRefreshToken, now);
+        signInJournal.succeeded(user.getId(), labelOf(user.getId(), user.getUsername()), false);
 
         return LoginResponse.builder().accessToken(accessToken)
                 .refreshToken(opaqueRefreshToken).tokenType("Bearer")
-                .expiresIn(900).username(user.getUsername())
+                .expiresIn(accessTokenSeconds()).username(user.getUsername())
                 .email(user.getEmail()).roles(grants.roleNames())
                 .policies(grants.policies()).navigation(buildNavigation(grants.permissionNames()))
                 .build();
     }
 
-    // ROLE/PERMISSION/MENU RESOLUTION
+    // STATUS CHECKS
 
-    private record RoleAndPermissionNames(List<String> roleNames, List<String> permissionNames, List<String> policies) {
+    /** Only ACTIVE accounts within their access window may sign in (spec §3.3). */
+    private void rejectUnlessActive(AccountStanding standing, String label) {
+        UUID userId = standing.userId();
+        switch (standing.status()) {
+            case ACTIVE -> {
+                if (standing.accessExpired(TenantTime.today(clock))) {
+                    signInJournal.failed(userId, label, SignInJournal.Outcome.FAILURE, SignInJournal.Failure.ACCESS_EXPIRED);
+                    throw new AccountExpiredException("Account access expired");
+                }
+            }
+            case LOCKED -> {
+                signInJournal.failed(userId, label, SignInJournal.Outcome.LOCKED, SignInJournal.Failure.ACCOUNT_LOCKED);
+                throw new LockedException(String.format("Account is locked. Try again in %d minutes",
+                        lockoutService.getRemainingLockoutTime(standing.statusUntil())));
+            }
+            case PENDING_ACTIVATION -> {
+                // Temporary-password accounts sign in once to set their own password.
+                if (!standing.passwordNeedsChange() || standing.accessExpired(TenantTime.today(clock))) {
+                    signInJournal.failed(userId, label, SignInJournal.Outcome.FAILURE, SignInJournal.Failure.ACCOUNT_DISABLED);
+                    throw new DisabledException("Account is not active");
+                }
+            }
+            case SUSPENDED, DEACTIVATED -> {
+                signInJournal.failed(userId, label, SignInJournal.Outcome.FAILURE, SignInJournal.Failure.ACCOUNT_DISABLED);
+                throw new DisabledException("Account is not active");
+            }
+        }
     }
 
-    private RoleAndPermissionNames resolveRoleAndPermissionNames(Set<Long> roleIds) {
-        List<Role> roles = roleRepository.findAllById(roleIds);
-        Set<Long> permissionIds = roles.stream().flatMap(r -> r.getPermissionIds().stream()).collect(Collectors.toCollection(LinkedHashSet::new));
-        List<Permission> permissions = permissionRepository.findAllById(permissionIds);
+    private String labelOf(UUID userId, String username) {
+        return userDirectory.ref(userId).map(UserRef::displayName).orElse(username);
+    }
 
-        List<String> roleNames = roles.stream().map(Role::getName).toList();
-        // Effective, not just granted: the token's "permissions" claim must match what @PreAuthorize allows.
-        List<String> permissionNames = EffectivePermissions.of(roleNames, permissions.stream().map(Permission::getName).toList());
-        List<String> policies = permissions.stream().map(Permission::toUrn).distinct().toList();
+    private int accessTokenSeconds() {
+        return (int) Duration.ofMillis(jwtConfig.getAccessTokenExpiration()).toSeconds();
+    }
 
-        return new RoleAndPermissionNames(roleNames, permissionNames, policies);
+    // ROLE/PERMISSION/MENU RESOLUTION
+
+    private record RoleAndPermissionNames(List<String> roleNames, List<String> permissionNames, List<String> policies,
+                                          long accessVersion) {
+    }
+
+    /** Role codes, effective permission codes and access version from the IAM resolver (spec §1.4.3). */
+    private RoleAndPermissionNames resolveRoleAndPermissionNames(UUID userId) {
+        UserAccessState access = userAccessService.current(userId);
+        List<String> permissionNames = List.copyOf(access.permissionClaim());
+        List<String> policies = access.access().granted().stream()
+                .map(code -> code.split("\\."))
+                .map(parts -> "urn:cronos:" + parts[1].toLowerCase(Locale.ROOT) + ":" + parts[2].toLowerCase(Locale.ROOT))
+                .distinct().toList();
+        return new RoleAndPermissionNames(access.roleCodes(), permissionNames, policies, access.accessVersion());
     }
 
     private List<MenuItemResponse> buildNavigation(List<String> grantedPermissionNames) {
@@ -352,15 +376,17 @@ public class AuthenticationService {
     private MenuItemResponse toMenuItemResponse(MenuNode node) {
         return MenuItemResponse.builder()
                 .code(node.getCode())
-                .label(node.label(java.util.Locale.of("es")))
+                .label(node.label(Locale.of("es")))
                 .icon(node.getIcon())
                 .path(node.getPath())
                 .children(node.getChildren().stream().map(this::toMenuItemResponse).toList())
                 .build();
     }
 
-    // PRIVATE INFRASTRUCTURE METHODS (SESSIONS, FINGERPRINT, AND AUDIT)
-    private UserSession createUserSession(User user, String deviceId, String dpopJkt) {
+    // PRIVATE INFRASTRUCTURE METHODS (SESSIONS, FINGERPRINT)
+
+    /** Absolute lifetime from the policy (spec §8). */
+    private UserSession createUserSession(User user, String deviceId, String dpopJkt, SecurityPolicy policy, LocalDateTime now) {
         UserSession session = UserSession.builder().userId(user.getId())
                 .sessionToken(UUID.randomUUID().toString())
                 .deviceId(deviceId).ipAddress(requestContextUtil.getClientIp())
@@ -369,18 +395,20 @@ public class AuthenticationService {
                 .operatingSystem(requestContextUtil.getOperatingSystem())
                 .device(requestContextUtil.getDevice())
                 .location(requestContextUtil.getLocation()).isActive(true)
-                .createdAt(LocalDateTime.now()).lastActivityAt(LocalDateTime.now())
-                .expiresAt(LocalDateTime.now().plusDays(30)).dpopJkt(dpopJkt).build();
+                .createdAt(now).lastActivityAt(now)
+                .expiresAt(now.plusHours(policy.sessionAbsoluteHours())).dpopJkt(dpopJkt).build();
 
         return userSessionRepository.save(session);
     }
 
-    private void saveRefreshToken(User user, UserSession session, String tokenStr) {
+    /** Never outlives its session. */
+    private void saveRefreshToken(User user, UserSession session, String tokenStr, LocalDateTime now) {
+        LocalDateTime tokenExpiry = now.plus(Duration.ofMillis(jwtConfig.getRefreshTokenExpiration()));
         RefreshToken refreshToken = RefreshToken.builder()
                 .token(tokenStr).userId(user.getId()).sessionId(session.getId())
-                .expiresAt(LocalDateTime.now().plus(Duration.ofMillis(jwtConfig.getRefreshTokenExpiration())))
+                .expiresAt(session.getExpiresAt() != null && session.getExpiresAt().isBefore(tokenExpiry) ? session.getExpiresAt() : tokenExpiry)
                 .revoked(false).ipAddress(requestContextUtil.getClientIp())
-                .userAgent(requestContextUtil.getUserAgent()).createdAt(LocalDateTime.now()).build();
+                .userAgent(requestContextUtil.getUserAgent()).createdAt(now).build();
 
         refreshTokenRepository.save(refreshToken);
     }
@@ -390,14 +418,13 @@ public class AuthenticationService {
         String os = requestContextUtil.getOperatingSystem();
         String device = requestContextUtil.getDevice();
 
-        // En un entorno real, el front puede enviar un FingerprintJS hash.
+        // The frontend may later send a FingerprintJS hash instead.
         String rawFingerprint = browser + "|" + os + "|" + device;
         String fingerprintHash = generateSha256(rawFingerprint);
 
         Optional<DeviceFingerprint> existingDevice = deviceFingerprintRepository.findByUserIdAndFingerprintHash(user.getId(), fingerprintHash);
 
         if (existingDevice.isEmpty()) {
-            // NEW DEVICE DETECTED! We'll save it and send you a notification
             DeviceFingerprint newDevice = DeviceFingerprint.builder().userId(user.getId()).fingerprintHash(fingerprintHash)
                     .deviceName(os + " " + browser).userAgent(requestContextUtil.getUserAgent())
                     .browser(browser).operatingSystem(os).deviceType(device)
@@ -406,11 +433,8 @@ public class AuthenticationService {
                     .trusted(false).loginCount(1).firstSeenAt(LocalDateTime.now()).build();
 
             deviceFingerprintRepository.save(newDevice);
-
-            // Trigger a security alert (to be processed asynchronously or sent via email)
             createSecurityNotification(user, newDevice);
         } else {
-            // Existing device; we are updating the counters
             DeviceFingerprint knownDevice = existingDevice.get();
             knownDevice.setLoginCount(knownDevice.getLoginCount() + 1);
             knownDevice.setLastSeenAt(LocalDateTime.now());
@@ -431,50 +455,10 @@ public class AuthenticationService {
 
         securityNotificationRepository.save(notification);
 
-        log.info("Publishing the NewDeviceLoginEvent for the user: {}", user.getEmail());
+        log.info("Publishing the NewDeviceLoginEvent for user {}", user.getId());
         eventPublisher.publishEvent(NewDeviceLoginEvent.builder().email(user.getEmail()).username(user.getUsername()).deviceName(device.getDeviceName())
                 .location(device.getLocation()).ipAddress(device.getIpAddress())
                 .time(LocalDateTime.now()).build());
-    }
-
-    private void recordSuccessfulLogin(User user, boolean twoFactorUsed) {
-        LoginHistory loginHistory = LoginHistory.builder().userId(user.getId()).ipAddress(requestContextUtil.getClientIp())
-                .userAgent(requestContextUtil.getUserAgent()).browser(requestContextUtil.getBrowser()).status("SUCCESS")
-                .operatingSystem(requestContextUtil.getOperatingSystem()).device(requestContextUtil.getDevice())
-                .location(requestContextUtil.getLocation()).successful(true).twoFactorUsed(twoFactorUsed).loginAt(LocalDateTime.now())
-                .createdAt(LocalDateTime.now()).build();
-
-        loginHistoryRepository.save(loginHistory);
-    }
-
-    /**
-     * Failed-attempt/lockout bookkeeping is best-effort: it goes through the full JPA {@link User}
-     * (needed to reuse {@link AccountLockoutService}'s domain-mutating methods), which decrypts
-     * email like any other JPA load of this entity. A row with corrupted/un-decryptable email must
-     * not turn a correctly-rejected wrong password into a 500 — the client still gets its 401
-     * either way; only the lockout counter increment is skipped, and logged, if this fails.
-     */
-    private void persistFailedAttemptBestEffort(UUID userId) {
-        try {
-            userRepository.findById(userId).ifPresent(user -> {
-                lockoutService.handleFailedLogin(user);
-                userRepository.save(user);
-            });
-        } catch (RuntimeException e) {
-            log.warn("Could not persist failed-login lockout bookkeeping for user {}: {}", userId, e.getMessage());
-        }
-    }
-
-    private void recordFailedLogin(UUID userId, String username, String reason) {
-        log.warn("Failed login attempt for user: {}. Reason: {}", username, reason);
-        LoginHistory loginHistory = LoginHistory.builder().userId(userId).status("FAILED")
-                .ipAddress(requestContextUtil.getClientIp()).userAgent(requestContextUtil.getUserAgent())
-                .browser(requestContextUtil.getBrowser()).operatingSystem(requestContextUtil.getOperatingSystem())
-                .device(requestContextUtil.getDevice()).successful(false)
-                .failureReason(reason).loginAt(LocalDateTime.now()).createdAt(LocalDateTime.now())
-                .build();
-
-        loginHistoryRepository.save(loginHistory);
     }
 
     private boolean isDecryptionCorrupted(User user) {

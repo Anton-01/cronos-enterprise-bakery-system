@@ -6,6 +6,8 @@ import com.ninsky.cronos.infrastructure.persistence.quote.entity.QuoteItemJpaEnt
 import com.ninsky.cronos.infrastructure.persistence.quote.entity.QuoteJpaEntity;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -16,6 +18,7 @@ public class QuoteMapper {
         if (entity == null) {
             return null;
         }
+        Integer scale = entity.getCurrencyDecimalPlaces() == null ? null : entity.getCurrencyDecimalPlaces().intValue();
         return Quote.builder()
                 .id(entity.getId())
                 .quoteNumber(entity.getQuoteNumber())
@@ -27,21 +30,26 @@ public class QuoteMapper {
                 .notes(entity.getNotes())
                 .status(entity.getStatus())
                 .validUntil(entity.getValidUntil())
-                .subtotal(entity.getSubtotal())
+                .subtotal(money(entity.getSubtotal(), scale))
                 .taxRate(entity.getTaxRate())
-                .taxAmount(entity.getTaxAmount())
-                .total(entity.getTotal())
+                .taxAmount(money(entity.getTaxAmount(), scale))
+                .total(money(entity.getTotal(), scale))
                 .currency(entity.getCurrency())
+                .currencyDecimalPlaces(scale)
+                .taxRateId(entity.getTaxRateId())
+                .taxFactorType(entity.getTaxFactorType())
+                .pricesIncludeTax(entity.getPricesIncludeTax())
+                .roundingMode(entity.getRoundingMode())
                 .publicToken(entity.getPublicToken())
                 .viewsCount(entity.getViewsCount())
                 .isRevoked(entity.isRevoked())
                 .version(entity.getVersion())
-                .deliveryFee(entity.getDeliveryFee())
-                .extraFee(entity.getExtraFee())
+                .deliveryFee(money(entity.getDeliveryFee(), scale))
+                .extraFee(money(entity.getExtraFee(), scale))
                 .extraFeeDescription(entity.getExtraFeeDescription())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
-                .items(entity.getItems().stream().map(this::toDomain).collect(Collectors.toList()))
+                .items(entity.getItems().stream().map(item -> toDomain(item, scale)).collect(Collectors.toList()))
                 .build();
     }
 
@@ -65,6 +73,11 @@ public class QuoteMapper {
                 .taxAmount(domain.getTaxAmount())
                 .total(domain.getTotal())
                 .currency(domain.getCurrency())
+                .currencyDecimalPlaces(domain.getCurrencyDecimalPlaces() == null ? null : domain.getCurrencyDecimalPlaces().shortValue())
+                .taxRateId(domain.getTaxRateId())
+                .taxFactorType(domain.getTaxFactorType())
+                .pricesIncludeTax(domain.getPricesIncludeTax())
+                .roundingMode(domain.getRoundingMode())
                 .publicToken(domain.getPublicToken())
                 .viewsCount(domain.getViewsCount())
                 .isRevoked(domain.isRevoked())
@@ -82,7 +95,18 @@ public class QuoteMapper {
         return entity;
     }
 
-    private QuoteItem toDomain(QuoteItemJpaEntity entity) {
+    /**
+     * Amounts are stored at scale 4 (V13); expose them at the snapshot currency's scale whenever
+     * that is lossless, so an MXN total still reads 100.00.
+     */
+    static BigDecimal money(BigDecimal value, Integer decimalPlaces) {
+        if (value == null || decimalPlaces == null) {
+            return value;
+        }
+        return value.setScale(Math.max(decimalPlaces, value.stripTrailingZeros().scale()), RoundingMode.UNNECESSARY);
+    }
+
+    private QuoteItem toDomain(QuoteItemJpaEntity entity, Integer scale) {
         return QuoteItem.builder()
                 .id(entity.getId())
                 .recipeId(entity.getRecipeId())
@@ -94,8 +118,8 @@ public class QuoteMapper {
                 .scaleFactor(entity.getScaleFactor())
                 .unitCost(entity.getUnitCost())
                 .profitPercentage(entity.getProfitPercentage())
-                .unitPrice(entity.getUnitPrice())
-                .subtotal(entity.getSubtotal())
+                .unitPrice(money(entity.getUnitPrice(), scale))
+                .subtotal(money(entity.getSubtotal(), scale))
                 .notes(entity.getNotes())
                 .displayOrder(entity.getDisplayOrder())
                 .version(entity.getVersion())

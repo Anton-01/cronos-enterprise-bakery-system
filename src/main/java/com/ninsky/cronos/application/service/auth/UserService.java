@@ -1,24 +1,38 @@
 package com.ninsky.cronos.application.service.auth;
 
+import java.util.Map;
+import com.ninsky.cronos.iam.user.UserStatus;
+import com.ninsky.cronos.iam.shared.Changes;
 import com.ninsky.cronos.account.avatar.application.port.AvatarStorage;
 import com.ninsky.cronos.account.avatar.domain.AvatarKey;
-import com.ninsky.cronos.account.shared.application.port.AuditTrail;
 import com.ninsky.cronos.account.shared.domain.AccountDomainError.InvalidField;
 import com.ninsky.cronos.account.shared.domain.AccountDomainException;
 import com.ninsky.cronos.account.shared.domain.DomainValidationException;
-import com.ninsky.cronos.account.shared.domain.audit.AuditChange;
 import com.ninsky.cronos.application.request.core.auth.ChangePasswordRequest;
 import com.ninsky.cronos.application.request.core.auth.CreateUserRequest;
 import com.ninsky.cronos.application.request.core.auth.UpdateUserRequest;
 import com.ninsky.cronos.application.request.core.auth.VerifyTwoFactorRequest;
 import com.ninsky.cronos.application.response.auth.TwoFactorSetupResponse;
 import com.ninsky.cronos.application.response.auth.UserResponse;
+import com.ninsky.cronos.domain.model.audit.AuditAction;
+import com.ninsky.cronos.domain.model.auth.PasswordHistory;
 import com.ninsky.cronos.domain.model.auth.Role;
 import com.ninsky.cronos.domain.model.auth.User;
 import com.ninsky.cronos.domain.model.auth.UserProfile;
+import com.ninsky.cronos.domain.port.auth.PasswordHistoryRepositoryPort;
 import com.ninsky.cronos.domain.port.auth.RoleRepositoryPort;
 import com.ninsky.cronos.domain.port.auth.UserProfileRepositoryPort;
 import com.ninsky.cronos.domain.port.auth.UserRepositoryPort;
+import com.ninsky.cronos.iam.audit.AuditEvent;
+import com.ninsky.cronos.iam.audit.AuditRecorder;
+import com.ninsky.cronos.iam.audit.AuditTargets;
+import com.ninsky.cronos.iam.policy.PasswordPolicy;
+import com.ninsky.cronos.iam.policy.PasswordRules;
+import com.ninsky.cronos.iam.policy.SecurityPolicyProvider;
+import com.ninsky.cronos.iam.shared.UserDirectory;
+import com.ninsky.cronos.iam.shared.UserRef;
+import com.ninsky.cronos.iam.signin.AuthProjectionCache;
+import com.ninsky.cronos.iam.signin.CredentialWriter;
 import com.ninsky.cronos.infrastructure.exception.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,10 +57,15 @@ public class UserService {
     private final UserProfileRepositoryPort userProfileRepository;
     private final RoleRepositoryPort roleRepository;
     private final PasswordEncoder passwordEncoder;
-    private final PasswordValidationService passwordValidationService;
+    private final PasswordPolicy passwordPolicy;
+    private final SecurityPolicyProvider securityPolicies;
+    private final PasswordHistoryRepositoryPort passwordHistory;
+    private final CredentialWriter credentials;
+    private final AuthProjectionCache authCache;
+    private final UserDirectory userDirectory;
+    private final AuditRecorder auditRecorder;
     private final TwoFactorService twoFactorService;
     private final AvatarStorage avatarStorage;
-    private final AuditTrail auditTrail;
 
     @Transactional
     @CacheEvict(value = "users", allEntries = true)
@@ -59,9 +78,9 @@ public class UserService {
             throw new DuplicateResourceException("Email already exists");
         }
 
-        List<String> passwordErrors = passwordValidationService.validatePassword(request.password());
+        List<String> passwordErrors = passwordPolicy.violations(request.password(), request.username(), request.email(), null);
         if (!passwordErrors.isEmpty()) {
-            throw new ValidationException("Password validation failed: " + String.join(", ", passwordErrors));
+            PasswordRules.toViolations(new Violations(), "password", passwordErrors, securityPolicies.current()).throwIfAny();
         }
 
         Set<Role> roles = getRolesByNames(request.roles());
@@ -84,7 +103,8 @@ public class UserService {
 
         userProfileRepository.save(profile);
 
-        passwordValidationService.savePasswordHistory(user, user.getPassword());
+        passwordHistory.save(PasswordHistory.builder().userId(user.getId()).passwordHash(user.getPassword())
+                .changedAt(LocalDateTime.now()).build());
 
         log.info("User created successfully: {}", user.getUsername());
 
@@ -166,23 +186,22 @@ public class UserService {
             throw new AccountDomainException(InvalidField.of("confirmPassword", "account.password.confirmationMismatch"));
         }
 
-        List<String> passwordErrors = passwordValidationService.validatePassword(request.newPassword());
+        // Security policy (spec §8); the account error shape carries one error per field: the first broken rule.
+        List<String> passwordErrors = passwordPolicy.violations(request.newPassword(), user.getUsername(), user.getEmail(), userId);
         if (!passwordErrors.isEmpty()) {
-            throw new AccountDomainException(InvalidField.of("newPassword", "account.password.policy", String.join(", ", passwordErrors)));
+            String key = passwordErrors.getFirst();
+            throw new AccountDomainException(InvalidField.of("newPassword", key, PasswordRules.args(key, securityPolicies.current())));
         }
 
-        if (passwordValidationService.isPasswordReused(user, request.newPassword())) {
-            throw new AccountDomainException(InvalidField.of("newPassword", "account.password.reused"));
+        credentials.setPassword(userId, request.newPassword(), false);
+        String label = userDirectory.ref(userId).map(UserRef::displayName).orElse(user.getUsername());
+        auditRecorder.record(AuditEvent.of(AuditAction.PASSWORD_CHANGED, AuditTargets.USER, userId, label).build());
+        if (credentials.activateIfPending(userId)) {
+            auditRecorder.record(AuditEvent.of(AuditAction.USER_STATUS_CHANGED, AuditTargets.USER, userId, label)
+                    .changes(Changes.of("status", UserStatus.PENDING_ACTIVATION.name(), UserStatus.ACTIVE.name()))
+                    .params(Map.of("status", UserStatus.ACTIVE.name())).build());
         }
-
-        String encodedPassword = passwordEncoder.encode(request.newPassword());
-        user.setPassword(encodedPassword);
-        user.setPasswordChangedAt(LocalDateTime.now());
-        userRepository.save(user);
-
-        passwordValidationService.savePasswordHistory(user, encodedPassword);
-        auditTrail.record(new AuditChange.PasswordChanged(userId));
-        log.info("Password changed successfully for user: {}", user.getUsername());
+        log.info("Password changed for user {}", userId);
     }
 
     @Transactional(readOnly = true)
@@ -204,7 +223,7 @@ public class UserService {
         User user = userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException("User not found"));
 
         if (user.isTwoFactorEnabled()) {
-            throw new ValidationException("Two-factor authentication is already enabled");
+            throw ApiException.of(ApiErrorCode.INVALID_STATE_TRANSITION, null, "security.twoFactor.alreadyEnabled");
         }
 
         String secret = twoFactorService.generateSecretKey();
@@ -221,16 +240,21 @@ public class UserService {
     public void enableTwoFactor(UUID userId, VerifyTwoFactorRequest request) {
         User user = userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException("User not found"));
 
+        if (user.isTwoFactorEnabled()) {
+            throw ApiException.of(ApiErrorCode.INVALID_STATE_TRANSITION, null, "security.twoFactor.alreadyEnabled");
+        }
         if (user.getTwoFactorSecret() == null) {
-            throw new ValidationException("Two-factor setup not initiated");
+            throw ApiException.of(ApiErrorCode.INVALID_STATE_TRANSITION, null, "security.twoFactor.notInitiated");
         }
 
         if (!twoFactorService.validateCode(user.getTwoFactorSecret(), request.code())) {
-            throw new ValidationException("Invalid verification code");
+            throw ApiException.invalid("code", "security.twoFactor.invalidCode");
         }
 
         user.setTwoFactorEnabled(true);
         userRepository.save(user);
+        // The 2FA gate reads the cached auth projection.
+        authCache.evictAfterCommit();
         log.info("Two-factor authentication enabled for user: {}", user.getUsername());
     }
 

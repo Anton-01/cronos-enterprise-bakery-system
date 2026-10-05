@@ -50,7 +50,7 @@ public class MeasurementUnitController {
     private final CatalogImportService catalogImportService;
 
     @PostMapping
-    @PreAuthorize(CatalogAccess.CAN_MANAGE)
+    @PreAuthorize(CatalogAccess.MEASUREMENT_UNIT_MANAGE)
     @Operation(summary = "Create a measurement unit",
             description = "The first unit of a unit type must be its base unit (isBaseUnit=true, multiplierToBase=1).")
     public ResponseEntity<ApiResponse<MeasurementUnitResponse>> createMeasurementUnit(@Valid @RequestBody MeasurementUnitRequest request,
@@ -60,7 +60,7 @@ public class MeasurementUnitController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize(CatalogAccess.CAN_MANAGE)
+    @PreAuthorize(CatalogAccess.MEASUREMENT_UNIT_MANAGE)
     @Operation(summary = "Update a measurement unit",
             description = "When the unit is in use (inUse=true) its unitTypeId, multiplierToBase and isBaseUnit can no longer change.")
     public ResponseEntity<ApiResponse<MeasurementUnitResponse>> updateMeasurementUnit(@PathVariable Long id, @Valid @RequestBody MeasurementUnitRequest request,
@@ -97,7 +97,7 @@ public class MeasurementUnitController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize(CatalogAccess.CAN_MANAGE)
+    @PreAuthorize(CatalogAccess.MEASUREMENT_UNIT_MANAGE)
     @Operation(summary = "Delete a measurement unit (soft delete)",
             description = "Rejected for units in use, system-reserved units (g, cup, tbsp, tsp) and a base unit other units depend on.")
     public ResponseEntity<ApiResponse<Void>> deleteMeasurementUnit(@PathVariable Long id, @AuthenticationPrincipal CronosUserPrincipal principal) {
@@ -106,7 +106,7 @@ public class MeasurementUnitController {
     }
 
     @PatchMapping("/{id}/status")
-    @PreAuthorize(CatalogAccess.CAN_MANAGE)
+    @PreAuthorize(CatalogAccess.MEASUREMENT_UNIT_MANAGE)
     @Operation(summary = "Change status", description = "ACTIVE, INACTIVE or ARCHIVED. An inactive unit keeps converting existing data but can't be newly selected.")
     public ResponseEntity<ApiResponse<Void>> changeStatus(@PathVariable Long id, @Valid @RequestBody ChangeStatusRequest request,
                                                           @AuthenticationPrincipal CronosUserPrincipal principal) {
@@ -123,7 +123,7 @@ public class MeasurementUnitController {
     }
 
     @PostMapping(value = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize(CatalogAccess.CAN_MANAGE)
+    @PreAuthorize(CatalogAccess.IMPORT_EXECUTE)
     @Operation(summary = "Bulk upsert measurement units from .xlsx (sheet 'MeasurementUnits')",
             description = "Import unit types first: unitTypeCode must exist. All-or-nothing. dryRun=true (default) only validates; "
                     + "dryRun=false applies. Every attempt is recorded in the import ledger (GET /data-imports).")
@@ -138,7 +138,7 @@ public class MeasurementUnitController {
     }
 
     @GetMapping("/import/template")
-    @PreAuthorize(CatalogAccess.CAN_MANAGE)
+    @PreAuthorize(CatalogAccess.IMPORT_EXECUTE)
     @Operation(summary = "Download the .xlsx template for measurement unit imports")
     public ResponseEntity<Resource> downloadTemplate() {
         return ImportEndpointSupport.template(ImportResource.MEASUREMENT_UNIT);

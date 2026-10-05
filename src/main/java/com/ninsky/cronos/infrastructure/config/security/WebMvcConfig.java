@@ -1,6 +1,7 @@
 package com.ninsky.cronos.infrastructure.config.security;
 
 import com.ninsky.cronos.infrastructure.util.auth.RateLimitInterceptor;
+import com.ninsky.cronos.infrastructure.web.deprecation.LegacyAdminDeprecationInterceptor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.validation.Validator;
@@ -13,11 +14,14 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     private final RateLimitInterceptor rateLimitInterceptor;
     private final Validator localValidatorFactoryBean;
+    private final LegacyAdminDeprecationInterceptor legacyAdminDeprecation;
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(rateLimitInterceptor)
                 .addPathPatterns("/auth/**", "/users/**");
+        registry.addInterceptor(legacyAdminDeprecation)
+                .addPathPatterns("/admin/users/**", "/admin/roles/**", "/admin/audit-log/**");
     }
 
     /**
