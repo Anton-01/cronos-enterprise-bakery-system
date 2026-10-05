@@ -1,5 +1,7 @@
 package com.ninsky.cronos.presentation.controller.quote;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+import com.ninsky.cronos.iam.permission.Authorities;
 import com.ninsky.cronos.application.request.quote.CreateQuoteRequest;
 import com.ninsky.cronos.application.response.core.ApiResponse;
 import com.ninsky.cronos.application.response.quote.BakerQuoteDetailResponse;
@@ -21,6 +23,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.UUID;
 
 @RestController
+@PreAuthorize(Authorities.QUOTE_READ)
 @RequestMapping("/quotes")
 @RequiredArgsConstructor @Slf4j
 @SecurityRequirement(name = "bearerAuth")
@@ -38,6 +41,7 @@ public class QuoteController {
     }
 
     @PostMapping
+    @PreAuthorize(Authorities.QUOTE_CREATE)
     @Operation(summary = "Create a new quote", description = "Generates a financial quote and a public sharing token")
     public ResponseEntity<ApiResponse<InternalQuoteResponse>> createQuote(Authentication authentication, @Valid @RequestBody CreateQuoteRequest request) {
         InternalQuoteResponse response = quoteService.createQuote(authentication.getName(), request);
@@ -52,6 +56,7 @@ public class QuoteController {
     }
 
     @PutMapping("/{quoteId}")
+    @PreAuthorize(Authorities.QUOTE_UPDATE)
     @Operation(summary = "Update a draft quote", description = "Modifies an existing quote if it has not been finalized")
     public ResponseEntity<ApiResponse<InternalQuoteResponse>> updateQuote(Authentication authentication, @PathVariable UUID quoteId, @Valid @RequestBody CreateQuoteRequest request) {
         InternalQuoteResponse response = quoteService.updateQuote(authentication.getName(), quoteId, request);
@@ -59,6 +64,7 @@ public class QuoteController {
     }
 
     @PostMapping("/{quoteId}/revoke")
+    @PreAuthorize(Authorities.QUOTE_UPDATE)
     @Operation(summary = "Revoke public access", description = "Instantly disables the public link for a quote")
     public ResponseEntity<ApiResponse<Void>> revokeQuote(Authentication authentication, @PathVariable UUID quoteId) {
         quoteService.revokeQuoteLink(authentication.getName(), quoteId);
@@ -66,6 +72,7 @@ public class QuoteController {
     }
 
     @PostMapping("/{quoteId}/send-email")
+    @PreAuthorize(Authorities.QUOTE_SHARE)
     @Operation(summary = "Send quote via email", description = "Sends the public link of the quote to the client's email")
     public ResponseEntity<ApiResponse<Void>> sendQuoteEmail(Authentication authentication, @PathVariable UUID quoteId) {
         quoteService.sendQuoteByEmail(authentication.getName(), quoteId);

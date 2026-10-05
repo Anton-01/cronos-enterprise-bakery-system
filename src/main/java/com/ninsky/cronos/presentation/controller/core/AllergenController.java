@@ -39,7 +39,7 @@ public class AllergenController {
     private final AllergenService allergenService;
 
     @PostMapping
-    @PreAuthorize(CatalogAccess.CAN_MANAGE)
+    @PreAuthorize(CatalogAccess.ALLERGEN_MANAGE)
     @Operation(summary = "Create new allergen (catalog managers only)")
     public ResponseEntity<ApiResponse<AllergenResponse>> createAllergen(@Valid @RequestBody AllergenRequest request, Authentication authentication) {
         AllergenResponse response = allergenService.createAllergen(request, authentication.getName());
@@ -47,7 +47,7 @@ public class AllergenController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize(CatalogAccess.CAN_MANAGE)
+    @PreAuthorize(CatalogAccess.ALLERGEN_MANAGE)
     @Operation(summary = "Update a non-system allergen (catalog managers only)")
     public ResponseEntity<ApiResponse<AllergenResponse>> updateAllergen(@Valid @RequestBody AllergenRequest request, Authentication authentication, @PathVariable UUID id) {
         AllergenResponse response = allergenService.updateAllergen(id, request, authentication.getName());
@@ -70,7 +70,7 @@ public class AllergenController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
-    @PreAuthorize(CatalogAccess.CAN_MANAGE)
+    @PreAuthorize(CatalogAccess.IMPORT_EXECUTE)
     @Operation(summary = "Bulk-import system allergens from a CSV file (catalog managers only)",
             description = "UTF-8 CSV, columns: name, alternativeName, description. All-or-nothing: any invalid row "
                     + "rejects the file with 400 and one error per problem (line + column).")
@@ -82,7 +82,7 @@ public class AllergenController {
     }
 
     @PatchMapping("/{id}/status")
-    @PreAuthorize(CatalogAccess.CAN_MANAGE)
+    @PreAuthorize(CatalogAccess.ALLERGEN_MANAGE)
     @Operation(summary = "Change Status (catalog managers only)", description = "Update only the status (ACTIVE, INACTIVE) of the Allergen.")
     public ResponseEntity<ApiResponse<Void>> changeStatus(@PathVariable UUID id, @Valid @RequestBody ChangeStatusRequest request) {
         allergenService.changeStatus(id, request);

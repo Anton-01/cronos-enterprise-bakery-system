@@ -84,7 +84,7 @@ public class CategoryController {
         return ResponseEntity.ok(ApiResponse.success(PaginatedResponse.fromPage(categories)));
     }
 
-    @PreAuthorize(CatalogAccess.CAN_MANAGE)
+    @PreAuthorize(CatalogAccess.IMPORT_EXECUTE)
     @Operation(summary = "Bulk-import SYSTEM categories from a CSV file (catalog managers only)",
             description = "UTF-8 CSV, columns: name, description, type (PRODUCT|INGREDIENT). All-or-nothing: any invalid row "
                     + "rejects the file with 400 and one error per problem (line + column).")

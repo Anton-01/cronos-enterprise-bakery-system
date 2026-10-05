@@ -1,5 +1,7 @@
 package com.ninsky.cronos.presentation.controller.core;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+import com.ninsky.cronos.iam.permission.Authorities;
 import com.ninsky.cronos.application.request.core.CreateRawMaterialRequest;
 import com.ninsky.cronos.application.request.core.UpdateRawMaterialRequest;
 import com.ninsky.cronos.application.request.status.ChangeStatusRequest;
@@ -24,6 +26,7 @@ import java.util.UUID;
 
 @Slf4j
 @RestController
+@PreAuthorize(Authorities.INGREDIENT_READ)
 @Tag(name = "RawMaterial", description = "RawMaterial management endpoints")
 @RequiredArgsConstructor
 @RequestMapping("/raw-material")
@@ -49,6 +52,7 @@ public class RawMaterialController {
     }
 
     @PostMapping
+    @PreAuthorize(Authorities.INGREDIENT_CREATE)
     @Operation(summary = "Create new raw material")
     public ResponseEntity<ApiResponse<RawMaterialResponse>> createRawMaterial(@Valid @RequestBody CreateRawMaterialRequest request, Authentication authentication) {
         log.info("Create new raw material request: {}", request.name());
@@ -57,6 +61,7 @@ public class RawMaterialController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize(Authorities.INGREDIENT_UPDATE)
     @Operation(summary = "Update existing raw material")
     public ResponseEntity<ApiResponse<RawMaterialResponse>> updateRawMaterial(@Valid @RequestBody UpdateRawMaterialRequest request, @PathVariable UUID id, Authentication authentication) {
         log.info("Update raw material request for name: {}", request.name());
@@ -65,6 +70,7 @@ public class RawMaterialController {
     }
 
     @PatchMapping("/{id}/status")
+    @PreAuthorize(Authorities.INGREDIENT_UPDATE)
     @Operation(summary = "Change Status", description = "Update only the status (ACTIVE, INACTIVE) of the RawMaterial.")
     public ResponseEntity<ApiResponse<Void>> changeStatus(@PathVariable UUID id, @Valid @RequestBody ChangeStatusRequest request) {
         rawMaterialService.changeStatus(id, request);
