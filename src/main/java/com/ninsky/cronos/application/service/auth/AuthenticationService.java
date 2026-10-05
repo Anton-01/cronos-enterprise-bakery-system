@@ -10,6 +10,7 @@ import com.ninsky.cronos.domain.model.auth.AuthUserProjection;
 import com.ninsky.cronos.domain.model.auth.DeviceFingerprint;
 import com.ninsky.cronos.domain.model.auth.LoginHistory;
 import com.ninsky.cronos.domain.model.auth.SecurityNotification;
+import com.ninsky.cronos.domain.model.auth.EffectivePermissions;
 import com.ninsky.cronos.domain.model.auth.Permission;
 import com.ninsky.cronos.domain.model.auth.RefreshToken;
 import com.ninsky.cronos.domain.model.auth.Role;
@@ -336,7 +337,8 @@ public class AuthenticationService {
         List<Permission> permissions = permissionRepository.findAllById(permissionIds);
 
         List<String> roleNames = roles.stream().map(Role::getName).toList();
-        List<String> permissionNames = permissions.stream().map(Permission::getName).distinct().toList();
+        // Effective, not just granted: the token's "permissions" claim must match what @PreAuthorize allows.
+        List<String> permissionNames = EffectivePermissions.of(roleNames, permissions.stream().map(Permission::getName).toList());
         List<String> policies = permissions.stream().map(Permission::toUrn).distinct().toList();
 
         return new RoleAndPermissionNames(roleNames, permissionNames, policies);
