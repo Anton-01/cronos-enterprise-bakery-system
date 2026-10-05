@@ -1,5 +1,7 @@
 package com.ninsky.cronos.presentation.controller.recipe;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+import com.ninsky.cronos.iam.permission.Authorities;
 import com.ninsky.cronos.application.request.recipe.UserFixedCostRequest;
 import com.ninsky.cronos.application.response.core.ApiResponse;
 import com.ninsky.cronos.application.response.recipe.UserFixedCostResponse;
@@ -19,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.UUID;
 
 @RestController
+@PreAuthorize(Authorities.FIXED_COST_READ)
 @RequestMapping("/user-fixed-cost")
 @RequiredArgsConstructor
 @SecurityRequirement(name = "bearerAuth")
@@ -28,6 +31,7 @@ public class UserFixedCostController {
     private final UserFixedCostService fixedCostService;
 
     @PostMapping
+    @PreAuthorize(Authorities.FIXED_COST_MANAGE)
     @Operation(summary = "Create fixed cost", description = "Adds a new fixed cost to the user's master catalog")
     public ResponseEntity<ApiResponse<UserFixedCostResponse>> createFixedCost(Authentication authentication, @Valid @RequestBody UserFixedCostRequest request) {
         UserFixedCostResponse response = fixedCostService.createFixedCost(authentication.getName(), request);
@@ -42,6 +46,7 @@ public class UserFixedCostController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize(Authorities.FIXED_COST_MANAGE)
     @Operation(summary = "Update fixed cost", description = "Updates the details and default amount of an existing fixed cost")
     public ResponseEntity<ApiResponse<UserFixedCostResponse>> updateFixedCost(@PathVariable UUID id, Authentication authentication, @Valid @RequestBody UserFixedCostRequest request) {
         UserFixedCostResponse response = fixedCostService.updateFixedCost(authentication.getName(), id, request);
@@ -49,6 +54,7 @@ public class UserFixedCostController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize(Authorities.FIXED_COST_MANAGE)
     @Operation(summary = "Delete fixed cost", description = "Soft deletes a fixed cost so it no longer appears in new recipes")
     public ResponseEntity<ApiResponse<Void>> deleteFixedCost(@PathVariable UUID id, Authentication authentication) {
         fixedCostService.deleteFixedCost(authentication.getName(), id);

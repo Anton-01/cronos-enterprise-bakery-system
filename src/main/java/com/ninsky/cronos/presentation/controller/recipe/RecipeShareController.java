@@ -1,5 +1,7 @@
 package com.ninsky.cronos.presentation.controller.recipe;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+import com.ninsky.cronos.iam.permission.Authorities;
 import com.ninsky.cronos.application.request.recipe.CreateRecipeShareRequest;
 import com.ninsky.cronos.application.response.core.ApiResponse;
 import com.ninsky.cronos.application.response.recipe.RecipeShareAccessLogResponse;
@@ -18,6 +20,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
+@PreAuthorize(Authorities.RECIPE_SHARE)
 @RequestMapping("/recipes/{recipeId}/shares")
 @RequiredArgsConstructor
 @SecurityRequirement(name = "bearerAuth")

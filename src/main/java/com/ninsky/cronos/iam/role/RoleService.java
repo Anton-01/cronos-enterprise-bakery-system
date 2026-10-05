@@ -22,7 +22,7 @@ import com.ninsky.cronos.iam.role.api.IamRoleSummary;
 import com.ninsky.cronos.iam.role.api.MembersAdded;
 import com.ninsky.cronos.iam.role.api.MembersRemoved;
 import com.ninsky.cronos.iam.role.api.MembersRequest;
-import com.ninsky.cronos.iam.role.api.RoleRequest;
+import com.ninsky.cronos.iam.role.api.IamRoleRequest;
 import com.ninsky.cronos.iam.role.api.StatusRequest;
 import com.ninsky.cronos.iam.shared.Actor;
 import com.ninsky.cronos.iam.shared.ActorProvider;
@@ -99,7 +99,7 @@ public class RoleService {
     }
 
     @Transactional
-    public IamRoleDetail create(RoleRequest request, Locale locale) {
+    public IamRoleDetail create(IamRoleRequest request, Locale locale) {
         Actor actor = actors.require();
         Validated role = validate(request, null);
         requireUnique(role.code(), role.name(), null);
@@ -124,7 +124,7 @@ public class RoleService {
     }
 
     @Transactional
-    public IamRoleDetail update(long id, RoleRequest request, Locale locale) {
+    public IamRoleDetail update(long id, IamRoleRequest request, Locale locale) {
         Actor actor = actors.require();
         RoleRow existing = roles.lock(id).orElseThrow(() -> ApiException.notFound("iam.role.notFound"));
         if (existing.isSuperAdmin()) {
@@ -289,7 +289,7 @@ public class RoleService {
                              SortedSet<String> storedPermissions, List<Long> groupIds, List<GroupGrant> groups) {
     }
 
-    private Validated validate(RoleRequest request, RoleRow existing) {
+    private Validated validate(IamRoleRequest request, RoleRow existing) {
         Violations violations = new Violations();
         String code = IamRules.code(violations, "code", request.code());
         String name = IamRules.requiredText(violations, "name", request.name(), 100);
@@ -314,7 +314,7 @@ public class RoleService {
                 groupIds, groupIds.stream().map(groups::get).filter(Objects::nonNull).toList());
     }
 
-    private IamRoleDetail updateSuperAdmin(RoleRow existing, RoleRequest request, Actor actor, Locale locale) {
+    private IamRoleDetail updateSuperAdmin(RoleRow existing, IamRoleRequest request, Actor actor, Locale locale) {
         Violations violations = new Violations();
         String description = IamRules.optionalText(violations, "description", request.description(), 500);
         String color = IamRules.color(violations, "color", request.color());
@@ -337,7 +337,7 @@ public class RoleService {
         return detail(require(existing.id()), locale);
     }
 
-    private List<AccessGuards.Grant> grantsOf(Validated role, Set<String> currentPermissions, Set<Long> currentGroups, RoleRequest request) {
+    private List<AccessGuards.Grant> grantsOf(Validated role, Set<String> currentPermissions, Set<Long> currentGroups, IamRoleRequest request) {
         List<AccessGuards.Grant> grants = new ArrayList<>();
         List<String> permissions = request.permissions() == null ? List.of() : request.permissions();
         IntStream.range(0, permissions.size())

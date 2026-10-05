@@ -1,13 +1,13 @@
 package com.ninsky.cronos.account.web;
 
 import com.ninsky.cronos.account.avatar.infrastructure.AvatarUrlMapping;
+import com.ninsky.cronos.infrastructure.exception.StrictContractResponder;
 import com.ninsky.cronos.account.fiscal.infrastructure.FiscalDataMapperImpl;
 import com.ninsky.cronos.account.profile.infrastructure.UserProfileMapperImpl;
 import com.ninsky.cronos.account.shared.api.AccountErrorMapper;
 import com.ninsky.cronos.account.shared.api.AccountMessages;
 import com.ninsky.cronos.account.shared.infrastructure.config.AccountInfrastructureConfig;
 import com.ninsky.cronos.infrastructure.config.ValidationConfig;
-import com.ninsky.cronos.infrastructure.exception.StrictContractResponder;
 import com.ninsky.cronos.infrastructure.config.security.SecurityConfig;
 import com.ninsky.cronos.infrastructure.config.security.WebMvcConfig;
 import com.ninsky.cronos.infrastructure.security.JwtAuthenticationFilter;

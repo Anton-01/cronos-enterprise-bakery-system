@@ -26,7 +26,7 @@ import java.util.UUID;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/data-imports")
-@PreAuthorize(CatalogAccess.CAN_MANAGE)
+@PreAuthorize(CatalogAccess.IMPORT_READ)
 @Tag(name = "Data Imports", description = "Append-only ledger of every bulk import attempt (validated, committed, rejected, failed)")
 public class DataImportController {
 

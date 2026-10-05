@@ -19,9 +19,13 @@ import com.ninsky.cronos.domain.port.quote.QuoteAccessLogRepositoryPort;
 import com.ninsky.cronos.domain.port.quote.QuoteRepositoryPort;
 import com.ninsky.cronos.domain.port.recipe.RecipeFileRepositoryPort;
 import com.ninsky.cronos.domain.port.recipe.RecipeRepositoryPort;
+import com.ninsky.cronos.finance.pricing.PriceLine;
+import com.ninsky.cronos.finance.pricing.PricingCalculator;
+import com.ninsky.cronos.finance.pricing.PricingResult;
+import com.ninsky.cronos.finance.pricing.PricingSnapshot;
+import com.ninsky.cronos.finance.settings.PricingSnapshotResolver;
 import com.ninsky.cronos.infrastructure.exception.BusinessException;
 import com.ninsky.cronos.infrastructure.exception.ResourceNotFoundException;
-import jakarta.validation.constraints.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -39,6 +43,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.IntStream;
 
 @Service
 @RequiredArgsConstructor
@@ -53,6 +58,8 @@ public class QuoteService {
     private final StoragePort cloudStorageService;
     private final QuoteAccessLogRepositoryPort quoteAccessLogRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final PricingSnapshotResolver pricingSnapshots;
+    private final PricingCalculator pricingCalculator;
 
     @Transactional(readOnly = true)
     public Page<InternalQuoteResponse> getQuotesByUser(String username, Pageable pageable) {
@@ -82,49 +89,16 @@ public class QuoteService {
         String quoteNumber = "CR-" + user.getId().toString().substring(0, 4).toUpperCase() + "-" +
                 LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmm"));
 
+        PricingSnapshot snapshot = pricingSnapshots.forNewDocument(pricingInput(request));
+
         Quote quote = Quote.builder().quoteNumber(quoteNumber).userId(user.getId()).clientName(request.clientName())
                 .clientEmail(request.clientEmail()).clientPhone(request.clientPhone())
                 .clientAddress(request.clientAddress()).notes(request.notes())
                 .status(QuoteStatus.DRAFT).validUntil(LocalDateTime.now().plusDays(request.validDays()))
-                .currency(request.currency().toUpperCase()).publicToken(generatedToken)
-                .taxRate(request.taxRate()).items(new ArrayList<>()).build();
+                .publicToken(generatedToken).extraFeeDescription(request.extraFeeDescription())
+                .items(new ArrayList<>()).build();
 
-        // (Server-Side Calculation)
-        BigDecimal globalSubtotal = BigDecimal.ZERO;
-
-        for (QuoteItemRequest itemReq : request.items()) {
-            Recipe recipe = null;
-            String imagePath = null;
-
-            if (itemReq.recipeId() != null) {
-                recipe = recipeRepository.findByIdAndUserId(itemReq.recipeId(), user.getId())
-                        .orElseThrow(() -> new BusinessException("Recipe not found or access denied: " + itemReq.recipeId()));
-
-                imagePath = recipeFileRepository.findByRecipeIdOrderByCreatedAtDesc(recipe.getId()).stream().filter(RecipeFile::isPrimary)
-                        .findFirst().map(RecipeFile::getFilePath).orElse(null);
-            }
-
-            // Matemática del Item: Cantidad * Precio Unitario
-            BigDecimal itemSubtotal = itemReq.quantity().multiply(itemReq.unitPrice()).setScale(2, RoundingMode.HALF_UP);
-
-            QuoteItem item = QuoteItem.builder().recipeId(recipe != null ? recipe.getId() : null).productName(itemReq.productName())
-                    .productDescription(itemReq.productDescription()).productSize(itemReq.productSize())
-                    .imageFilePath(imagePath).quantity(itemReq.quantity())
-                    .unitCost(itemReq.unitCost()).profitPercentage(itemReq.profitPercentage())
-                    .unitPrice(itemReq.unitPrice()).subtotal(itemSubtotal)
-                    .notes(itemReq.notes()).build();
-
-            quote.addItem(item);
-            globalSubtotal = globalSubtotal.add(itemSubtotal);
-        }
-
-        BigDecimal taxFactor = request.taxRate().divide(BigDecimal.valueOf(100), 6, RoundingMode.HALF_UP);
-        BigDecimal taxAmount = globalSubtotal.multiply(taxFactor).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal totalAmount = globalSubtotal.add(taxAmount).setScale(2, RoundingMode.HALF_UP);
-
-        quote.setSubtotal(globalSubtotal);
-        quote.setTaxAmount(taxAmount);
-        quote.setTotal(totalAmount);
+        price(quote, snapshot, request, user.getId());
 
         Quote savedQuote = quoteRepository.save(quote);
         log.info("Quote generated successfully. Quote ID: {}, Quote Number: {}", savedQuote.getId(), savedQuote.getQuoteNumber());
@@ -171,6 +145,9 @@ public class QuoteService {
                 .status(quote.getStatus()).validDays(validDaysCalculated)
                 .createdAt(quote.getCreatedAt()).publicToken(quote.getPublicToken())
                 .deliveryFee(quote.getDeliveryFee()).extraFee(quote.getExtraFee()).extraFeeDescription(quote.getExtraFeeDescription())
+                .taxRateId(quote.getTaxRateId()).taxFactorType(quote.getTaxFactorType())
+                .currencyDecimalPlaces(quote.getCurrencyDecimalPlaces()).pricesIncludeTax(quote.getPricesIncludeTax())
+                .roundingMode(quote.getRoundingMode()).subtotal(quote.getSubtotal()).taxAmount(quote.getTaxAmount())
                 .items(itemDtos)
                 .build();
     }
@@ -192,54 +169,13 @@ public class QuoteService {
         quote.setClientPhone(request.clientPhone());
         quote.setClientAddress(request.clientAddress());
         quote.setNotes(request.notes());
-        quote.setTaxRate(request.taxRate());
-        quote.setCurrency(request.currency().toUpperCase());
         quote.setValidUntil(LocalDateTime.now().plusDays(request.validDays()));
-        quote.setDeliveryFee(request.deliveryFee());
-        quote.setExtraFee(request.extraFee());
         quote.setExtraFeeDescription(request.extraFeeDescription());
 
+        // Recalculate with the stored snapshot; only what the request changes is re-resolved
+        PricingSnapshot snapshot = pricingSnapshots.forExistingDocument(snapshotOf(quote), pricingInput(request));
         quote.getItems().clear();
-        BigDecimal globalSubtotal = BigDecimal.ZERO;
-
-        for (var itemReq : request.items()) {
-            Recipe recipe = null;
-            String imagePath = null;
-
-            if (itemReq.recipeId() != null) {
-                recipe = recipeRepository.findByIdAndUserId(itemReq.recipeId(), user.getId())
-                        .orElseThrow(() -> new BusinessException("Recipe not found or access denied: " + itemReq.recipeId()));
-
-                imagePath = recipeFileRepository.findByRecipeIdOrderByCreatedAtDesc(recipe.getId()).stream().filter(RecipeFile::isPrimary)
-                        .findFirst().map(RecipeFile::getFilePath).orElse(null);
-            }
-
-            // Matemática del Item: Cantidad * Precio Unitario
-            BigDecimal itemSubtotal = itemReq.quantity().multiply(itemReq.unitPrice()).setScale(2, RoundingMode.HALF_UP);
-
-            QuoteItem item = QuoteItem.builder().recipeId(recipe != null ? recipe.getId() : null).productName(itemReq.productName())
-                    .productDescription(itemReq.productDescription()).productSize(itemReq.productSize())
-                    .imageFilePath(imagePath).quantity(itemReq.quantity())
-                    .unitCost(itemReq.unitCost()).profitPercentage(itemReq.profitPercentage())
-                    .unitPrice(itemReq.unitPrice()).subtotal(itemSubtotal)
-                    .notes(itemReq.notes()).build();
-
-            quote.addItem(item);
-            globalSubtotal = globalSubtotal.add(itemSubtotal);
-        }
-
-        BigDecimal safeDeliveryFee = request.deliveryFee() != null ? request.deliveryFee() : BigDecimal.ZERO;
-        BigDecimal safeExtraFee = request.extraFee() != null ? request.extraFee() : BigDecimal.ZERO;
-
-        BigDecimal safeTaxRate = request.taxRate() != null ? request.taxRate() : BigDecimal.ZERO;
-        BigDecimal taxFactor = safeTaxRate.divide(BigDecimal.valueOf(100), 6, RoundingMode.HALF_UP);
-        BigDecimal taxAmount = globalSubtotal.multiply(taxFactor).setScale(2, RoundingMode.HALF_UP);
-
-        BigDecimal finalTotal = globalSubtotal.add(taxAmount).add(safeDeliveryFee).add(safeExtraFee).setScale(2, RoundingMode.HALF_UP);
-
-        quote.setSubtotal(globalSubtotal);
-        quote.setTaxAmount(taxAmount);
-        quote.setTotal(finalTotal);
+        price(quote, snapshot, request, user.getId());
 
         quoteRepository.save(quote);
         log.info("Quote {} updated successfully. New total: {}", quote.getId(), quote.getTotal());
@@ -379,6 +315,56 @@ public class QuoteService {
                 .taxAmount(quote.getTaxAmount()).deliveryFee(quote.getDeliveryFee()).extraFee(quote.getExtraFee()).totalRevenue(quote.getTotal())
                 .totalProductCost(totalProductCost).estimatedProfit(estimatedProfit).viewsCount(quote.getViewsCount()).isRevoked(quote.isRevoked())
                 .publicToken(quote.getPublicToken()).items(itemDtos).accessLogs(logDtos).build();
+    }
+
+    /** Applies the snapshot and prices every line through the single {@link PricingCalculator} (spec §11.2). */
+    private void price(Quote quote, PricingSnapshot snapshot, CreateQuoteRequest request, UUID userId) {
+        quote.setCurrency(snapshot.currencyCode());
+        quote.setCurrencyDecimalPlaces(snapshot.currencyDecimalPlaces());
+        quote.setTaxRateId(snapshot.taxRateId());
+        quote.setTaxFactorType(snapshot.taxFactorType());
+        quote.setTaxRate(snapshot.effectiveRatePercent());
+        quote.setPricesIncludeTax(snapshot.pricesIncludeTax());
+        quote.setRoundingMode(snapshot.roundingMode());
+
+        PricingResult result = pricingCalculator.calculate(snapshot.rules(),
+                request.items().stream().map(item -> new PriceLine(item.quantity(), item.unitPrice())).toList(),
+                request.deliveryFee(), request.extraFee());
+        IntStream.range(0, request.items().size())
+                .mapToObj(i -> toItem(request.items().get(i), userId, result.lines().get(i).net()))
+                .forEach(quote::addItem);
+
+        quote.setSubtotal(result.subtotal());
+        quote.setTaxAmount(result.tax());
+        quote.setDeliveryFee(result.deliveryFee());
+        quote.setExtraFee(result.extraFee());
+        quote.setTotal(result.total());
+    }
+
+    private QuoteItem toItem(QuoteItemRequest itemReq, UUID userId, BigDecimal lineNet) {
+        Recipe recipe = null;
+        String imagePath = null;
+        if (itemReq.recipeId() != null) {
+            recipe = recipeRepository.findByIdAndUserId(itemReq.recipeId(), userId)
+                    .orElseThrow(() -> new BusinessException("Recipe not found or access denied: " + itemReq.recipeId()));
+            imagePath = recipeFileRepository.findByRecipeIdOrderByCreatedAtDesc(recipe.getId()).stream().filter(RecipeFile::isPrimary)
+                    .findFirst().map(RecipeFile::getFilePath).orElse(null);
+        }
+        return QuoteItem.builder().recipeId(recipe != null ? recipe.getId() : null).productName(itemReq.productName())
+                .productDescription(itemReq.productDescription()).productSize(itemReq.productSize())
+                .imageFilePath(imagePath).quantity(itemReq.quantity())
+                .unitCost(itemReq.unitCost()).profitPercentage(itemReq.profitPercentage())
+                .unitPrice(itemReq.unitPrice()).subtotal(lineNet)
+                .notes(itemReq.notes()).build();
+    }
+
+    private static PricingSnapshotResolver.PricingInput pricingInput(CreateQuoteRequest request) {
+        return new PricingSnapshotResolver.PricingInput(request.currency(), request.taxRate(), request.taxRateId());
+    }
+
+    static PricingSnapshot snapshotOf(Quote quote) {
+        return new PricingSnapshot(quote.getCurrency(), quote.getCurrencyDecimalPlaces(), quote.getTaxRateId(), quote.getTaxFactorType(),
+                quote.getTaxRate(), Boolean.TRUE.equals(quote.getPricesIncludeTax()), quote.getRoundingMode());
     }
 
     private void saveAccessLogQuoteAnalytics(Quote quote, String ipAddress, String userAgent) {
