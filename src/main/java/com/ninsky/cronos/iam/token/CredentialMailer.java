@@ -109,6 +109,7 @@ public class CredentialMailer {
             }
             case CredentialDelivery.EmailChangedNotice d ->
                     variables.put("body", text("mail." + kind + ".body", locale, d.newEmailMasked()));
+            case CredentialDelivery.SecurityNotice d -> variables.put("body", text("mail." + kind + ".body", locale, d.args()));
         }
         return EmailRequest.builder().to(delivery.email()).subject(text("mail." + kind + ".subject", locale))
                 .templateName(TEMPLATE).variables(variables).build();
@@ -121,6 +122,7 @@ public class CredentialMailer {
             case CredentialDelivery.PasswordResetLink ignored -> "passwordReset";
             case CredentialDelivery.EmailVerification ignored -> "emailVerification";
             case CredentialDelivery.EmailChangedNotice ignored -> "emailChanged";
+            case CredentialDelivery.SecurityNotice notice -> notice.kind();
         };
     }
 

@@ -55,4 +55,9 @@ public sealed interface CredentialDelivery {
     record EmailChangedNotice(UUID userId, String email, String displayName, String locale, String newEmailMasked)
             implements CredentialDelivery {
     }
+
+    /** Security notice without a secret; {@code kind} selects the {@code mail.<kind>.*} texts. */
+    record SecurityNotice(UUID userId, String email, String displayName, String locale, String kind, Object... args)
+            implements CredentialDelivery {
+    }
 }

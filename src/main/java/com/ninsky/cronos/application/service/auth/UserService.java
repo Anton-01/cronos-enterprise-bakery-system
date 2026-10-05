@@ -11,8 +11,6 @@ import com.ninsky.cronos.account.shared.domain.DomainValidationException;
 import com.ninsky.cronos.application.request.core.auth.ChangePasswordRequest;
 import com.ninsky.cronos.application.request.core.auth.CreateUserRequest;
 import com.ninsky.cronos.application.request.core.auth.UpdateUserRequest;
-import com.ninsky.cronos.application.request.core.auth.VerifyTwoFactorRequest;
-import com.ninsky.cronos.application.response.auth.TwoFactorSetupResponse;
 import com.ninsky.cronos.application.response.auth.UserResponse;
 import com.ninsky.cronos.domain.model.audit.AuditAction;
 import com.ninsky.cronos.domain.model.auth.PasswordHistory;
@@ -31,7 +29,6 @@ import com.ninsky.cronos.iam.policy.PasswordRules;
 import com.ninsky.cronos.iam.policy.SecurityPolicyProvider;
 import com.ninsky.cronos.iam.shared.UserDirectory;
 import com.ninsky.cronos.iam.shared.UserRef;
-import com.ninsky.cronos.iam.signin.AuthProjectionCache;
 import com.ninsky.cronos.iam.signin.CredentialWriter;
 import com.ninsky.cronos.infrastructure.exception.*;
 import lombok.RequiredArgsConstructor;
@@ -61,10 +58,8 @@ public class UserService {
     private final SecurityPolicyProvider securityPolicies;
     private final PasswordHistoryRepositoryPort passwordHistory;
     private final CredentialWriter credentials;
-    private final AuthProjectionCache authCache;
     private final UserDirectory userDirectory;
     private final AuditRecorder auditRecorder;
-    private final TwoFactorService twoFactorService;
     private final AvatarStorage avatarStorage;
 
     @Transactional
@@ -215,66 +210,6 @@ public class UserService {
     public UserResponse getUserByUsername(String username) {
         User user = userRepository.findByUsername(username).orElseThrow(() -> new UserNotFoundException("User not found"));
         return mapToUserResponse(user);
-    }
-
-    @Transactional
-    @CacheEvict(value = "users", key = "#userId")
-    public TwoFactorSetupResponse setupTwoFactor(UUID userId) {
-        User user = userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException("User not found"));
-
-        if (user.isTwoFactorEnabled()) {
-            throw ApiException.of(ApiErrorCode.INVALID_STATE_TRANSITION, null, "security.twoFactor.alreadyEnabled");
-        }
-
-        String secret = twoFactorService.generateSecretKey();
-        String qrCodeUrl = twoFactorService.generateQRCodeUrl(user, secret);
-
-        user.setTwoFactorSecret(secret);
-        userRepository.save(user);
-
-        return TwoFactorSetupResponse.builder().secret(secret).qrCodeUrl(qrCodeUrl).message("Scan the QR code with your authenticator app").build();
-    }
-
-    @Transactional
-    @CacheEvict(value = "users", key = "#userId")
-    public void enableTwoFactor(UUID userId, VerifyTwoFactorRequest request) {
-        User user = userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException("User not found"));
-
-        if (user.isTwoFactorEnabled()) {
-            throw ApiException.of(ApiErrorCode.INVALID_STATE_TRANSITION, null, "security.twoFactor.alreadyEnabled");
-        }
-        if (user.getTwoFactorSecret() == null) {
-            throw ApiException.of(ApiErrorCode.INVALID_STATE_TRANSITION, null, "security.twoFactor.notInitiated");
-        }
-
-        if (!twoFactorService.validateCode(user.getTwoFactorSecret(), request.code())) {
-            throw ApiException.invalid("code", "security.twoFactor.invalidCode");
-        }
-
-        user.setTwoFactorEnabled(true);
-        userRepository.save(user);
-        // The 2FA gate reads the cached auth projection.
-        authCache.evictAfterCommit();
-        log.info("Two-factor authentication enabled for user: {}", user.getUsername());
-    }
-
-    @Transactional
-    @CacheEvict(value = "users", key = "#userId")
-    public void disableTwoFactor(UUID userId, VerifyTwoFactorRequest request) {
-        User user = userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException("User not found"));
-
-        if (!user.isTwoFactorEnabled()) {
-            throw new ValidationException("Two-factor authentication is not enabled");
-        }
-
-        if (!twoFactorService.isCodeValid(user, request.code())) {
-            throw new ValidationException("Invalid verification code");
-        }
-
-        user.setTwoFactorEnabled(false);
-        user.setTwoFactorSecret(null);
-        userRepository.save(user);
-        log.info("Two-factor authentication disabled for user: {}", user.getUsername());
     }
 
     private Set<Role> getRolesByNames(Set<String> roleNames) {

@@ -84,7 +84,7 @@ public class UserWriteRepository {
     }
 
     public void resetTwoFactor(UUID id, UUID actorId, Instant now) {
-        touch(id, "two_factor_enabled = FALSE, two_factor_secret = NULL", actorId, now, new MapSqlParameterSource());
+        touch(id, "two_factor_enabled = FALSE", actorId, now, new MapSqlParameterSource());
     }
 
     /** Bumps the version only (credential changes the client must observe). */

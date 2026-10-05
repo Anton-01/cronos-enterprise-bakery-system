@@ -19,6 +19,7 @@ import com.ninsky.cronos.iam.shared.TenantTime;
 import com.ninsky.cronos.iam.token.CredentialDelivery;
 import com.ninsky.cronos.iam.token.IssuedToken;
 import com.ninsky.cronos.iam.token.TokenPurpose;
+import com.ninsky.cronos.iam.twofactor.TwoFactorAccountService;
 import com.ninsky.cronos.iam.token.UserTokens;
 import com.ninsky.cronos.iam.user.api.IamUserDetail;
 import com.ninsky.cronos.iam.user.api.PasswordResetIssued;
@@ -59,6 +60,7 @@ public class UserCredentialService {
     private final SecurityPolicyProvider policies;
     private final PasswordEncoder passwordEncoder;
     private final ApplicationEventPublisher events;
+    private final TwoFactorAccountService twoFactor;
     private final Clock clock;
     private final KeyedRateLimiter resetLimiter = new KeyedRateLimiter(5, Duration.ofHours(1));
     private final KeyedRateLimiter invitationLimiter = new KeyedRateLimiter(5, Duration.ofHours(1));
@@ -66,7 +68,8 @@ public class UserCredentialService {
     public UserCredentialService(UserReadRepository users, UserWriteRepository writes, UserViews views, AccessGuards guards,
                                  AccessVersions versions, SessionRevoker revoker, ActorProvider actors, AuditRecorder recorder,
                                  UserTokens tokens, PasswordPolicy passwordPolicy, SecurityPolicyProvider policies,
-                                 PasswordEncoder passwordEncoder, ApplicationEventPublisher events, Clock clock) {
+                                 PasswordEncoder passwordEncoder, ApplicationEventPublisher events,
+                                 TwoFactorAccountService twoFactor, Clock clock) {
         this.users = users;
         this.writes = writes;
         this.views = views;
@@ -80,6 +83,7 @@ public class UserCredentialService {
         this.policies = policies;
         this.passwordEncoder = passwordEncoder;
         this.events = events;
+        this.twoFactor = twoFactor;
         this.clock = clock;
     }
 
@@ -135,6 +139,7 @@ public class UserCredentialService {
         String reason = IamRules.reason(violations, "reason", rawReason);
         violations.throwIfAny();
         writes.resetTwoFactor(id, actor.id(), TenantTime.now(clock));
+        twoFactor.reset(id);
         versions.bump(List.of(id));
         revoker.revokeAll(id, "TWO_FACTOR_RESET");
         recorder.record(AuditEvent.of(AuditAction.USER_2FA_RESET, AuditTargets.USER, id, row.displayName())

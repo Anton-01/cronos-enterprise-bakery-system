@@ -20,5 +20,7 @@ public record LoginResponse(
         Boolean requiresTwoFactor,
         /** True when the password must be changed before using the app (forced or past the policy max age). */
         Boolean mustChangePassword,
+        /** Contract §8.1: 2FA is mandatory and not enrolled yet, so the UI routes straight to setup. */
+        Boolean requiresTwoFactorEnrollment,
         String message
 ) { }

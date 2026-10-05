@@ -11,10 +11,16 @@ public record LoginRequest(
         @NotBlank(message = "{validation.password.required}")
         String password,
 
-        Integer twoFactorCode
+        /** A 6-digit TOTP or a recovery code {@code XXXX-XXXX}. */
+        String twoFactorCode
 ) {
         public LoginRequest {
                 username = username != null ? username.trim() : null;
                 password = password != null ? password.trim() : null;
+        }
+
+        @Override
+        public String toString() {
+                return "LoginRequest[username=" + username + "]";
         }
 }
