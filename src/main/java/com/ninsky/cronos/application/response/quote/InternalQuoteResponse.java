@@ -1,6 +1,8 @@
 package com.ninsky.cronos.application.response.quote;
 
 import com.ninsky.cronos.domain.entity.enums.QuoteStatus;
+import com.ninsky.cronos.finance.pricing.FinanceRoundingMode;
+import com.ninsky.cronos.finance.pricing.TaxFactorType;
 import lombok.Builder;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -26,5 +28,13 @@ public record InternalQuoteResponse(
         String publicToken,
         BigDecimal deliveryFee,
         BigDecimal extraFee,
-        String extraFeeDescription
+        String extraFeeDescription,
+        // Pricing snapshot (spec §11.4)
+        Long taxRateId,
+        TaxFactorType taxFactorType,
+        Integer currencyDecimalPlaces,
+        Boolean pricesIncludeTax,
+        FinanceRoundingMode roundingMode,
+        BigDecimal subtotal,
+        BigDecimal taxAmount
 ) {}
