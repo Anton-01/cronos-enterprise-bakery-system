@@ -1,5 +1,8 @@
 package com.ninsky.cronos.application.service.auth;
 
+import java.util.Map;
+import com.ninsky.cronos.iam.user.UserStatus;
+import com.ninsky.cronos.iam.shared.Changes;
 import com.ninsky.cronos.account.avatar.application.port.AvatarStorage;
 import com.ninsky.cronos.account.avatar.domain.AvatarKey;
 import com.ninsky.cronos.account.shared.domain.AccountDomainError.InvalidField;
@@ -191,8 +194,13 @@ public class UserService {
         }
 
         credentials.setPassword(userId, request.newPassword(), false);
-        auditRecorder.record(AuditEvent.of(AuditAction.PASSWORD_CHANGED, AuditTargets.USER, userId,
-                userDirectory.ref(userId).map(UserRef::displayName).orElse(user.getUsername())).build());
+        String label = userDirectory.ref(userId).map(UserRef::displayName).orElse(user.getUsername());
+        auditRecorder.record(AuditEvent.of(AuditAction.PASSWORD_CHANGED, AuditTargets.USER, userId, label).build());
+        if (credentials.activateIfPending(userId)) {
+            auditRecorder.record(AuditEvent.of(AuditAction.USER_STATUS_CHANGED, AuditTargets.USER, userId, label)
+                    .changes(Changes.of("status", UserStatus.PENDING_ACTIVATION.name(), UserStatus.ACTIVE.name()))
+                    .params(Map.of("status", UserStatus.ACTIVE.name())).build());
+        }
         log.info("Password changed for user {}", userId);
     }
 

@@ -43,4 +43,15 @@ public class CredentialWriter {
                 params.addValue("historyId", UUID.randomUUID()));
         authCache.evictAfterCommit();
     }
+
+    /** First sign-in with a temporary password ends in a successful change: PENDING_ACTIVATION → ACTIVE. */
+    @Transactional
+    public boolean activateIfPending(UUID userId) {
+        int rows = jdbc.update("""
+                UPDATE users SET status = 'ACTIVE', status_reason = NULL, status_comment = NULL, status_until = NULL,
+                       status_changed_at = now(), status_changed_by = :id
+                WHERE id = :id AND status = 'PENDING_ACTIVATION'""", new MapSqlParameterSource("id", userId));
+        authCache.evictAfterCommit();
+        return rows > 0;
+    }
 }

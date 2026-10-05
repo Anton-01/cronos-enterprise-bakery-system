@@ -329,7 +329,14 @@ public class AuthenticationService {
                 throw new LockedException(String.format("Account is locked. Try again in %d minutes",
                         lockoutService.getRemainingLockoutTime(standing.statusUntil())));
             }
-            case PENDING_ACTIVATION, SUSPENDED, DEACTIVATED -> {
+            case PENDING_ACTIVATION -> {
+                // Temporary-password accounts sign in once to set their own password.
+                if (!standing.passwordNeedsChange() || standing.accessExpired(TenantTime.today(clock))) {
+                    signInJournal.failed(userId, label, SignInJournal.Outcome.FAILURE, SignInJournal.Failure.ACCOUNT_DISABLED);
+                    throw new DisabledException("Account is not active");
+                }
+            }
+            case SUSPENDED, DEACTIVATED -> {
                 signInJournal.failed(userId, label, SignInJournal.Outcome.FAILURE, SignInJournal.Failure.ACCOUNT_DISABLED);
                 throw new DisabledException("Account is not active");
             }

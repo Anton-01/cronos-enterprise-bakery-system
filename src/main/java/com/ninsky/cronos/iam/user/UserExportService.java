@@ -5,9 +5,9 @@ import com.ninsky.cronos.iam.audit.AuditEvent;
 import com.ninsky.cronos.iam.audit.AuditRecorder;
 import com.ninsky.cronos.iam.audit.AuditTargets;
 import com.ninsky.cronos.iam.shared.ActorProvider;
-import com.ninsky.cronos.iam.shared.CsvWriter;
 import com.ninsky.cronos.iam.shared.KeyedRateLimiter;
 import com.ninsky.cronos.iam.shared.RoleRef;
+import com.ninsky.cronos.infrastructure.web.csv.CsvWriter;
 import com.ninsky.cronos.infrastructure.web.paging.PageQuery;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -54,9 +54,11 @@ public class UserExportService {
         SecurityContext context = SecurityContextHolder.getContext();
         return stream -> {
             SecurityContextHolder.setContext(context);
-            try (CsvWriter csv = new CsvWriter(stream)) {
+            try {
+                CsvWriter csv = CsvWriter.open(stream);
                 csv.row(HEADER);
                 long rows = Objects.requireNonNull(readOnly.execute(status -> write(search, order, csv)));
+                csv.flush();
                 recorder.recordIndependently(AuditEvent.of(AuditAction.USER_EXPORT, AuditTargets.USER, null, "CSV")
                         .params(filters(search, rows)).build());
             } finally {
