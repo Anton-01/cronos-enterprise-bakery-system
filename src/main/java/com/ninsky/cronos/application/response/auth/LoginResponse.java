@@ -18,5 +18,7 @@ public record LoginResponse(
         /** DB-driven nav tree, pruned to what the user's granted permissions unlock. */
         List<MenuItemResponse> navigation,
         Boolean requiresTwoFactor,
+        /** True when the password must be changed before using the app (forced or past the policy max age). */
+        Boolean mustChangePassword,
         String message
 ) { }

@@ -20,6 +20,8 @@ public class LoginHistory {
     private LocalDateTime loginAt;
     private String ipAddress;
     private String status;
+    /** SUCCESS | FAILURE | LOCKED | TWO_FACTOR_FAILED (spec §3.8). */
+    private String outcome;
     private String userAgent;
     private String browser;
     private String operatingSystem;

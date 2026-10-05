@@ -66,6 +66,18 @@ public class RequestContextUtil {
         return agent.getValue("DeviceClass"); // Ej: "Desktop", "Mobile", "Tablet"
     }
 
+    /** "Browser major / OS" (e.g. "Chrome 140 / macOS") of a stored User-Agent; null when blank. */
+    public String describe(String userAgent) {
+        if (userAgent == null || userAgent.isBlank() || "Unknown".equals(userAgent)) {
+            return null;
+        }
+        UserAgent agent = uaa.parse(userAgent);
+        String browser = agent.getValue("AgentNameVersionMajor");
+        String os = agent.getValue("OperatingSystemName");
+        boolean known = !browser.startsWith("Unknown") && !browser.startsWith("??");
+        return known ? browser + " / " + os : userAgent;
+    }
+
     public String getLocation() {
         // Listo para integrar MaxMind GeoIP2 o similar usando el IP devuelto por getClientIp()
         return "Unknown";
