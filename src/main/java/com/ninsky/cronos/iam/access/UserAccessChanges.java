@@ -146,13 +146,7 @@ public class UserAccessChanges {
         if (evaluation.before().holdsActiveSuperAdmin() && !evaluation.after().holdsActiveSuperAdmin()) {
             guards.requireRootRemains(List.of(userId));
         }
-        evaluation.conflicts().stream()
-                .filter(SodConflict::blocking)
-                .filter(c -> !evaluation.afterAccess().superAdmin())
-                .findFirst()
-                .ifPresent(c -> {
-                    throw ApiException.of(ApiErrorCode.SOD_CONFLICT, null, "iam.sod.blocking", c.name());
-                });
+        requireNoBlockingConflict(evaluation);
 
         touchUser(userId, actor, expectedVersion);
         if (!evaluation.assignmentChanged()) {
@@ -165,6 +159,29 @@ public class UserAccessChanges {
         }
         audit(userId, evaluation, reason);
         return evaluation;
+    }
+
+    /** Initial assignment of a user created in this transaction: guards and persistence, no audit of its own. */
+    @Transactional
+    public Evaluation assignInitial(UUID userId, Proposal proposal, Fields fields, Actor actor, Locale locale) {
+        Evaluation evaluation = evaluate(userId, proposal, fields, locale);
+        requireNoEscalation(actor, proposal, fields, evaluation);
+        requireNoBlockingConflict(evaluation);
+        if (evaluation.assignmentChanged()) {
+            persist(userId, evaluation, actor);
+        }
+        return evaluation;
+    }
+
+    /** BLOCKING SoD rules stop the save; SUPER_ADMIN is exempt. */
+    private static void requireNoBlockingConflict(Evaluation evaluation) {
+        evaluation.conflicts().stream()
+                .filter(SodConflict::blocking)
+                .filter(c -> !evaluation.afterAccess().superAdmin())
+                .findFirst()
+                .ifPresent(c -> {
+                    throw ApiException.of(ApiErrorCode.SOD_CONFLICT, null, "iam.sod.blocking", c.name());
+                });
     }
 
     private void requireNoEscalation(Actor actor, Proposal proposal, Fields fields, Evaluation evaluation) {
