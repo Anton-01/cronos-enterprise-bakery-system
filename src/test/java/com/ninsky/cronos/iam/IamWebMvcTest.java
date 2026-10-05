@@ -1,15 +1,10 @@
-package com.ninsky.cronos.account.web;
+package com.ninsky.cronos.iam;
 
-import com.ninsky.cronos.account.avatar.infrastructure.AvatarUrlMapping;
-import com.ninsky.cronos.account.fiscal.infrastructure.FiscalDataMapperImpl;
-import com.ninsky.cronos.account.profile.infrastructure.UserProfileMapperImpl;
 import com.ninsky.cronos.account.shared.api.AccountErrorMapper;
-import com.ninsky.cronos.account.shared.api.AccountMessages;
-import com.ninsky.cronos.account.shared.infrastructure.config.AccountInfrastructureConfig;
 import com.ninsky.cronos.infrastructure.config.ValidationConfig;
-import com.ninsky.cronos.infrastructure.exception.StrictContractResponder;
 import com.ninsky.cronos.infrastructure.config.security.SecurityConfig;
 import com.ninsky.cronos.infrastructure.config.security.WebMvcConfig;
+import com.ninsky.cronos.infrastructure.exception.StrictContractResponder;
 import com.ninsky.cronos.infrastructure.security.JwtAuthenticationFilter;
 import com.ninsky.cronos.infrastructure.util.auth.RateLimitInterceptor;
 import com.ninsky.cronos.infrastructure.web.JweFilter;
@@ -25,19 +20,15 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Web slice for the account controllers: real validation, Jackson (incl. strict unknown-property
- * handling), MapStruct mappers, envelope advice and {@code GlobalExceptionHandler}; the JWT/JWE
- * filters and the IP rate-limit interceptor are replaced by Spring Boot's default test security
- * (so "unauthenticated → 401" is still exercised). Use cases are {@code @MockitoBean}s per test.
+ * Web slice for IAM controllers: real Jackson, envelope advice, {@code GlobalExceptionHandler} with the
+ * strict responder and method security; JWT/JWE filters replaced by a stateless test chain (401 for anonymous).
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 @WebMvcTest(excludeFilters = @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE,
         classes = {JwtAuthenticationFilter.class, JweFilter.class, RateLimitInterceptor.class, WebMvcConfig.class, SecurityConfig.class}))
-@Import({AccountErrorMapper.class, AccountMessages.class, AccountInfrastructureConfig.class, ValidationConfig.class,
-        AccountWebMvcTestConfig.class, UserProfileMapperImpl.class, FiscalDataMapperImpl.class, AvatarUrlMapping.class,
-        StrictContractResponder.class})
-public @interface AccountWebMvcTest {
+@Import({AccountErrorMapper.class, ValidationConfig.class, StrictContractResponder.class, IamWebMvcTestConfig.class})
+public @interface IamWebMvcTest {
 
     @AliasFor(annotation = WebMvcTest.class, attribute = "controllers")
     Class<?>[] value() default {};
