@@ -6,6 +6,7 @@ import com.ninsky.cronos.application.request.core.auth.UpdateUserRequest;
 import com.ninsky.cronos.application.request.user.AdminUserCreateRequest;
 import com.ninsky.cronos.application.response.auth.UserResponse;
 import com.ninsky.cronos.application.service.audit.AuditLogService;
+import com.ninsky.cronos.iam.twofactor.TwoFactorAccountService;
 import com.ninsky.cronos.infrastructure.storage.StoragePort;
 import com.ninsky.cronos.domain.model.audit.AuditAction;
 import com.ninsky.cronos.domain.model.auth.PasswordResetToken;
@@ -54,6 +55,7 @@ public class AdminUserService {
     private final TokenBlacklistService tokenBlacklistService;
     private final JwtConfig jwtConfig;
     private final AuditLogService auditLogService;
+    private final TwoFactorAccountService twoFactor;
 
     @Transactional(readOnly = true)
     public Page<UserResponse> getAllUsers(String roleName, Boolean enabled, String search, Pageable pageable) {
@@ -227,10 +229,7 @@ public class AdminUserService {
         log.warn("Admin EMERGENCY 2FA DISABLE for user {}", id);
         User user = userRepository.findById(id).orElseThrow(() -> new UserNotFoundException("User not found"));
 
-        user.setTwoFactorEnabled(false);
-        user.setTwoFactorSecret(null);
-
-        userRepository.save(user);
+        twoFactor.reset(user.getId());
 
         auditLogService.record(actingAdminUsername, AuditAction.USER_TWO_FACTOR_DISABLED, TARGET_USER, user.getId().toString(), null);
     }

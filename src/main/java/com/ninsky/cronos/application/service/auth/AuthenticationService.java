@@ -24,12 +24,14 @@ import com.ninsky.cronos.iam.access.UserAccessService;
 import com.ninsky.cronos.iam.access.UserAccessState;
 import com.ninsky.cronos.iam.policy.SecurityPolicy;
 import com.ninsky.cronos.iam.policy.SecurityPolicyProvider;
+import com.ninsky.cronos.iam.policy.TwoFactorRequirement;
 import com.ninsky.cronos.iam.shared.TenantTime;
 import com.ninsky.cronos.iam.shared.UserDirectory;
 import com.ninsky.cronos.iam.shared.UserRef;
 import com.ninsky.cronos.iam.signin.AccountStanding;
 import com.ninsky.cronos.iam.signin.AccountStandings;
 import com.ninsky.cronos.iam.signin.SignInJournal;
+import com.ninsky.cronos.iam.twofactor.TwoFactorAccountService;
 import com.ninsky.cronos.iam.user.UserStatus;
 import com.ninsky.cronos.infrastructure.config.security.JwtConfig;
 import com.ninsky.cronos.infrastructure.exception.InvalidTokenException;
@@ -77,7 +79,8 @@ public class AuthenticationService {
     private final JwtService jwtService;
     private final JwtConfig jwtConfig;
     private final AccountLockoutService lockoutService;
-    private final TwoFactorService twoFactorService;
+    private final TwoFactorAccountService twoFactorAccounts;
+    private final TwoFactorRequirement twoFactorRequirement;
     private final MenuPort menuPort;
     private final UserAccessService userAccessService;
 
@@ -141,11 +144,11 @@ public class AuthenticationService {
         }
 
         if (user.isTwoFactorEnabled()) {
-            if (request.twoFactorCode() == null) {
+            if (request.twoFactorCode() == null || request.twoFactorCode().isBlank()) {
                 return LoginResponse.builder().requiresTwoFactor(true)
                         .message("Two-factor authentication code required").build();
             }
-            if (!twoFactorService.isCodeValid(user, request.twoFactorCode())) {
+            if (!twoFactorAccounts.verifySignIn(user.getId(), request.twoFactorCode()).accepted()) {
                 boolean locked = lockoutService.registerFailure(user.getId(), standing.status(), label);
                 signInJournal.failed(user.getId(), label, SignInJournal.Outcome.TWO_FACTOR_FAILED,
                         SignInJournal.Failure.INVALID_TWO_FACTOR_CODE);
@@ -181,6 +184,7 @@ public class AuthenticationService {
                 .policies(grants.policies())
                 .navigation(buildNavigation(grants.permissionNames()))
                 .mustChangePassword(standing.mustChangePassword(policy, TenantTime.now(clock)))
+                .requiresTwoFactorEnrollment(twoFactorRequirement.mustEnrol(user.getId()))
                 .requiresTwoFactor(false).message("Login successful").build();
     }
 
@@ -462,8 +466,7 @@ public class AuthenticationService {
     }
 
     private boolean isDecryptionCorrupted(User user) {
-        return FieldEncryptionService.DECRYPTION_FAILED_SENTINEL.equals(user.getEmail())
-                || FieldEncryptionService.DECRYPTION_FAILED_SENTINEL.equals(user.getTwoFactorSecret());
+        return FieldEncryptionService.DECRYPTION_FAILED_SENTINEL.equals(user.getEmail());
     }
 
     private String generateSha256(String input) {

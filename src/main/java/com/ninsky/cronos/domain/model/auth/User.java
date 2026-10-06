@@ -42,7 +42,6 @@ public class User {
     private boolean credentialsNonExpired = true;
     @Builder.Default
     private boolean twoFactorEnabled = false;
-    private String twoFactorSecret;
     @Builder.Default
     private int failedLoginAttempts = 0;
     private LocalDateTime lockedUntil;

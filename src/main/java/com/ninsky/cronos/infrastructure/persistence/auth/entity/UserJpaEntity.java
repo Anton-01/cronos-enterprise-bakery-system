@@ -71,10 +71,6 @@ public class UserJpaEntity extends AuditableEntity {
     @Column(name = "two_factor_enabled", nullable = false)
     private boolean twoFactorEnabled = false;
 
-    @Convert(converter = EncryptedStringConverter.class)
-    @Column(name = "two_factor_secret", columnDefinition = "TEXT")
-    private String twoFactorSecret;
-
     @Column(name = "failed_login_attempts", nullable = false)
     private int failedLoginAttempts = 0;
 

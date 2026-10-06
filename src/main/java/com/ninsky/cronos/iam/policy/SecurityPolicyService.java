@@ -46,7 +46,7 @@ public class SecurityPolicyService {
     public SecurityPolicyView update(SecurityPolicyRequest request) {
         var actor = actors.require();
         SecurityPolicyRules.validate(request, store.activeRoleIds(Optional.ofNullable(request.twoFactorRequiredRoleIds())
-                .orElse(List.of()).stream().filter(Objects::nonNull).toList())).throwIfAny();
+                .orElse(List.of()).stream().filter(Objects::nonNull).toList()), store.superAdminRoleId()).throwIfAny();
         SecurityPolicy before = store.load();
         SecurityPolicy after = request.toPolicy(TenantTime.now(clock), actor.id());
         if (before.version() != request.version() || !store.update(after, request.version())) {

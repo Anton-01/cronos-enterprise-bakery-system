@@ -215,6 +215,13 @@
             </exclusions>
         </dependency>
 
+        <!-- Server-side QR for TOTP enrolment (contract §8.2); never a third-party QR service. -->
+        <dependency>
+            <groupId>com.google.zxing</groupId>
+            <artifactId>core</artifactId>
+            <version>3.5.3</version>
+        </dependency>
+
         <dependency>
             <groupId>nl.basjes.parse.useragent</groupId>
             <artifactId>yauaa</artifactId>

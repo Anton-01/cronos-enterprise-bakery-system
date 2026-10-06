@@ -104,7 +104,7 @@ public class JpaUserAccountRepository implements UserAccountRepository {
                 user.getLockedUntil(),
                 user.getLastLoginAt(),
                 user.getPasswordChangedAt(),
-                user.getRoles().stream().map(RoleJpaEntity::getName).collect(Collectors.toUnmodifiableSet()),
+                user.getRoles().stream().map(RoleJpaEntity::getCode).collect(Collectors.toUnmodifiableSet()),
                 user.getCreatedAt(),
                 user.getUpdatedAt(),
                 user.getVersion() == null ? 0L : user.getVersion());

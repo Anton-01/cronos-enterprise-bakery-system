@@ -94,7 +94,7 @@ class SecurityPolicyControllerWebTest {
         SecurityPolicyRequest invalid = new SecurityPolicyRequest(4, true, true, true, true, 5, 90, 5, 15, 600, 1, 3, 72,
                 java.util.List.of(9L), 3L);
         when(service.update(any())).thenAnswer(call -> {
-            SecurityPolicyRules.validate(invalid, Set.of(1L)).throwIfAny();
+            SecurityPolicyRules.validate(invalid, Set.of(1L), 9L).throwIfAny();
             return view();
         });
         mvc.perform(put("/iam/security-policy").with(withPermissions(UPDATE))

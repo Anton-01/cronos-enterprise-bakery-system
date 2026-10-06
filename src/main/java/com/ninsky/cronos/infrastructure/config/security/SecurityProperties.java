@@ -58,7 +58,7 @@ public class SecurityProperties {
 
     @Getter @Setter
     public static class TwoFactor {
-        private String issuer = "Enterprise Auth Service";
+        private String issuer = "Cronos";
         private Integer qrCodeWidth = 250;
         private Integer qrCodeHeight = 250;
         private Integer windowSize = 3;
