@@ -1,0 +1,21 @@
+name: Build
+
+on:
+  push:
+    branches: [main, 'claude/**']
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - name: Compile
+        run: ./mvnw -B -ntp test-compile
+      - name: Test
+        run: ./mvnw -B -ntp verify

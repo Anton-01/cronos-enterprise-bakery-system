@@ -133,9 +133,10 @@ public class AllergenCatalog {
                 SELECT n.allergen_id, n.locale, n.name, n.description FROM allergen_i18n n
                 JOIN allergens a ON a.id = n.allergen_id WHERE a.owner_id IS NULL OR a.owner_id = :tenant""", params, rs -> {
             long id = rs.getLong("allergen_id");
-            names.computeIfAbsent(id, k -> new HashMap<>()).put(rs.getString("locale"), rs.getString("name"));
+            String locale = rs.getString("locale");
+            names.computeIfAbsent(id, k -> new HashMap<>()).put(locale, rs.getString("name"));
             Optional.ofNullable(rs.getString("description"))
-                    .ifPresent(d -> descriptions.computeIfAbsent(id, k -> new HashMap<>()).put(rs.getString("locale"), d));
+                    .ifPresent(d -> descriptions.computeIfAbsent(id, k -> new HashMap<>()).put(locale, d));
         });
 
         Map<Long, Map<String, List<String>>> platform = new HashMap<>();
