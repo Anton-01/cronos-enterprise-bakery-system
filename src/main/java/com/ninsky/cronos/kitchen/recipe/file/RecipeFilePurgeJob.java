@@ -1,6 +1,6 @@
 package com.ninsky.cronos.kitchen.recipe.file;
 
-import com.ninsky.cronos.kitchen.recipe.RecipeQueries;
+import com.ninsky.cronos.kitchen.recipe.RecipeQueryCustomRepository;
 import com.ninsky.cronos.kitchen.shared.KitchenProperties;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -16,8 +16,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class RecipeFilePurgeJob {
 
-    private final RecipeQueries recipes;
-    private final RecipeFileStore files;
+    private final RecipeQueryCustomRepository recipes;
+    private final RecipeFileCustomRepository files;
     private final RecipeFileService fileService;
     private final KitchenProperties properties;
     private final TransactionTemplate transactions;

@@ -89,7 +89,7 @@ public class UserController {
             @RequestParam(name = "roleIds[]", required = false) List<Long> roleIdsArray,
             @RequestParam(required = false) Boolean twoFactorEnabled) {
         UserSearch filter = new UserSearch(search, merge(statuses, statusesArray), merge(roleIds, roleIdsArray), twoFactorEnabled);
-        PageQuery query = PageQuery.of(page, size, sort, UserReadRepository.SORTS, UserReadRepository.DEFAULT_SORT);
+        PageQuery query = PageQuery.of(page, size, sort, UserReadCustomRepository.SORTS, UserReadCustomRepository.DEFAULT_SORT);
         return ResponseEntity.ok(ApiResponse.success(users.list(filter, query)));
     }
 
@@ -120,7 +120,7 @@ public class UserController {
             @RequestParam(name = "roleIds[]", required = false) List<Long> roleIdsArray,
             @RequestParam(required = false) Boolean twoFactorEnabled) {
         UserSearch filter = new UserSearch(search, merge(statuses, statusesArray), merge(roleIds, roleIdsArray), twoFactorEnabled);
-        PageQuery order = PageQuery.of(0, 1, sort, UserReadRepository.SORTS, UserReadRepository.DEFAULT_SORT);
+        PageQuery order = PageQuery.of(0, 1, sort, UserReadCustomRepository.SORTS, UserReadCustomRepository.DEFAULT_SORT);
         String fileName = "usuarios-" + TenantTime.today(clock) + ".csv";
         return ResponseEntity.ok()
                 .contentType(CSV)

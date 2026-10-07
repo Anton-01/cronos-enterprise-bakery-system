@@ -17,7 +17,7 @@ public class CachedSecurityPolicyProvider implements SecurityPolicyProvider {
     static final String CACHE = "securityPolicy";
     private static final String KEY = "current";
 
-    private final SecurityPolicyStore store;
+    private final SecurityPolicyCustomRepository store;
     private final CacheManager cacheManager;
 
     @Override

@@ -1,0 +1,50 @@
+name: Build
+
+on:
+  push:
+    branches: [main, 'claude/**']
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: cronos
+          POSTGRES_USER: cronos
+          POSTGRES_PASSWORD: cronos
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U cronos" --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+    env:
+      DB_URL: jdbc:postgresql://localhost:5432/cronos
+      DB_USERNAME: cronos
+      DB_PASSWORD: cronos
+      MAIL_PASSWORD: ci
+      GCP_CREDENTIALSFILE: file:/tmp/gcp-ci.json
+      JWT_SECRET: ci-only-secret-0123456789abcdef0123456789abcdef0123456789abcdef
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - name: Install libwebp
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends libwebp7
+      - name: Throwaway GCP key (storage adapter parses it at startup, no calls are made)
+        run: |
+          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out /tmp/ci.pem
+          python3 -c "import json;print(json.dumps({'type':'service_account','project_id':'ci','private_key_id':'ci','private_key':open('/tmp/ci.pem').read(),'client_email':'ci@ci.iam.gserviceaccount.com','client_id':'1','token_uri':'https://oauth2.googleapis.com/token'}))" > /tmp/gcp-ci.json
+      - name: Compile
+        run: ./mvnw -B -ntp test-compile
+      - name: Test
+        run: ./mvnw -B -ntp verify
+      - name: Show test failure causes
+        if: failure()
+        run: grep -h -A3 "Caused by\|APPLICATION FAILED" target/surefire-reports/*.txt target/surefire-reports/*-output.txt 2>/dev/null | tail -80 || true

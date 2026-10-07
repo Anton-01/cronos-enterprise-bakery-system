@@ -30,7 +30,7 @@ public class SecurityPolicyService {
 
     private static final String TARGET_LABEL = "Security policy";
 
-    private final SecurityPolicyStore store;
+    private final SecurityPolicyCustomRepository store;
     private final UserDirectory users;
     private final ActorProvider actors;
     private final AuditRecorder recorder;

@@ -35,13 +35,12 @@ public class AuditEventQueryService {
     static final List<String> CSV_HEADER = List.of("id", "occurredAt", "category", "action", "outcome", "severity", "actorId",
             "actorUsername", "actorDisplayName", "targetType", "targetId", "targetLabel", "summary", "reason", "ipAddress",
             "userAgent", "traceId");
-    private static final Map<String, String> SORT = Map.of("occurredAt", "a.created_at");
 
     /** A ready-to-stream download. */
     public record Export(String fileName, StreamingResponseBody body) {
     }
 
-    private final AuditEventRepository repository;
+    private final AuditEventCustomRepository repository;
     private final AuditSummaryRenderer renderer;
     private final UserDirectory directory;
     private final RequestContextUtil requestContext;
@@ -51,7 +50,7 @@ public class AuditEventQueryService {
     private final Clock clock;
     private final KeyedRateLimiter exportLimiter = new KeyedRateLimiter(5, Duration.ofMinutes(10));
 
-    public AuditEventQueryService(AuditEventRepository repository, AuditSummaryRenderer renderer, UserDirectory directory,
+    public AuditEventQueryService(AuditEventCustomRepository repository, AuditSummaryRenderer renderer, UserDirectory directory,
                                   RequestContextUtil requestContext, ActorProvider actors, AuditRecorder recorder,
                                   PlatformTransactionManager transactionManager, Clock clock) {
         this.repository = repository;
@@ -68,7 +67,7 @@ public class AuditEventQueryService {
     @Transactional(readOnly = true)
     public CatalogPage<AuditEventView> search(AuditEventFilter filter, Integer page, Integer size, Locale locale) {
         filter.validate();
-        PageQuery query = PageQuery.of(page, size, null, SORT, "occurredAt,desc");
+        PageQuery query = PageQuery.of(page, size, null, AuditEventCustomRepository.SORTS, "occurredAt,desc");
         List<AuditEventView> content = repository.page(filter, query.offset(), query.size()).stream()
                 .map(row -> view(row, locale)).toList();
         return CatalogPage.of(content, query, repository.count(filter));

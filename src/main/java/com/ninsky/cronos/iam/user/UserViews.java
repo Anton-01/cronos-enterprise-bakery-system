@@ -23,12 +23,12 @@ import java.util.stream.Stream;
 @RequiredArgsConstructor
 public class UserViews {
 
-    private final UserReadRepository users;
+    private final UserReadCustomRepository users;
     private final UserDirectory directory;
     private final UserTokens tokens;
 
     public CatalogPage<IamUserSummary> page(UserSearch search, PageQuery page) {
-        UserReadRepository.Page result = users.search(search, page);
+        UserReadCustomRepository.Page result = users.search(search, page);
         return CatalogPage.of(summaries(result.rows()), page, result.total());
     }
 

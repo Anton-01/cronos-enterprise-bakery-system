@@ -1,19 +1,16 @@
 package com.ninsky.cronos.iam.user;
 
 import com.ninsky.cronos.iam.shared.TenantTime;
+import com.ninsky.cronos.infrastructure.persistence.lock.AdvisoryLockCustomRepository;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import java.sql.Timestamp;
 import java.time.Clock;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -27,15 +24,17 @@ public class UserLifecycleJobs {
 
     private static final long LOCK_KEY = 7426101L;
 
-    private final NamedParameterJdbcTemplate jdbc;
+    private final AdvisoryLockCustomRepository locks;
+    private final UserStatusCustomRepository repository;
     private final UserStatusService statuses;
     private final TransactionTemplate outer;
     private final TransactionTemplate perUser;
     private final Clock clock;
 
-    public UserLifecycleJobs(NamedParameterJdbcTemplate jdbc, UserStatusService statuses,
+    public UserLifecycleJobs(AdvisoryLockCustomRepository locks, UserStatusCustomRepository repository, UserStatusService statuses,
                              PlatformTransactionManager transactions, Clock clock) {
-        this.jdbc = jdbc;
+        this.locks = locks;
+        this.repository = repository;
         this.statuses = statuses;
         this.outer = new TransactionTemplate(transactions);
         this.perUser = new TransactionTemplate(transactions);
@@ -46,8 +45,7 @@ public class UserLifecycleJobs {
     @Scheduled(fixedDelayString = "${app.iam.lifecycle-delay-ms:60000}", initialDelayString = "${app.iam.lifecycle-initial-delay-ms:30000}")
     public void run() {
         outer.executeWithoutResult(status -> {
-            if (!Boolean.TRUE.equals(jdbc.queryForObject("SELECT pg_try_advisory_xact_lock(:key)",
-                    Map.of("key", LOCK_KEY), Boolean.class))) {
+            if (!locks.tryLockForTransaction(LOCK_KEY)) {
                 return;
             }
             revertExpired();
@@ -56,18 +54,12 @@ public class UserLifecycleJobs {
     }
 
     void revertExpired() {
-        List<UUID> ids = jdbc.queryForList("""
-                        SELECT id FROM users WHERE status IN ('SUSPENDED', 'LOCKED') AND status_until IS NOT NULL
-                        AND status_until <= :now""",
-                new MapSqlParameterSource("now", Timestamp.from(TenantTime.now(clock))), UUID.class);
+        List<UUID> ids = repository.expiredTemporaryStatus(TenantTime.now(clock));
         ids.forEach(id -> transition(id, new UserStatusWriter.Change(UserStatus.ACTIVE, null, "AUTO_REVERT", null, null)));
     }
 
     void expireAccess() {
-        List<UUID> ids = jdbc.queryForList("""
-                        SELECT id FROM users WHERE status <> 'DEACTIVATED' AND access_expires_at IS NOT NULL
-                        AND access_expires_at <= :today""",
-                new MapSqlParameterSource("today", TenantTime.today(clock)), UUID.class);
+        List<UUID> ids = repository.expiredAccess(TenantTime.today(clock));
         ids.forEach(id -> transition(id,
                 new UserStatusWriter.Change(UserStatus.DEACTIVATED, StatusReason.OFFBOARDING, "ACCESS_EXPIRED", null, null)));
     }

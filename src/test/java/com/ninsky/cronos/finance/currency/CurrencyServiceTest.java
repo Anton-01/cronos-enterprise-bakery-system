@@ -51,7 +51,7 @@ class CurrencyServiceTest {
     @Mock
     private CurrencyRepository repository;
     @Mock
-    private CurrencyQueries queries;
+    private CurrencyQueryCustomRepository queries;
     @Mock
     private FinanceLocks locks;
     @Mock

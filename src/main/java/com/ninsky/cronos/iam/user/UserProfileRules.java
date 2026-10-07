@@ -35,7 +35,7 @@ public class UserProfileRules {
     private static final int EMAIL_MAX = 254;
     private static final int EMPLOYEE_NUMBER_MAX = 30;
 
-    private final UserReadRepository users;
+    private final UserReadCustomRepository users;
     private final Clock clock;
 
     /** Raw input of either request. */

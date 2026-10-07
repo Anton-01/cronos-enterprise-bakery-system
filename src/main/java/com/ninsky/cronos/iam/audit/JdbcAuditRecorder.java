@@ -6,8 +6,6 @@ import com.ninsky.cronos.iam.shared.TenantTime;
 import com.ninsky.cronos.infrastructure.util.auth.RequestContextUtil;
 import com.ninsky.cronos.infrastructure.web.TraceIdFilter;
 import org.slf4j.MDC;
-import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
@@ -16,8 +14,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -28,18 +24,17 @@ import java.util.UUID;
 @Component
 public class JdbcAuditRecorder implements AuditRecorder {
 
-    private static final long CHAIN_LOCK_KEY = 7_426_001L;
     private static final String UNKNOWN = "Unknown";
 
-    private final NamedParameterJdbcTemplate jdbc;
+    private final AuditLogCustomRepository repository;
     private final ActorProvider actors;
     private final RequestContextUtil requestContext;
     private final Clock clock;
     private final TransactionTemplate independent;
 
-    public JdbcAuditRecorder(NamedParameterJdbcTemplate jdbc, ActorProvider actors, RequestContextUtil requestContext, Clock clock,
+    public JdbcAuditRecorder(AuditLogCustomRepository repository, ActorProvider actors, RequestContextUtil requestContext, Clock clock,
                              PlatformTransactionManager transactionManager) {
-        this.jdbc = jdbc;
+        this.repository = repository;
         this.actors = actors;
         this.requestContext = requestContext;
         this.clock = clock;
@@ -65,48 +60,22 @@ public class JdbcAuditRecorder implements AuditRecorder {
         String params = event.params().isEmpty() ? null : AuditHasher.toJson(event.params());
         String changes = event.changes().isEmpty() ? null : AuditHasher.toJson(event.changes());
 
-        jdbc.query("SELECT pg_advisory_xact_lock(:key)", Map.of("key", CHAIN_LOCK_KEY), rs -> { });
-        List<String> previous = jdbc.queryForList(
-                "SELECT hash FROM audit_log WHERE hash IS NOT NULL ORDER BY id DESC LIMIT 1", Map.of(), String.class);
-        String prevHash = previous.isEmpty() ? null : previous.getFirst();
+        repository.lockChain();
+        String prevHash = repository.latestHash().orElse(null);
         String hash = AuditHasher.hash(prevHash, new AuditHasher.Material(createdAt, actor.map(Actor::id).orElse(null),
                 event.action().name(), event.action().category().name(), event.outcome().name(), event.severity().name(),
                 event.targetType(), event.targetId(), truncate(event.targetLabel(), 200), params, changes, truncate(event.reason(), 500)));
 
-        jdbc.update("""
-                INSERT INTO audit_log (actor_user_id, actor_username, actor_label, action, category, outcome, severity,
-                                       target_type, target_id, target_label, params, changes, reason,
-                                       ip_address, user_agent, trace_id, created_at, prev_hash, hash)
-                VALUES (:actorId, :actorUsername, :actorLabel, :action, :category, :outcome, :severity,
-                        :targetType, :targetId, :targetLabel, CAST(:params AS jsonb), CAST(:changes AS jsonb), :reason,
-                        :ip, :userAgent, :traceId, :createdAt, :prevHash, :hash)""",
-                new MapSqlParameterSource()
-                        .addValue("actorId", actor.map(Actor::id).orElse(null))
-                        .addValue("actorUsername", actor.map(Actor::username).orElse(null))
-                        .addValue("actorLabel", truncate(actorLabel, 200))
-                        .addValue("action", event.action().name())
-                        .addValue("category", event.action().category().name())
-                        .addValue("outcome", event.outcome().name())
-                        .addValue("severity", event.severity().name())
-                        .addValue("targetType", event.targetType())
-                        .addValue("targetId", truncate(event.targetId(), 100))
-                        .addValue("targetLabel", truncate(event.targetLabel(), 200))
-                        .addValue("params", params)
-                        .addValue("changes", changes)
-                        .addValue("reason", truncate(event.reason(), 500))
-                        .addValue("ip", known(truncate(requestContext.getClientIp(), 45)))
-                        .addValue("userAgent", known(truncate(requestContext.getUserAgent(), 500)))
-                        .addValue("traceId", truncate(MDC.get(TraceIdFilter.TRACE_ID_MDC_KEY), 64))
-                        .addValue("createdAt", createdAt)
-                        .addValue("prevHash", prevHash)
-                        .addValue("hash", hash));
+        repository.insert(new AuditLogCustomRepository.NewEntry(actor.map(Actor::id).orElse(null), actor.map(Actor::username).orElse(null),
+                truncate(actorLabel, 200), event.action().name(), event.action().category().name(), event.outcome().name(),
+                event.severity().name(), event.targetType(), truncate(event.targetId(), 100), truncate(event.targetLabel(), 200), params,
+                changes, truncate(event.reason(), 500), known(truncate(requestContext.getClientIp(), 45)),
+                known(truncate(requestContext.getUserAgent(), 500)), truncate(MDC.get(TraceIdFilter.TRACE_ID_MDC_KEY), 64), createdAt,
+                prevHash, hash));
     }
 
     private String displayName(UUID userId, String fallback) {
-        List<String> names = jdbc.queryForList("""
-                SELECT NULLIF(btrim(concat_ws(' ', p.first_name, p.last_name)), '')
-                FROM user_profiles p WHERE p.user_id = :id""", Map.of("id", userId), String.class);
-        return names.isEmpty() || names.getFirst() == null ? fallback : names.getFirst();
+        return repository.displayName(userId).orElse(fallback);
     }
 
     private static String known(String value) {

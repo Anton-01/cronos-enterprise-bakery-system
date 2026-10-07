@@ -2,6 +2,7 @@ package com.ninsky.cronos.kitchen.recipe.file;
 
 import com.ninsky.cronos.infrastructure.exception.ApiErrorCode;
 import com.ninsky.cronos.infrastructure.exception.ApiException;
+import lombok.extern.slf4j.Slf4j;
 
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
@@ -21,23 +22,30 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Iterator;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Recipe images (§5.7): metadata stripped and a 400 px thumbnail. JPEG/PNG are decoded and re-encoded
  * (EXIF/GPS never survive); WebP has no JDK writer, so its EXIF/XMP RIFF chunks are removed instead.
- * Thumbnails are JPEG (no WebP encoder on the classpath). Rejects decompression bombs before decoding.
+ * Thumbnails are WebP via the system libwebp ({@link WebpEncoder}), JPEG when it is missing. Rejects decompression bombs before decoding.
  */
+@Slf4j
 public final class ImageSanitizer {
 
     public static final int THUMBNAIL_EDGE = 400;
     static final long MAX_PIXELS = 40_000_000L;
     private static final float JPEG_QUALITY = 0.9f;
+    private static final float WEBP_QUALITY = 82f;
     private static final Set<String> WEBP_METADATA = Set.of("EXIF", "XMP ");
 
-    /** Clean original + JPEG thumbnail. */
-    public record Result(byte[] image, byte[] thumbnail) {
+    /** Clean original + thumbnail. */
+    public record Result(byte[] image, Thumbnail thumbnail) {
+    }
+
+    /** Encoded thumbnail with its storage extension and content type. */
+    public record Thumbnail(byte[] bytes, String extension, String mimeType) {
     }
 
     static {
@@ -56,7 +64,7 @@ public final class ImageSanitizer {
                 case "png" -> encode(decoded, "png");
                 default -> stripWebpMetadata(upload);
             };
-            return new Result(clean, encode(thumbnail(decoded), "jpeg"));
+            return new Result(clean, encodeThumbnail(thumbnail(decoded)));
         } catch (IOException e) {
             throw corrupt();
         }
@@ -94,6 +102,19 @@ public final class ImageSanitizer {
         } catch (IOException | RuntimeException e) {
             throw corrupt();
         }
+    }
+
+    /** WebP when libwebp is loaded (falls back on any encoder failure), else JPEG. */
+    static Thumbnail encodeThumbnail(BufferedImage image) throws IOException {
+        Optional<WebpEncoder> webp = WebpEncoder.instance();
+        if (webp.isPresent()) {
+            try {
+                return new Thumbnail(webp.get().encode(image, WEBP_QUALITY), "webp", "image/webp");
+            } catch (RuntimeException e) {
+                log.warn("WebP thumbnail failed, using JPEG: {}", e.toString());
+            }
+        }
+        return new Thumbnail(encode(image, "jpeg"), "jpg", "image/jpeg");
     }
 
     private static BufferedImage thumbnail(BufferedImage source) {

@@ -7,7 +7,7 @@ import java.util.UUID;
 /**
  * Slim, read-only projection for the authentication hot path (login + every authenticated
  * request) — deliberately NOT the full {@link User} aggregate, so loading it never touches the
- * full JPA entity graph (profile, audit fields, etc.). Backed by {@code JdbcUserAuthAdapter}.
+ * full JPA entity graph (profile, audit fields, etc.). Backed by {@code UserAuthCustomRepository}.
  */
 public record AuthUserProjection(
         UUID id,

@@ -50,8 +50,8 @@ public class IngredientService {
     private static final List<String> LOCALES = List.of("es", "en");
     private static final BigDecimal JUMP_THRESHOLD = new BigDecimal("0.5");
 
-    private final IngredientQueries queries;
-    private final IngredientRepository repository;
+    private final IngredientQueryCustomRepository queries;
+    private final IngredientCustomRepository repository;
     private final IngredientValidator validator;
     private final IngredientViews views;
     private final IngredientRipple ripple;
@@ -66,7 +66,7 @@ public class IngredientService {
     public CatalogPage<IngredientSummary> page(IngredientFilter filter, Integer page, Integer size, String sort) {
         UUID tenant = tenant();
         String language = KitchenMessages.language();
-        PageQuery query = PageQuery.of(page, size, sort, IngredientQueries.SORTS, IngredientQueries.DEFAULT_SORT);
+        PageQuery query = PageQuery.of(page, size, sort, IngredientQueryCustomRepository.SORTS, IngredientQueryCustomRepository.DEFAULT_SORT);
         return views.summaries(queries.page(tenant, language, filter, views.staleBefore(), query), tenant, language);
     }
 
@@ -92,7 +92,7 @@ public class IngredientService {
         UUID id = UUID.randomUUID();
         Instant now = clock.instant();
         String name = request.name().strip();
-        IngredientRepository.Head head = head(id, request.code(), tenant, request);
+        IngredientCustomRepository.Head head = head(id, request.code(), tenant, request);
         repository.insert(head, tenant, now);
         repository.upsertTexts(id, LOCALES, name, blankToNull(request.description()));
         repository.replaceAllergens(id, new LinkedHashSet<>(request.allergenIds()));
@@ -114,14 +114,14 @@ public class IngredientService {
         Actor actor = actors.require();
         UUID tenant = actor.id();
         String language = KitchenMessages.language();
-        IngredientQueries.Row current = editable(actor, language, id);
+        IngredientQueryCustomRepository.Row current = editable(actor, language, id);
         boolean system = current.scope() == Scope.SYSTEM;
 
         Violations violations = new Violations();
         validator.check(request, new IngredientValidator.Target(tenant, current.ownerId(), current, language), allergens.view(tenant), violations);
         violations.throwIfAny();
 
-        IngredientQueries.Extra extra = queries.extra(id);
+        IngredientQueryCustomRepository.Extra extra = queries.extra(id);
         requireVersion(request.version(), extra.version());
         List<Long> previousAllergens = queries.allergenIds(List.of(id)).getOrDefault(id, List.of());
         String name = request.name().strip();
@@ -140,7 +140,7 @@ public class IngredientService {
                 .track("substitutes", null, request.substitutes().isEmpty() ? null : request.substitutes().size());
 
         Instant now = clock.instant();
-        IngredientRepository.Head head = head(id, current.code(), current.ownerId(), request);
+        IngredientCustomRepository.Head head = head(id, current.code(), current.ownerId(), request);
         if (!repository.update(head, request.version(), tenant, now)) {
             throw ApiException.concurrentModification();
         }
@@ -177,8 +177,8 @@ public class IngredientService {
     public IngredientDetail changeStatus(UUID id, StatusRequest request) {
         Actor actor = actors.require();
         String language = KitchenMessages.language();
-        IngredientQueries.Row current = editable(actor, language, id);
-        IngredientQueries.Extra extra = queries.extra(id);
+        IngredientQueryCustomRepository.Row current = editable(actor, language, id);
+        IngredientQueryCustomRepository.Extra extra = queries.extra(id);
         requireVersion(request.version(), extra.version());
         if (current.status() != request.status()) {
             if (!repository.changeStatus(id, request.version(), request.status(), actor.id(), clock.instant())) {
@@ -199,7 +199,7 @@ public class IngredientService {
     @Transactional
     public void delete(UUID id) {
         UUID tenant = tenant();
-        IngredientQueries.Row current = queries.find(tenant, KitchenMessages.language(), id).orElseThrow(IngredientViews::notFound);
+        IngredientQueryCustomRepository.Row current = queries.find(tenant, KitchenMessages.language(), id).orElseThrow(IngredientViews::notFound);
         if (current.scope() == Scope.SYSTEM) {
             throw ApiException.of(ApiErrorCode.SYSTEM_RESOURCE_CONFLICT, null, "kitchen.system.readOnly");
         }
@@ -218,8 +218,8 @@ public class IngredientService {
     public Warned<PriceImpact> registerPrice(UUID id, IngredientPriceRequest request) {
         UUID tenant = tenant();
         String language = KitchenMessages.language();
-        IngredientQueries.Row current = queries.find(tenant, language, id).orElseThrow(IngredientViews::notFound);
-        IngredientQueries.Extra extra = queries.extra(id);
+        IngredientQueryCustomRepository.Row current = queries.find(tenant, language, id).orElseThrow(IngredientViews::notFound);
+        IngredientQueryCustomRepository.Extra extra = queries.extra(id);
         Violations violations = new Violations();
         Optional<UnitInfo> unit = validator.checkPrice(request, "", current.baseDimension(), extra.densityGPerMl(), violations);
         violations.throwIfAny();
@@ -235,7 +235,7 @@ public class IngredientService {
             warnings.add(new ApiWarning(ApiWarningCode.PRICE_JUMP.name(), "price", messages.get("kitchen.warning.priceJump", percent)));
         }
         Instant now = clock.instant();
-        repository.insertPrice(new IngredientRepository.NewPrice(UUID.randomUUID(), id, tenant, request.purchaseQuantity(),
+        repository.insertPrice(new IngredientCustomRepository.NewPrice(UUID.randomUUID(), id, tenant, request.purchaseQuantity(),
                 request.purchaseUnitId(), request.price(), request.currency().strip().toUpperCase(java.util.Locale.ROOT),
                 blankToNull(request.supplier()), request.pricedAt(), cost), tenant, now);
 
@@ -257,7 +257,7 @@ public class IngredientService {
     public CatalogPage<PriceHistoryEntry> prices(UUID id, Integer page, Integer size) {
         UUID tenant = tenant();
         queries.find(tenant, KitchenMessages.language(), id).orElseThrow(IngredientViews::notFound);
-        return queries.history(tenant, id, PageQuery.of(page, size, null, Map.of("pricedAt", "p.priced_at"), "pricedAt,desc"));
+        return queries.history(tenant, id, PageQuery.of(page, size, null, IngredientQueryCustomRepository.HISTORY_SORTS, "pricedAt,desc"));
     }
 
     @Transactional(readOnly = true)
@@ -278,8 +278,8 @@ public class IngredientService {
     }
 
     /** Visible row the actor may edit: own rows with INGREDIENT.UPDATE, SYSTEM rows with CATALOG.INGREDIENT.MANAGE (K7). */
-    private IngredientQueries.Row editable(Actor actor, String language, UUID id) {
-        IngredientQueries.Row row = queries.find(actor.id(), language, id).orElseThrow(IngredientViews::notFound);
+    private IngredientQueryCustomRepository.Row editable(Actor actor, String language, UUID id) {
+        IngredientQueryCustomRepository.Row row = queries.find(actor.id(), language, id).orElseThrow(IngredientViews::notFound);
         if (row.scope() == Scope.SYSTEM && !actor.holds(Permissions.CATALOG_INGREDIENT_MANAGE)) {
             throw ApiException.of(ApiErrorCode.SYSTEM_RESOURCE_CONFLICT, null, "kitchen.system.readOnly");
         }
@@ -289,11 +289,11 @@ public class IngredientService {
         return row;
     }
 
-    private void insertPrice(UUID id, UUID ownerId, IngredientRepository.Head head, IngredientPriceRequest price, UUID actor, Instant now) {
+    private void insertPrice(UUID id, UUID ownerId, IngredientCustomRepository.Head head, IngredientPriceRequest price, UUID actor, Instant now) {
         UnitInfo unit = validator.checkPrice(price, "price.", head.baseDimension(), head.densityGPerMl(), new Violations()).orElseThrow();
         BigDecimal cost = PurchaseCost.costPerBaseUnit(price.price(), price.purchaseQuantity(), unit, head.baseDimension(),
                 head.densityGPerMl(), head.yieldPercent());
-        repository.insertPrice(new IngredientRepository.NewPrice(UUID.randomUUID(), id, ownerId, price.purchaseQuantity(), unit.id(),
+        repository.insertPrice(new IngredientCustomRepository.NewPrice(UUID.randomUUID(), id, ownerId, price.purchaseQuantity(), unit.id(),
                 price.price(), price.currency().strip().toUpperCase(java.util.Locale.ROOT), blankToNull(price.supplier()),
                 price.pricedAt(), cost), actor, now);
     }
@@ -306,8 +306,8 @@ public class IngredientService {
         }
     }
 
-    private static IngredientRepository.Head head(UUID id, String code, UUID ownerId, IngredientRequest request) {
-        return new IngredientRepository.Head(id, code, ownerId, request.categoryId(), request.baseDimension(), request.yieldPercent(),
+    private static IngredientCustomRepository.Head head(UUID id, String code, UUID ownerId, IngredientRequest request) {
+        return new IngredientCustomRepository.Head(id, code, ownerId, request.categoryId(), request.baseDimension(), request.yieldPercent(),
                 request.densityGPerMl(), blankToNull(request.brand()));
     }
 

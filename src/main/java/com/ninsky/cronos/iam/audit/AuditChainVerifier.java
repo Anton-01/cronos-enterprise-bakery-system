@@ -5,32 +5,21 @@ import com.ninsky.cronos.domain.model.audit.AuditOutcome;
 import com.ninsky.cronos.domain.model.audit.AuditSeverity;
 import com.ninsky.cronos.iam.shared.TenantTime;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import javax.sql.DataSource;
 import java.time.Clock;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
-import java.util.UUID;
 
 /** Nightly hash-chain verification of the ledger (spec §7.4). */
 @Slf4j
 @Component
 public class AuditChainVerifier {
-
-    private static final int FETCH_SIZE = 1000;
-    private static final String ROWS = """
-            SELECT id, created_at, actor_user_id, action, category, outcome, severity, target_type, target_id,
-                   target_label, params::text AS params, changes::text AS changes, reason, prev_hash, hash
-            FROM audit_log WHERE hash IS NOT NULL ORDER BY id""";
 
     /** Outcome of one pass; {@code brokenAtId} is null when the chain is intact. */
     public record Result(long rowsChecked, Long brokenAtId) {
@@ -39,15 +28,14 @@ public class AuditChainVerifier {
         }
     }
 
-    private final JdbcTemplate jdbc;
+    private final AuditLogCustomRepository repository;
     private final TransactionTemplate readOnly;
     private final AuditRecorder recorder;
     private final Clock clock;
 
-    public AuditChainVerifier(DataSource dataSource, PlatformTransactionManager transactionManager, AuditRecorder recorder,
+    public AuditChainVerifier(AuditLogCustomRepository repository, PlatformTransactionManager transactionManager, AuditRecorder recorder,
                               Clock clock) {
-        this.jdbc = new JdbcTemplate(dataSource);
-        this.jdbc.setFetchSize(FETCH_SIZE);
+        this.repository = repository;
         this.readOnly = new TransactionTemplate(transactionManager);
         this.readOnly.setReadOnly(true);
         this.recorder = recorder;
@@ -77,27 +65,16 @@ public class AuditChainVerifier {
     /** Recomputes every hashed row in id order and checks its link to the previous one. */
     public Result verify() {
         Chain chain = new Chain();
-        readOnly.executeWithoutResult(status -> jdbc.query(ROWS, (RowCallbackHandler) rs -> {
-            if (chain.brokenAtId != null) {
-                return;
+        readOnly.executeWithoutResult(status -> repository.forEachChainRow(row -> {
+            if (chain.brokenAtId == null) {
+                chain.accept(row.id(), row.prevHash(), row.hash(), row.material());
             }
-            long id = rs.getLong("id");
-            String prevHash = rs.getString("prev_hash");
-            AuditHasher.Material material = new AuditHasher.Material(rs.getObject("created_at", LocalDateTime.class),
-                    rs.getObject("actor_user_id", UUID.class), rs.getString("action"), rs.getString("category"),
-                    rs.getString("outcome"), rs.getString("severity"), rs.getString("target_type"), rs.getString("target_id"),
-                    rs.getString("target_label"), rs.getString("params"), rs.getString("changes"), rs.getString("reason"));
-            chain.accept(id, prevHash, rs.getString("hash"), material);
         }));
         return new Result(chain.rows, chain.brokenAtId);
     }
 
     private boolean verifiedOn(LocalDate day) {
-        Integer found = jdbc.queryForObject("""
-                SELECT count(*) FROM audit_log
-                WHERE action = ? AND created_at >= ? AND created_at < ?""", Integer.class,
-                AuditAction.AUDIT_CHAIN_VERIFIED.name(), day.atStartOfDay(), day.plusDays(1).atStartOfDay());
-        return found != null && found > 0;
+        return repository.existsBetween(AuditAction.AUDIT_CHAIN_VERIFIED.name(), day.atStartOfDay(), day.plusDays(1).atStartOfDay());
     }
 
     /** Walks the chain; the first row may have any (or no) predecessor hash. */

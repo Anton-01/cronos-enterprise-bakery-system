@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class IngredientViews {
 
-    private final IngredientQueries queries;
+    private final IngredientQueryCustomRepository queries;
     private final AllergenCatalog allergens;
     private final UnitCatalog units;
     private final KitchenProperties properties;
@@ -36,23 +36,23 @@ public class IngredientViews {
         return TenantTime.today(clock).minusDays(properties.stalePriceDays());
     }
 
-    public CatalogPage<IngredientSummary> summaries(CatalogPage<IngredientQueries.Row> rows, UUID tenant, String language) {
-        Map<UUID, List<Long>> declared = queries.allergenIds(rows.content().stream().map(IngredientQueries.Row::id).toList());
+    public CatalogPage<IngredientSummary> summaries(CatalogPage<IngredientQueryCustomRepository.Row> rows, UUID tenant, String language) {
+        Map<UUID, List<Long>> declared = queries.allergenIds(rows.content().stream().map(IngredientQueryCustomRepository.Row::id).toList());
         AllergenCatalog.View view = allergens.view(tenant);
         LocalDate staleBefore = staleBefore();
         return rows.map(row -> summary(row, declared.getOrDefault(row.id(), List.of()), view, language, staleBefore));
     }
 
     public IngredientSummary summary(UUID tenant, String language, UUID id) {
-        IngredientQueries.Row row = queries.find(tenant, language, id).orElseThrow(IngredientViews::notFound);
+        IngredientQueryCustomRepository.Row row = queries.find(tenant, language, id).orElseThrow(IngredientViews::notFound);
         return summary(row, queries.allergenIds(List.of(id)).getOrDefault(id, List.of()), allergens.view(tenant), language, staleBefore());
     }
 
     public IngredientDetail detail(UUID tenant, String language, UUID id) {
-        IngredientQueries.Row row = queries.find(tenant, language, id).orElseThrow(IngredientViews::notFound);
+        IngredientQueryCustomRepository.Row row = queries.find(tenant, language, id).orElseThrow(IngredientViews::notFound);
         AllergenCatalog.View view = allergens.view(tenant);
         List<Long> declared = queries.allergenIds(List.of(id)).getOrDefault(id, List.of());
-        IngredientQueries.Extra extra = queries.extra(id);
+        IngredientQueryCustomRepository.Extra extra = queries.extra(id);
         Map<PriceSource, IngredientPrice> prices = queries.latestPrices(tenant, id);
         List<AllergenRef> suggested = view.refs(view.detector().detect(java.util.Arrays.asList(row.name(), extra.description()),
                 Set.copyOf(declared)).stream().map(m -> m.allergenId()).toList(), language);
@@ -67,12 +67,12 @@ public class IngredientViews {
      * introduced allergens first, then name.
      */
     public List<SubstituteResponse> substitutes(UUID tenant, String language, UUID id, List<Long> originalAllergens, Set<Long> freeOf) {
-        List<IngredientQueries.SubstituteRow> rows = queries.substitutes(tenant, id);
+        List<IngredientQueryCustomRepository.SubstituteRow> rows = queries.substitutes(tenant, id);
         if (rows.isEmpty()) {
             return List.of();
         }
-        List<UUID> ids = rows.stream().map(IngredientQueries.SubstituteRow::substituteId).toList();
-        Map<UUID, IngredientQueries.Row> heads = queries.findAll(tenant, language, ids);
+        List<UUID> ids = rows.stream().map(IngredientQueryCustomRepository.SubstituteRow::substituteId).toList();
+        Map<UUID, IngredientQueryCustomRepository.Row> heads = queries.findAll(tenant, language, ids);
         Map<UUID, List<Long>> declared = queries.allergenIds(ids);
         AllergenCatalog.View view = allergens.view(tenant);
         Set<Long> original = Set.copyOf(originalAllergens);
@@ -93,7 +93,7 @@ public class IngredientViews {
                 .collect(Collectors.toList());
     }
 
-    private IngredientSummary summary(IngredientQueries.Row row, List<Long> declared, AllergenCatalog.View view, String language,
+    private IngredientSummary summary(IngredientQueryCustomRepository.Row row, List<Long> declared, AllergenCatalog.View view, String language,
                                       LocalDate staleBefore) {
         String baseUnit = units.baseUnit(row.baseDimension()).map(UnitInfo::code).orElse(null);
         boolean stale = row.pricedAt() != null && row.pricedAt().isBefore(staleBefore);

@@ -37,7 +37,7 @@ public class CurrencyService {
     private static final long NO_ID = -1L;
 
     private final CurrencyRepository repository;
-    private final CurrencyQueries queries;
+    private final CurrencyQueryCustomRepository queries;
     private final FinanceLocks locks;
     private final FinanceSettingsCache settingsCache;
     private final AuditRecorder audit;
@@ -46,7 +46,7 @@ public class CurrencyService {
 
     @Transactional(readOnly = true)
     public CatalogPage<CurrencyResponse> page(String search, FinanceStatus status, Integer page, Integer size, String sort) {
-        return queries.page(search, status, PageQuery.of(page, size, sort, CurrencyQueries.SORTS, CurrencyQueries.DEFAULT_SORT));
+        return queries.page(search, status, PageQuery.of(page, size, sort, CurrencyQueryCustomRepository.SORTS, CurrencyQueryCustomRepository.DEFAULT_SORT));
     }
 
     @Transactional(readOnly = true)

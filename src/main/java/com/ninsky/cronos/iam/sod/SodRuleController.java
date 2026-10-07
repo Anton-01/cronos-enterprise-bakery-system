@@ -24,7 +24,7 @@ import java.util.Locale;
 @Tag(name = "IAM · SoD rules", description = "Segregation-of-duties rules")
 public class SodRuleController {
 
-    private final SodRuleRepository rules;
+    private final SodRuleCustomRepository rules;
 
     /** Localised rule. */
     public record SodRuleView(String code, String name, String description, SodSeverity severity, List<List<String>> permissionSets) {

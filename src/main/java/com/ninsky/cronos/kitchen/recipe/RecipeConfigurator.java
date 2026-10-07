@@ -7,7 +7,7 @@ import com.ninsky.cronos.kitchen.costing.CostContext;
 import com.ninsky.cronos.kitchen.costing.CostEngine;
 import com.ninsky.cronos.kitchen.costing.CostIngredient;
 import com.ninsky.cronos.kitchen.costing.EffectivePrices;
-import com.ninsky.cronos.kitchen.ingredient.IngredientQueries;
+import com.ninsky.cronos.kitchen.ingredient.IngredientQueryCustomRepository;
 import com.ninsky.cronos.kitchen.shared.Numbers;
 import com.ninsky.cronos.kitchen.unit.UnitCatalog;
 import com.ninsky.cronos.kitchen.unit.UnitInfo;
@@ -34,7 +34,7 @@ import java.util.stream.Stream;
 @RequiredArgsConstructor
 public class RecipeConfigurator {
 
-    private final IngredientQueries ingredients;
+    private final IngredientQueryCustomRepository ingredients;
     private final EffectivePrices prices;
     private final UnitCatalog units;
     private final CostContext costContext;
@@ -74,7 +74,7 @@ public class RecipeConfigurator {
                 violations.invalid(field + ".lineId", "kitchen.configuration.unknownLine");
                 continue;
             }
-            Optional<IngredientQueries.SubstituteRow> row = ingredients.substitutes(tenant, line.get().ingredientId()).stream()
+            Optional<IngredientQueryCustomRepository.SubstituteRow> row = ingredients.substitutes(tenant, line.get().ingredientId()).stream()
                     .filter(s -> s.substituteId().equals(substitution.ingredientId())).findFirst();
             if (row.isEmpty() || substituteByLine.containsKey(line.get().id())) {
                 violations.add(ApiErrorCode.INVALID_SUBSTITUTION, field + ".ingredientId", "kitchen.configuration.invalidSubstitution");

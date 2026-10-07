@@ -15,7 +15,7 @@ import com.ninsky.cronos.kitchen.ingredient.IngredientDetail;
 import com.ninsky.cronos.kitchen.ingredient.IngredientFilter;
 import com.ninsky.cronos.kitchen.ingredient.IngredientPrice;
 import com.ninsky.cronos.kitchen.ingredient.IngredientPriceRequest;
-import com.ninsky.cronos.kitchen.ingredient.IngredientQueries;
+import com.ninsky.cronos.kitchen.ingredient.IngredientQueryCustomRepository;
 import com.ninsky.cronos.kitchen.ingredient.IngredientRequest;
 import com.ninsky.cronos.kitchen.ingredient.IngredientService;
 import com.ninsky.cronos.kitchen.ingredient.IngredientSummary;
@@ -52,7 +52,7 @@ public class LegacyRawMaterialService implements RawMaterialService {
     private static final int CODE_MAX_LENGTH = 50;
 
     private final IngredientService ingredients;
-    private final IngredientQueries queries;
+    private final IngredientQueryCustomRepository queries;
     private final UnitCatalog units;
     private final ActorProvider actors;
     private final Clock clock;

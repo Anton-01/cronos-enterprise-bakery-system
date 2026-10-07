@@ -29,7 +29,7 @@ import com.ninsky.cronos.iam.shared.TenantTime;
 import com.ninsky.cronos.iam.shared.UserDirectory;
 import com.ninsky.cronos.iam.shared.UserRef;
 import com.ninsky.cronos.iam.signin.AccountStanding;
-import com.ninsky.cronos.iam.signin.AccountStandings;
+import com.ninsky.cronos.iam.signin.AccountStandingCustomRepository;
 import com.ninsky.cronos.iam.signin.SignInJournal;
 import com.ninsky.cronos.iam.twofactor.TwoFactorAccountService;
 import com.ninsky.cronos.iam.user.UserStatus;
@@ -96,7 +96,7 @@ public class AuthenticationService {
     private final DpopProofValidator dpopProofValidator;
 
     private final SecurityPolicyProvider securityPolicyProvider;
-    private final AccountStandings accountStandings;
+    private final AccountStandingCustomRepository accountStandings;
     private final SignInJournal signInJournal;
     private final UserDirectory userDirectory;
     private final Clock clock;

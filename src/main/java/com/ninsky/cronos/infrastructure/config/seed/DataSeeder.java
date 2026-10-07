@@ -6,10 +6,11 @@ import com.ninsky.cronos.domain.model.auth.UserProfile;
 import com.ninsky.cronos.domain.port.auth.RoleRepositoryPort;
 import com.ninsky.cronos.domain.port.auth.UserProfileRepositoryPort;
 import com.ninsky.cronos.domain.port.auth.UserRepositoryPort;
+import com.ninsky.cronos.iam.access.UserAccessCustomRepository;
+import com.ninsky.cronos.iam.role.SystemRole;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,7 +22,7 @@ import java.util.Set;
 public class DataSeeder implements CommandLineRunner {
 
     private final RoleRepositoryPort roleRepository;
-    private final JdbcTemplate jdbcTemplate;
+    private final UserAccessCustomRepository userAccess;
     private final UserRepositoryPort userRepository;
     private final UserProfileRepositoryPort userProfileRepository;
     private final PasswordEncoder passwordEncoder;
@@ -32,9 +33,7 @@ public class DataSeeder implements CommandLineRunner {
         log.info(":: CRONOS :: Starting seed data verification ...");
 
         // Roles and permissions are seeded by Flyway (V11); only the first root account is created here.
-        Boolean rootExists = jdbcTemplate.queryForObject("""
-                SELECT EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE r.code = 'SUPER_ADMIN')""", Boolean.class);
-        if (Boolean.TRUE.equals(rootExists)) {
+        if (userAccess.anyHolder(SystemRole.SUPER_ADMIN_CODE)) {
             log.info(":: CRONOS :: A SUPER_ADMIN account already exists. The seeder is skipped.");
             return;
         }

@@ -44,7 +44,7 @@ import java.util.stream.IntStream;
 @RequiredArgsConstructor
 public class PermissionGroupService {
 
-    private final PermissionGroupRepository groups;
+    private final PermissionGroupCustomRepository groups;
     private final AccessGuards guards;
     private final AccessVersions versions;
     private final SessionRevoker revoker;

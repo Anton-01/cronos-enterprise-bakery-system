@@ -11,7 +11,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class UserAccessCache {
 
-    private final AccessSnapshotLoader loader;
+    private final AccessSnapshotCustomRepository loader;
 
     @Cacheable(value = AccessCaches.EFFECTIVE_ACCESS, key = "#userId + ':' + #accessVersion")
     public UserAccessState load(UUID userId, long accessVersion) {

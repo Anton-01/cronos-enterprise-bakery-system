@@ -47,8 +47,8 @@ public class UserCredentialService {
 
     private static final Set<UserStatus> RESETTABLE = Set.of(UserStatus.ACTIVE, UserStatus.LOCKED);
 
-    private final UserReadRepository users;
-    private final UserWriteRepository writes;
+    private final UserReadCustomRepository users;
+    private final UserWriteCustomRepository writes;
     private final UserViews views;
     private final AccessGuards guards;
     private final AccessVersions versions;
@@ -65,7 +65,7 @@ public class UserCredentialService {
     private final KeyedRateLimiter resetLimiter = new KeyedRateLimiter(5, Duration.ofHours(1));
     private final KeyedRateLimiter invitationLimiter = new KeyedRateLimiter(5, Duration.ofHours(1));
 
-    public UserCredentialService(UserReadRepository users, UserWriteRepository writes, UserViews views, AccessGuards guards,
+    public UserCredentialService(UserReadCustomRepository users, UserWriteCustomRepository writes, UserViews views, AccessGuards guards,
                                  AccessVersions versions, SessionRevoker revoker, ActorProvider actors, AuditRecorder recorder,
                                  UserTokens tokens, PasswordPolicy passwordPolicy, SecurityPolicyProvider policies,
                                  PasswordEncoder passwordEncoder, ApplicationEventPublisher events,

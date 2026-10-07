@@ -35,7 +35,7 @@ public class AllergenService {
     private static final List<String> LOCALES = List.of("es", "en");
 
     private final AllergenCatalog catalog;
-    private final AllergenRepository repository;
+    private final AllergenCustomRepository repository;
     private final AuditRecorder audit;
     private final ActorProvider actors;
     private final Clock clock;

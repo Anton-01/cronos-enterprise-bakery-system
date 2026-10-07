@@ -1,7 +1,7 @@
 package com.ninsky.cronos.iam.shared.migration;
 
 import com.ninsky.cronos.iam.permission.PermissionCatalog;
-import com.ninsky.cronos.iam.permission.PermissionCatalogWriter;
+import com.ninsky.cronos.iam.permission.PermissionCatalogCustomRepository;
 import com.ninsky.cronos.iam.role.SystemRole;
 import lombok.extern.slf4j.Slf4j;
 import org.flywaydb.core.api.migration.BaseJavaMigration;
@@ -55,7 +55,7 @@ public class V11__iam_seed extends BaseJavaMigration {
     public void migrate(Context context) {
         JdbcTemplate jdbc = new JdbcTemplate(new SingleConnectionDataSource(context.getConnection(), true));
 
-        new PermissionCatalogWriter(jdbc).synchronize("FLYWAY_V11");
+        new PermissionCatalogCustomRepository(jdbc).synchronize("FLYWAY_V11");
         SystemRole.ALL.forEach(role -> upsertSystemRole(jdbc, role));
         mapLegacyAccess(jdbc);
         seedSodRules(jdbc);

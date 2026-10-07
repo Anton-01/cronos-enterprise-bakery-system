@@ -2,10 +2,10 @@ package com.ninsky.cronos.kitchen.ingredient;
 
 import com.ninsky.cronos.kitchen.job.KitchenJobs;
 import com.ninsky.cronos.kitchen.job.RecalculationJob;
-import com.ninsky.cronos.kitchen.recipe.QuoteFlags;
+import com.ninsky.cronos.kitchen.recipe.QuoteFlagCustomRepository;
 import com.ninsky.cronos.kitchen.recipe.RecipeCosting;
 import com.ninsky.cronos.kitchen.recipe.RecipeRevisions;
-import com.ninsky.cronos.kitchen.recipe.RecipeStore;
+import com.ninsky.cronos.kitchen.recipe.RecipeCustomRepository;
 import com.ninsky.cronos.kitchen.shared.KitchenCaches;
 import com.ninsky.cronos.kitchen.shared.KitchenProperties;
 import lombok.RequiredArgsConstructor;
@@ -27,10 +27,10 @@ public class IngredientRipple {
     static final String PRICE_CHANGED = "kitchen.revision.priceChanged";
     static final String INGREDIENT_CHANGED = "kitchen.revision.ingredientChanged";
 
-    private final RecipeStore recipes;
+    private final RecipeCustomRepository recipes;
     private final RecipeCosting costing;
     private final RecipeRevisions revisions;
-    private final QuoteFlags quoteFlags;
+    private final QuoteFlagCustomRepository quoteFlags;
     private final KitchenJobs jobs;
     private final KitchenProperties properties;
     private final KitchenCaches caches;

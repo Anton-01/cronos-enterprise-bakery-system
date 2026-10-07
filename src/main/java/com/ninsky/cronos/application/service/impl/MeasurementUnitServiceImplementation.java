@@ -25,7 +25,7 @@ import com.ninsky.cronos.domain.port.core.MeasurementUnitUsagePort;
 import com.ninsky.cronos.domain.port.core.UnitCatalogLockPort;
 import com.ninsky.cronos.domain.port.core.UnitTypeRepositoryPort;
 import com.ninsky.cronos.infrastructure.exception.CatalogException;
-import com.ninsky.cronos.kitchen.ingredient.IngredientQueries;
+import com.ninsky.cronos.kitchen.ingredient.IngredientQueryCustomRepository;
 import com.ninsky.cronos.kitchen.shared.KitchenMessages;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -56,7 +56,7 @@ public class MeasurementUnitServiceImplementation implements MeasurementUnitServ
     private final MeasurementUnitRepositoryPort measurementUnitRepository;
     private final UnitTypeRepositoryPort unitTypeRepository;
     private final MeasurementUnitUsagePort usagePort;
-    private final IngredientQueries ingredientQueries;
+    private final IngredientQueryCustomRepository ingredientQueries;
     private final UnitConversionService unitConversionService;
     private final UnitCatalogLockPort catalogLock;
     private final CatalogAuditTrail auditTrail;
@@ -184,7 +184,7 @@ public class MeasurementUnitServiceImplementation implements MeasurementUnitServ
     /** Own or SYSTEM ingredient; someone else's answers like a missing one (no cross-tenant oracle). */
     private UUID requireVisibleIngredient(UUID ingredientId, Actor actor) {
         return ingredientQueries.find(actor.userId(), KitchenMessages.language(), ingredientId)
-                .map(IngredientQueries.Row::id)
+                .map(IngredientQueryCustomRepository.Row::id)
                 .orElseThrow(() -> CatalogException.notFound("catalog.conversion.rawMaterialNotFound", ingredientId));
     }
 

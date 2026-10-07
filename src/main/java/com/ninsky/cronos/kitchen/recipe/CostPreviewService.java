@@ -6,7 +6,7 @@ import com.ninsky.cronos.infrastructure.exception.Violations;
 import com.ninsky.cronos.kitchen.allergen.AllergenCatalog;
 import com.ninsky.cronos.kitchen.costing.CostContext;
 import com.ninsky.cronos.kitchen.costing.CostEngine;
-import com.ninsky.cronos.kitchen.ingredient.IngredientQueries;
+import com.ninsky.cronos.kitchen.ingredient.IngredientQueryCustomRepository;
 import com.ninsky.cronos.kitchen.shared.CostPreviewRateLimiter;
 import com.ninsky.cronos.kitchen.shared.KitchenMessages;
 import com.ninsky.cronos.kitchen.shared.Numbers;
@@ -27,11 +27,11 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class CostPreviewService {
 
-    private final RecipeStore store;
+    private final RecipeCustomRepository store;
     private final RecipeValidator validator;
     private final RecipeConfigurator configurator;
     private final RecipeCosting costing;
-    private final IngredientQueries ingredients;
+    private final IngredientQueryCustomRepository ingredients;
     private final AllergenCatalog allergens;
     private final CostContext costContext;
     private final CostPreviewRateLimiter rateLimiter;

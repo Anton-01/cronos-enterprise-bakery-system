@@ -14,7 +14,7 @@ public class LegacyKitchenDeprecationInterceptor implements HandlerInterceptor {
 
     /** Registered path patterns (Ant style). */
     public static final List<String> PATHS = List.of("/raw-material/**", "/allergen/**", "/recipes/*/ingredients/**",
-            "/recipes/*/fixed-costs/**", "/recipes/*/cost", "/recipes/*/sync-costs");
+            "/recipes/*/fixed-costs/**", "/recipes/*/cost", "/recipes/*/sync-costs", "/recipes/*/files");
 
     private static final Map<String, String> SUCCESSORS = Map.of(
             "/raw-material", "/ingredients",
@@ -24,6 +24,9 @@ public class LegacyKitchenDeprecationInterceptor implements HandlerInterceptor {
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
         String path = request.getRequestURI().substring(request.getContextPath().length());
+        if (path.endsWith("/files") && !"PUT".equals(request.getMethod())) {
+            return true; // only PUT /recipes/{id}/files is legacy
+        }
         response.setHeader("Deprecation", "true");
         response.setHeader("Sunset", LegacyAdminDeprecationInterceptor.SUNSET);
         SUCCESSORS.entrySet().stream()

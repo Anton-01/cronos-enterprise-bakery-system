@@ -11,7 +11,7 @@ import com.ninsky.cronos.kitchen.recipe.RecipeAggregate;
 import com.ninsky.cronos.kitchen.recipe.RecipeConfiguration;
 import com.ninsky.cronos.kitchen.recipe.RecipeRequest;
 import com.ninsky.cronos.kitchen.recipe.RecipeService;
-import com.ninsky.cronos.kitchen.recipe.RecipeStore;
+import com.ninsky.cronos.kitchen.recipe.RecipeCustomRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,7 +31,7 @@ import java.util.stream.Stream;
 @RequiredArgsConstructor
 public class LegacyRecipeEditor {
 
-    private final RecipeStore store;
+    private final RecipeCustomRepository store;
     private final RecipeService recipes;
     private final CostPreviewService previews;
     private final ActorProvider actors;

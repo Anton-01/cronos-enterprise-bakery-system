@@ -44,7 +44,7 @@ public class UserStatusService {
     private static final Duration MAX_UNTIL = Duration.ofDays(365);
     private static final Set<UserStatus> WARNING_STATES = Set.of(UserStatus.LOCKED, UserStatus.DEACTIVATED);
 
-    private final UserReadRepository users;
+    private final UserReadCustomRepository users;
     private final UserStatusWriter writer;
     private final UserViews views;
     private final AccessGuards guards;
@@ -55,7 +55,7 @@ public class UserStatusService {
     private final BulkRunner bulk;
     private final Clock clock;
 
-    public UserStatusService(UserReadRepository users, UserStatusWriter writer, UserViews views, AccessGuards guards,
+    public UserStatusService(UserReadCustomRepository users, UserStatusWriter writer, UserViews views, AccessGuards guards,
                              ActorProvider actors, AuditRecorder recorder, UserTokens tokens,
                              ApplicationEventPublisher events, BulkRunner bulk, Clock clock) {
         this.users = users;

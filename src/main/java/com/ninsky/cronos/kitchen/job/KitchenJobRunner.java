@@ -1,12 +1,10 @@
 package com.ninsky.cronos.kitchen.job;
 
-import com.ninsky.cronos.kitchen.recipe.QuoteFlags;
+import com.ninsky.cronos.kitchen.recipe.QuoteFlagCustomRepository;
 import com.ninsky.cronos.kitchen.recipe.RecipeCosting;
 import com.ninsky.cronos.kitchen.recipe.RecipeRevisions;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -25,8 +23,7 @@ public class KitchenJobRunner {
 
     private final KitchenJobs jobs;
     private final RecipeCosting costing;
-    private final QuoteFlags quoteFlags;
-    private final NamedParameterJdbcTemplate jdbc;
+    private final QuoteFlagCustomRepository quoteFlags;
     private final TransactionTemplate transactions;
     private final Clock clock;
 
@@ -62,17 +59,9 @@ public class KitchenJobRunner {
     }
 
     private void process(RecalculationJob job) {
-        List<UUID> ids = job.recipeIds() != null ? job.recipeIds() : recipesWithoutOwnPrice(job.ingredientId());
+        List<UUID> ids = job.recipeIds() != null ? job.recipeIds() : jobs.recipesWithoutOwnPrice(job.ingredientId());
         RecipeRevisions.Reason reason = new RecipeRevisions.Reason(job.reasonKey(), job.reasonArgs() == null ? List.of() : job.reasonArgs());
         costing.recalculate(ids, job.actor(), clock.instant(), reason);
         quoteFlags.flagOpenQuotes(null, ids);
-    }
-
-    private List<UUID> recipesWithoutOwnPrice(UUID ingredientId) {
-        return jdbc.queryForList("""
-                SELECT DISTINCT r.id FROM recipe_lines l JOIN recipes r ON r.id = l.recipe_id
-                WHERE l.ingredient_id = :ingredient AND r.deleted_at IS NULL
-                  AND NOT EXISTS (SELECT 1 FROM ingredient_prices p WHERE p.ingredient_id = :ingredient AND p.owner_id = r.owner_id)""",
-                new MapSqlParameterSource().addValue("ingredient", ingredientId), UUID.class);
     }
 }

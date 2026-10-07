@@ -37,7 +37,7 @@ public class ActivationService {
 
     private final UserTokens tokens;
     private final UserRepositoryPort users;
-    private final AccountStandings standings;
+    private final AccountStandingCustomRepository standings;
     private final PasswordPolicy passwordPolicy;
     private final SecurityPolicyProvider policies;
     private final CredentialWriter credentials;

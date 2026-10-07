@@ -32,8 +32,6 @@ import com.ninsky.cronos.infrastructure.exception.Violations;
 import com.ninsky.cronos.infrastructure.web.paging.CatalogPage;
 import com.ninsky.cronos.infrastructure.web.paging.PageQuery;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -56,9 +54,9 @@ public class IamUserService {
 
     static final Duration EMAIL_VERIFICATION_TTL = Duration.ofHours(48);
 
-    private final UserReadRepository reads;
-    private final UserWriteRepository writes;
-    private final UserStatsRepository stats;
+    private final UserReadCustomRepository reads;
+    private final UserWriteCustomRepository writes;
+    private final UserStatsCustomRepository stats;
     private final UserViews views;
     private final UserProfileRules rules;
     private final UserAccessChanges accessChanges;
@@ -71,16 +69,15 @@ public class IamUserService {
     private final SecurityPolicyProvider policies;
     private final PasswordEncoder passwordEncoder;
     private final ApplicationEventPublisher events;
-    private final NamedParameterJdbcTemplate jdbc;
     private final TransactionTemplate tx;
     private final Clock clock;
     private final KeyedRateLimiter availabilityLimiter = new KeyedRateLimiter(30, Duration.ofMinutes(1));
 
-    public IamUserService(UserReadRepository reads, UserWriteRepository writes, UserStatsRepository stats, UserViews views,
+    public IamUserService(UserReadCustomRepository reads, UserWriteCustomRepository writes, UserStatsCustomRepository stats, UserViews views,
                        UserProfileRules rules, UserAccessChanges accessChanges, UserAvatarService avatars,
                        AccessGuards guards, ActorProvider actors, AuditRecorder recorder, UserTokens tokens,
                        PasswordPolicy passwordPolicy, SecurityPolicyProvider policies, PasswordEncoder passwordEncoder,
-                       ApplicationEventPublisher events, NamedParameterJdbcTemplate jdbc,
+                       ApplicationEventPublisher events,
                        PlatformTransactionManager transactions, Clock clock) {
         this.reads = reads;
         this.writes = writes;
@@ -97,7 +94,6 @@ public class IamUserService {
         this.policies = policies;
         this.passwordEncoder = passwordEncoder;
         this.events = events;
-        this.jdbc = jdbc;
         this.tx = new TransactionTemplate(transactions);
         this.clock = clock;
     }
@@ -160,8 +156,7 @@ public class IamUserService {
         writes.insert(id, profile, temporary ? passwordEncoder.encode(temporaryPassword) : null, temporary,
                 actor.id(), actor.username(), now);
         if (avatarKey != null) {
-            jdbc.update("UPDATE users SET avatar_key = :key WHERE id = :id",
-                    new MapSqlParameterSource("key", avatarKey.value()).addValue("id", id));
+            writes.setAvatarKey(id, avatarKey.value());
         }
         UserAccessChanges.Evaluation access = accessChanges.assignInitial(id,
                 new UserAccessChanges.Proposal(roleIds, groupIds, List.of(), List.of()),

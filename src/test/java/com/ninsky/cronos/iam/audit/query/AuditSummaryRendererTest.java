@@ -88,7 +88,7 @@ class AuditSummaryRendererTest {
     @Test
     void shortSearchesAreIgnoredAndLikeWildcardsEscaped() {
         assertThat(new AuditEventFilter(" a ", null, null, null, null, null, null, null, null).search()).isNull();
-        assertThat(AuditEventRepository.likeEscape("50%_off\\")).isEqualTo("50\\%\\_off\\\\");
+        assertThat(AuditEventCustomRepository.likeEscape("50%_off\\")).isEqualTo("50\\%\\_off\\\\");
     }
 
     private static AuditEventFilter filter(Instant from, Instant to) {

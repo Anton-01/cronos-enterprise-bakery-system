@@ -3,7 +3,7 @@ package com.ninsky.cronos.iam.role;
 import com.ninsky.cronos.domain.model.audit.AuditAction;
 import com.ninsky.cronos.domain.model.audit.AuditSeverity;
 import com.ninsky.cronos.iam.access.AccessGuards;
-import com.ninsky.cronos.iam.access.AccessSnapshotLoader;
+import com.ninsky.cronos.iam.access.AccessSnapshotCustomRepository;
 import com.ninsky.cronos.iam.access.AccessVersions;
 import com.ninsky.cronos.iam.access.EffectivePermissionResolver;
 import com.ninsky.cronos.iam.access.GroupGrant;
@@ -32,7 +32,8 @@ import com.ninsky.cronos.iam.shared.TenantTime;
 import com.ninsky.cronos.iam.shared.UserDirectory;
 import com.ninsky.cronos.iam.shared.UserRef;
 import com.ninsky.cronos.iam.sod.SodEvaluator;
-import com.ninsky.cronos.iam.sod.SodRuleRepository;
+import com.ninsky.cronos.iam.sod.SodRuleCustomRepository;
+import com.ninsky.cronos.iam.user.UserReadCustomRepository;
 import com.ninsky.cronos.iam.user.UserSearch;
 import com.ninsky.cronos.iam.user.UserViews;
 import com.ninsky.cronos.iam.user.api.IamUserSummary;
@@ -42,8 +43,6 @@ import com.ninsky.cronos.infrastructure.exception.Violations;
 import com.ninsky.cronos.infrastructure.web.paging.CatalogPage;
 import com.ninsky.cronos.infrastructure.web.paging.PageQuery;
 import lombok.RequiredArgsConstructor;
-import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -73,18 +72,18 @@ public class RoleService {
 
     private static final int MAX_MEMBERS = 200;
 
-    private final RoleRepository roles;
-    private final AccessSnapshotLoader loader;
+    private final RoleCustomRepository roles;
+    private final AccessSnapshotCustomRepository loader;
     private final UserAccessChanges accessChanges;
     private final AccessVersions versions;
     private final SessionRevoker revoker;
     private final AccessGuards guards;
-    private final SodRuleRepository sodRules;
+    private final SodRuleCustomRepository sodRules;
     private final AuditRecorder recorder;
     private final ActorProvider actors;
     private final UserDirectory directory;
     private final UserViews userViews;
-    private final NamedParameterJdbcTemplate jdbc;
+    private final UserReadCustomRepository users;
     private final Clock clock;
 
     @Transactional(readOnly = true)
@@ -384,8 +383,7 @@ public class RoleService {
         violations.invalidIf(userIds.isEmpty() || userIds.size() > MAX_MEMBERS, "userIds", "api.validation.listSize", 1, MAX_MEMBERS);
         IamRules.reason(violations, "reason", request.reason());
         violations.throwIfAny();
-        Set<UUID> known = Set.copyOf(jdbc.queryForList("SELECT id FROM users WHERE id IN (:ids)",
-                new MapSqlParameterSource("ids", userIds), UUID.class));
+        Set<UUID> known = users.existingIds(userIds);
         List<UUID> raw = request.userIds();
         IntStream.range(0, raw.size()).forEach(i ->
                 violations.invalidIf(raw.get(i) != null && !known.contains(raw.get(i)), "userIds[" + i + "]", "iam.user.unknown"));

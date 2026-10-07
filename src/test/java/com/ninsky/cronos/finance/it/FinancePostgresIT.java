@@ -1,7 +1,7 @@
 package com.ninsky.cronos.finance.it;
 
 import com.ninsky.cronos.account.avatar.application.port.AvatarStorage;
-import com.ninsky.cronos.finance.currency.CurrencyQueries;
+import com.ninsky.cronos.finance.currency.CurrencyQueryCustomRepository;
 import com.ninsky.cronos.finance.currency.CurrencyRequest;
 import com.ninsky.cronos.finance.currency.CurrencyResponse;
 import com.ninsky.cronos.finance.currency.CurrencyService;
@@ -18,11 +18,11 @@ import com.ninsky.cronos.finance.shared.FinanceLocks;
 import com.ninsky.cronos.finance.shared.FinanceSettingsCache;
 import com.ninsky.cronos.finance.shared.FinanceStatus;
 import com.ninsky.cronos.finance.shared.StatusRequest;
-import com.ninsky.cronos.finance.shared.UserRefMapper;
+import com.ninsky.cronos.finance.shared.UserRefCustomRepository;
 import com.ninsky.cronos.finance.shared.VersionRequest;
 import com.ninsky.cronos.finance.taxrate.DefaultTaxRateExpiryJob;
 import com.ninsky.cronos.finance.taxrate.TaxRateOption;
-import com.ninsky.cronos.finance.taxrate.TaxRateQueries;
+import com.ninsky.cronos.finance.taxrate.TaxRateQueryCustomRepository;
 import com.ninsky.cronos.finance.taxrate.TaxRateRequest;
 import com.ninsky.cronos.finance.taxrate.TaxRateService;
 import com.ninsky.cronos.iam.audit.JdbcAuditRecorder;
@@ -47,6 +47,9 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import com.ninsky.cronos.finance.shared.FinanceLockCustomRepository;
+import com.ninsky.cronos.infrastructure.persistence.lock.AdvisoryLockCustomRepository;
+import com.ninsky.cronos.iam.audit.AuditLogCustomRepository;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Propagation;
@@ -86,8 +89,9 @@ import static org.mockito.Mockito.when;
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-@Import({CurrencyService.class, CurrencyQueries.class, TaxRateService.class, TaxRateQueries.class, FinanceSettingsService.class,
-        PricingSnapshotResolver.class, FinanceLocks.class, FinanceSettingsCache.class, UserRefMapper.class, DefaultTaxRateExpiryJob.class,
+@Import({CurrencyService.class, CurrencyQueryCustomRepository.class, TaxRateService.class, TaxRateQueryCustomRepository.class, FinanceSettingsService.class,
+        PricingSnapshotResolver.class, FinanceLocks.class, FinanceLockCustomRepository.class, AdvisoryLockCustomRepository.class,
+        AuditLogCustomRepository.class, FinanceSettingsCache.class, UserRefCustomRepository.class, DefaultTaxRateExpiryJob.class,
         JdbcAuditRecorder.class, CacheConfig.class, EncryptedStringConverter.class, EncryptedLocalDateConverter.class, FinancePostgresIT.Beans.class})
 class FinancePostgresIT {
 

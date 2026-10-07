@@ -38,7 +38,7 @@ public class TaxRateService {
     private static final long NO_ID = -1L;
 
     private final TaxRateRepository repository;
-    private final TaxRateQueries queries;
+    private final TaxRateQueryCustomRepository queries;
     private final FinanceLocks locks;
     private final FinanceSettingsCache settingsCache;
     private final AuditRecorder audit;
@@ -47,7 +47,7 @@ public class TaxRateService {
 
     @Transactional(readOnly = true)
     public CatalogPage<TaxRateResponse> page(String search, FinanceStatus status, Integer page, Integer size, String sort) {
-        return queries.page(search, status, PageQuery.of(page, size, sort, TaxRateQueries.SORTS, TaxRateQueries.DEFAULT_SORT));
+        return queries.page(search, status, PageQuery.of(page, size, sort, TaxRateQueryCustomRepository.SORTS, TaxRateQueryCustomRepository.DEFAULT_SORT));
     }
 
     /** ACTIVE and currently valid in the tenant timezone, default first. */

@@ -7,7 +7,7 @@ import com.ninsky.cronos.infrastructure.exception.ApiException;
 import com.ninsky.cronos.infrastructure.exception.Violations;
 import com.ninsky.cronos.kitchen.allergen.AllergenCatalog;
 import com.ninsky.cronos.kitchen.costing.CostContext;
-import com.ninsky.cronos.kitchen.recipe.file.RecipeFileStore;
+import com.ninsky.cronos.kitchen.recipe.file.RecipeFileCustomRepository;
 import com.ninsky.cronos.kitchen.shared.AllergenRef;
 import com.ninsky.cronos.kitchen.shared.KitchenMessages;
 import lombok.RequiredArgsConstructor;
@@ -29,9 +29,9 @@ public class QuoteRecipePricer {
     private static final TypeReference<List<AllergenRef>> REFS = new TypeReference<>() {
     };
 
-    private final RecipeStore store;
+    private final RecipeCustomRepository store;
     private final RecipeConfigurator configurator;
-    private final RecipeFileStore files;
+    private final RecipeFileCustomRepository files;
     private final AllergenCatalog allergens;
     private final CostContext costContext;
     private final ObjectMapper objectMapper;

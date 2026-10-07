@@ -52,7 +52,7 @@ class TaxRateServiceTest {
     @Mock
     private TaxRateRepository repository;
     @Mock
-    private TaxRateQueries queries;
+    private TaxRateQueryCustomRepository queries;
     @Mock
     private FinanceLocks locks;
     @Mock

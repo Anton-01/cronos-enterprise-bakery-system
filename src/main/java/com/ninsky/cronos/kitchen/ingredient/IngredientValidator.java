@@ -6,7 +6,7 @@ import com.ninsky.cronos.infrastructure.exception.Violations;
 import com.ninsky.cronos.kitchen.allergen.AllergenCatalog;
 import com.ninsky.cronos.kitchen.costing.BaseQuantity;
 import com.ninsky.cronos.kitchen.costing.CostContext;
-import com.ninsky.cronos.kitchen.shared.CategoryLookup;
+import com.ninsky.cronos.kitchen.shared.KitchenCategoryCustomRepository;
 import com.ninsky.cronos.kitchen.shared.Dimension;
 import com.ninsky.cronos.kitchen.shared.KitchenStatus;
 import com.ninsky.cronos.kitchen.shared.Numbers;
@@ -37,14 +37,14 @@ public class IngredientValidator {
     static final int MAX_SUBSTITUTES = 10;
     private static final Set<Dimension> DENSITY_BRIDGE = Set.of(Dimension.MASS, Dimension.VOLUME);
 
-    private final IngredientQueries queries;
-    private final CategoryLookup categories;
+    private final IngredientQueryCustomRepository queries;
+    private final KitchenCategoryCustomRepository categories;
     private final UnitCatalog units;
     private final CostContext costContext;
     private final Clock clock;
 
     /** What the request is checked against: the row being edited (null on create). */
-    public record Target(UUID tenant, UUID ownerId, IngredientQueries.Row current, String language) {
+    public record Target(UUID tenant, UUID ownerId, IngredientQueryCustomRepository.Row current, String language) {
         boolean creating() {
             return current == null;
         }
@@ -151,14 +151,14 @@ public class IngredientValidator {
     private void checkSubstitutes(IngredientRequest request, Target target, Violations violations) {
         List<IngredientRequest.Substitute> substitutes = request.substitutes();
         violations.invalidIf(substitutes.size() > MAX_SUBSTITUTES, "substitutes", "api.validation.listSize", 0, MAX_SUBSTITUTES);
-        Map<UUID, IngredientQueries.Row> rows = queries.findAll(target.tenant(), target.language(),
+        Map<UUID, IngredientQueryCustomRepository.Row> rows = queries.findAll(target.tenant(), target.language(),
                 substitutes.stream().map(IngredientRequest.Substitute::ingredientId).filter(Objects::nonNull).toList());
         Map<UUID, BigDecimal> densities = queries.densities(rows.keySet());
         Set<UUID> seen = new HashSet<>();
         for (int i = 0; i < substitutes.size(); i++) {
             IngredientRequest.Substitute s = substitutes.get(i);
             String prefix = "substitutes[" + i + "].";
-            IngredientQueries.Row row = s.ingredientId() == null ? null : rows.get(s.ingredientId());
+            IngredientQueryCustomRepository.Row row = s.ingredientId() == null ? null : rows.get(s.ingredientId());
             if (row == null || row.status() != KitchenStatus.ACTIVE) {
                 violations.invalid(prefix + "ingredientId", "kitchen.ingredient.invalid");
             } else if (Objects.equals(row.id(), target.selfId())) {

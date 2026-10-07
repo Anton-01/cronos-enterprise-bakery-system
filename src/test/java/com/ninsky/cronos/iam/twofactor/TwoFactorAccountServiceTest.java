@@ -13,7 +13,7 @@ import com.ninsky.cronos.iam.twofactor.api.DisableTwoFactorRequest;
 import com.ninsky.cronos.iam.twofactor.api.RecoveryCodesRequest;
 import com.ninsky.cronos.iam.twofactor.api.TwoFactorEnrollment;
 import com.ninsky.cronos.iam.twofactor.api.TwoFactorRecoveryCodes;
-import com.ninsky.cronos.iam.user.UserReadRepository;
+import com.ninsky.cronos.iam.user.UserReadCustomRepository;
 import com.ninsky.cronos.iam.user.UserRow;
 import com.ninsky.cronos.iam.user.UserStatus;
 import com.ninsky.cronos.infrastructure.config.security.SecurityProperties;
@@ -51,11 +51,11 @@ class TwoFactorAccountServiceTest {
     private static final byte[] SECRET = "12345678901234567890".getBytes();
     private static final byte[] SEALED = {7, 7, 7};
 
-    private final TwoFactorStore store = mock(TwoFactorStore.class);
+    private final TwoFactorCustomRepository store = mock(TwoFactorCustomRepository.class);
     private final SecondFactor secondFactor = mock(SecondFactor.class);
     private final TwoFactorSecretCipher cipher = mock(TwoFactorSecretCipher.class);
     private final TwoFactorRequirement requirement = mock(TwoFactorRequirement.class);
-    private final UserReadRepository users = mock(UserReadRepository.class);
+    private final UserReadCustomRepository users = mock(UserReadCustomRepository.class);
     private final AccessVersions versions = mock(AccessVersions.class);
     private final OtherSessions otherSessions = mock(OtherSessions.class);
     private final AuditRecorder recorder = mock(AuditRecorder.class);
@@ -81,7 +81,7 @@ class TwoFactorAccountServiceTest {
 
     private void pending(Instant expiresAt, Instant consumedAt) {
         when(store.lockEnrollment(ENROLLMENT, USER)).thenReturn(Optional.of(
-                new TwoFactorStore.Enrollment(ENROLLMENT, USER, SEALED, 0, expiresAt, consumedAt)));
+                new TwoFactorCustomRepository.Enrollment(ENROLLMENT, USER, SEALED, 0, expiresAt, consumedAt)));
         when(cipher.open(SEALED)).thenReturn(Optional.of(SECRET));
     }
 
@@ -131,7 +131,7 @@ class TwoFactorAccountServiceTest {
         pending(NOW.plusSeconds(60), null);
         String code = Totp.code(SECRET, Totp.step(NOW));
         when(secondFactor.issueRecoveryCodes(USER)).thenReturn(List.of("7KQ4-M2XD"));
-        when(store.enrolled(USER)).thenReturn(Optional.of(new TwoFactorStore.Enrolled(SEALED, Totp.step(NOW), NOW)));
+        when(store.enrolled(USER)).thenReturn(Optional.of(new TwoFactorCustomRepository.Enrolled(SEALED, Totp.step(NOW), NOW)));
         when(store.remainingRecoveryCodes(USER)).thenReturn(10);
         when(requirement.isRequired(USER)).thenReturn(true);
         user(false);

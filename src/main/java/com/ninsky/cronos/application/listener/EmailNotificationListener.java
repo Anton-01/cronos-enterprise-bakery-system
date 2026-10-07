@@ -14,7 +14,7 @@ import com.ninsky.cronos.domain.port.auth.UserRepositoryPort;
 import com.ninsky.cronos.domain.port.quote.QuoteRepositoryPort;
 import com.ninsky.cronos.domain.port.recipe.RecipeShareRepositoryPort;
 import com.ninsky.cronos.kitchen.recipe.RecipeAggregate;
-import com.ninsky.cronos.kitchen.recipe.RecipeStore;
+import com.ninsky.cronos.kitchen.recipe.RecipeCustomRepository;
 import com.ninsky.cronos.infrastructure.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -46,7 +46,7 @@ public class EmailNotificationListener {
     private final UserRepositoryPort userRepository;
     private final UserProfileRepositoryPort userProfileRepository;
     private final RecipeShareRepositoryPort recipeShareRepository;
-    private final RecipeStore recipeStore;
+    private final RecipeCustomRepository recipeStore;
 
     @Value("${app.frontend.url}")
     private String frontendUrl;
