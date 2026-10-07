@@ -91,6 +91,19 @@ public class RecipeFileCustomRepository {
                         .addValue("at", file.uploadedAt().atOffset(ZoneOffset.UTC)).addValue("by", file.uploadedBy()));
     }
 
+    /** New content for an existing row (same id). */
+    public void replaceContent(NewFile file) {
+        jdbc.update("""
+                UPDATE recipe_files SET storage_key = :key, file_name = :name, kind = :kind, mime_type = :mime, size_bytes = :size,
+                    sha256 = :sha, description = :description, is_cover = :cover, thumbnail_key = :thumb, uploaded_at = :at, uploaded_by = :by
+                WHERE id = :id AND recipe_id = :recipe""",
+                new MapSqlParameterSource().addValue("id", file.id()).addValue("recipe", file.recipeId()).addValue("key", file.storageKey())
+                        .addValue("name", file.fileName()).addValue("kind", file.kind().name()).addValue("mime", file.mimeType())
+                        .addValue("size", file.sizeBytes()).addValue("sha", file.sha256()).addValue("description", file.description())
+                        .addValue("cover", file.cover()).addValue("thumb", file.thumbnailKey())
+                        .addValue("at", file.uploadedAt().atOffset(ZoneOffset.UTC)).addValue("by", file.uploadedBy()));
+    }
+
     public void updateDescription(UUID fileId, String description) {
         jdbc.update("UPDATE recipe_files SET description = :description WHERE id = :id",
                 new MapSqlParameterSource().addValue("id", fileId).addValue("description", description));

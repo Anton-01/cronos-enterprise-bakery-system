@@ -56,55 +56,51 @@ public class RecipeFileService {
     public RecipeFileResponse upload(UUID recipeId, MultipartFile upload, String description) {
         UUID tenant = actors.require().id();
         RecipeAggregate recipe = recipes.lockOwned(recipeId, tenant).orElseThrow(RecipeFileService::recipeNotFound);
-        if (upload == null || upload.isEmpty()) {
-            throw ApiException.invalid("file", "api.validation.required");
-        }
-        if (description != null && description.length() > MAX_DESCRIPTION) {
-            throw ApiException.invalid("description", "api.validation.maxLength", MAX_DESCRIPTION);
-        }
-        long maxBytes = properties.maxFileSize().toBytes();
-        if (upload.getSize() > maxBytes) {
-            throw ApiException.of(ApiErrorCode.PAYLOAD_TOO_LARGE, "file", "kitchen.file.tooLarge", properties.maxFileSize().toMegabytes());
-        }
+        checkUpload(upload, description, 0);
         if (files.count(recipeId) >= properties.maxFilesPerRecipe()) {
             throw ApiException.of(ApiErrorCode.QUOTA_EXCEEDED, "file", "kitchen.file.tooMany", properties.maxFilesPerRecipe());
         }
-        if (files.tenantBytes(tenant) + upload.getSize() > properties.tenantFileQuota().toBytes()) {
-            throw ApiException.of(ApiErrorCode.QUOTA_EXCEEDED, "file", "kitchen.file.quota", properties.tenantFileQuota().toMegabytes());
-        }
-        byte[] bytes = read(upload);
-        String fileName = cleanName(upload.getOriginalFilename());
-        SniffedFile type = FileSniffer.sniff(bytes, fileName)
-                .orElseThrow(() -> ApiException.of(ApiErrorCode.UNSUPPORTED_MEDIA_TYPE, "file", "kitchen.file.unsupported"));
-
-        byte[] stored = bytes;
-        byte[] thumbnail = null;
-        if (type.image()) {
-            ImageSanitizer.Result clean = ImageSanitizer.process(bytes, type);
-            stored = clean.image();
-            thumbnail = clean.thumbnail();
-        }
-        UUID id = UUID.randomUUID();
-        String folder = "recipes/" + tenant + "/" + recipeId + "/";
-        String key = folder + id + "." + type.extension();
-        String thumbKey = thumbnail == null ? null : folder + id + "_thumb.jpg";
-        storage.put(key, stored, type.mimeType());
-        if (thumbKey != null) {
-            storage.put(thumbKey, thumbnail, "image/jpeg");
-        }
-        deleteBlobsOnRollback(key, thumbKey);
-
+        Content content = store(tenant, recipeId, upload);
         Instant now = clock.instant();
-        boolean cover = type.image() && !files.hasCover(recipeId);
-        files.insert(new RecipeFileCustomRepository.NewFile(id, recipeId, key, ensureExtension(fileName, type), type.kind(), type.mimeType(), stored.length,
-                sha256(stored), blankToNull(description), cover, thumbKey, tenant, now));
-        long version = recipes.bumpVersion(recipeId, tenant, now);
-        revisions.write(recipeId, version, tenant, now, RecipeRevisions.Reason.of("kitchen.revision.fileUploaded", fileName),
-                Map.of("files", Map.of("added", fileName)), recipe.head().cost().costPerUnit());
+        UUID id = UUID.randomUUID();
+        boolean cover = content.type().image() && !files.hasCover(recipeId);
+        files.insert(new RecipeFileCustomRepository.NewFile(id, recipeId, content.key(), content.fileName(), content.type().kind(),
+                content.type().mimeType(), content.size(), content.sha256(), blankToNull(description), cover, content.thumbnailKey(), tenant, now));
+        revise(recipe, tenant, now, "kitchen.revision.fileUploaded", content.fileName(), Map.of("added", content.fileName()));
         audit.record(AuditEvent.of(AuditAction.RECIPE_FILE_UPLOADED, AuditTargets.RECIPE, recipeId, recipe.head().name())
-                .params(Map.of("detail", fileName, "kind", type.kind().name(), "sizeBytes", stored.length))
+                .params(Map.of("detail", content.fileName(), "kind", content.type().kind().name(), "sizeBytes", content.size()))
                 .build());
         return files.find(recipeId, id).map(this::response).orElseThrow();
+    }
+
+    /**
+     * Legacy {@code PUT /recipes/{id}/files}: new content for an existing file. Id and cover are kept (a non-image
+     * hands the cover to the next image); the description changes only when sent. Old objects go after commit.
+     */
+    @Transactional
+    public RecipeFileResponse replace(UUID recipeId, UUID fileId, MultipartFile upload, String description) {
+        UUID tenant = actors.require().id();
+        RecipeAggregate recipe = recipes.lockOwned(recipeId, tenant).orElseThrow(RecipeFileService::recipeNotFound);
+        RecipeFileCustomRepository.Row old = files.find(recipeId, fileId).orElseThrow(RecipeFileService::fileNotFound);
+        checkUpload(upload, description, old.sizeBytes());
+        Content content = store(tenant, recipeId, upload);
+        Instant now = clock.instant();
+        files.replaceContent(new RecipeFileCustomRepository.NewFile(fileId, recipeId, content.key(), content.fileName(), content.type().kind(),
+                content.type().mimeType(), content.size(), content.sha256(), description == null ? old.description() : blankToNull(description),
+                old.cover() && content.type().image(), content.thumbnailKey(), tenant, now));
+        if (old.cover() && !content.type().image()) {
+            files.promoteCover(recipeId);
+        } else if (content.type().image() && !files.hasCover(recipeId)) {
+            files.makeCover(recipeId, fileId);
+        }
+        revise(recipe, tenant, now, "kitchen.revision.fileReplaced", content.fileName(),
+                Map.of("replaced", Map.of("from", old.fileName(), "to", content.fileName())));
+        audit.record(AuditEvent.of(AuditAction.RECIPE_FILE_UPLOADED, AuditTargets.RECIPE, recipeId, recipe.head().name())
+                .params(Map.of("detail", content.fileName(), "kind", content.type().kind().name(), "sizeBytes", content.size(),
+                        "replaced", old.fileName()))
+                .build());
+        deleteBlobsAfterCommit(old.storageKey(), old.thumbnailKey());
+        return files.find(recipeId, fileId).map(this::response).orElseThrow();
     }
 
     @Transactional
@@ -146,6 +142,58 @@ public class RecipeFileService {
                 .params(Map.of("detail", file.fileName()))
                 .build());
         deleteBlobsAfterCommit(file.storageKey(), file.thumbnailKey());
+    }
+
+    /** Stored, sanitized upload. */
+    private record Content(SniffedFile type, String fileName, String key, String thumbnailKey, long size, String sha256) {
+    }
+
+    /** Presence, description, size and tenant quota ({@code freed} = bytes the upload replaces). */
+    private void checkUpload(MultipartFile upload, String description, long freed) {
+        if (upload == null || upload.isEmpty()) {
+            throw ApiException.invalid("file", "api.validation.required");
+        }
+        if (description != null && description.length() > MAX_DESCRIPTION) {
+            throw ApiException.invalid("description", "api.validation.maxLength", MAX_DESCRIPTION);
+        }
+        if (upload.getSize() > properties.maxFileSize().toBytes()) {
+            throw ApiException.of(ApiErrorCode.PAYLOAD_TOO_LARGE, "file", "kitchen.file.tooLarge", properties.maxFileSize().toMegabytes());
+        }
+        UUID tenant = actors.require().id();
+        if (files.tenantBytes(tenant) - freed + upload.getSize() > properties.tenantFileQuota().toBytes()) {
+            throw ApiException.of(ApiErrorCode.QUOTA_EXCEEDED, "file", "kitchen.file.quota", properties.tenantFileQuota().toMegabytes());
+        }
+    }
+
+    /** Sniffs, sanitizes and writes the objects under fresh random keys (removed again on rollback). */
+    private Content store(UUID tenant, UUID recipeId, MultipartFile upload) {
+        byte[] bytes = read(upload);
+        String fileName = cleanName(upload.getOriginalFilename());
+        SniffedFile type = FileSniffer.sniff(bytes, fileName)
+                .orElseThrow(() -> ApiException.of(ApiErrorCode.UNSUPPORTED_MEDIA_TYPE, "file", "kitchen.file.unsupported"));
+        byte[] stored = bytes;
+        ImageSanitizer.Thumbnail thumbnail = null;
+        if (type.image()) {
+            ImageSanitizer.Result clean = ImageSanitizer.process(bytes, type);
+            stored = clean.image();
+            thumbnail = clean.thumbnail();
+        }
+        String base = "recipes/" + tenant + "/" + recipeId + "/" + UUID.randomUUID();
+        String key = base + "." + type.extension();
+        String thumbKey = thumbnail == null ? null : base + "_thumb." + thumbnail.extension();
+        storage.put(key, stored, type.mimeType());
+        if (thumbnail != null) {
+            storage.put(thumbKey, thumbnail.bytes(), thumbnail.mimeType());
+        }
+        deleteBlobsOnRollback(key, thumbKey);
+        return new Content(type, ensureExtension(fileName, type), key, thumbKey, stored.length, sha256(stored));
+    }
+
+    private void revise(RecipeAggregate recipe, UUID tenant, Instant now, String reasonKey, String fileName, Map<String, Object> change) {
+        UUID recipeId = recipe.head().id();
+        long version = recipes.bumpVersion(recipeId, tenant, now);
+        revisions.write(recipeId, version, tenant, now, RecipeRevisions.Reason.of(reasonKey, fileName), Map.of("files", change),
+                recipe.head().cost().costPerUnit());
     }
 
     public List<RecipeFileResponse> list(UUID recipeId) {

@@ -34,7 +34,12 @@ jobs:
           distribution: temurin
           java-version: '25'
           cache: maven
+      - name: Install libwebp
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends libwebp7
       - name: Compile
         run: ./mvnw -B -ntp test-compile
       - name: Test
         run: ./mvnw -B -ntp verify
+      - name: Show test failure causes
+        if: failure()
+        run: grep -h -A3 "Caused by\|APPLICATION FAILED" target/surefire-reports/*.txt target/surefire-reports/*-output.txt 2>/dev/null | tail -80 || true

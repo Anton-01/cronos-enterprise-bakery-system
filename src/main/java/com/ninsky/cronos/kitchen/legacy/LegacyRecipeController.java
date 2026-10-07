@@ -6,22 +6,29 @@ import com.ninsky.cronos.application.request.recipe.SubstituteIngredientRequest;
 import com.ninsky.cronos.application.response.core.ApiResponse;
 import com.ninsky.cronos.kitchen.recipe.CostPreview;
 import com.ninsky.cronos.kitchen.recipe.RecipeService;
+import com.ninsky.cronos.kitchen.recipe.file.RecipeFileResponse;
+import com.ninsky.cronos.kitchen.recipe.file.RecipeFileService;
 import com.ninsky.cronos.kitchen.shared.KitchenAccess;
+import com.ninsky.cronos.kitchen.shared.KitchenMessages;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -37,6 +44,8 @@ public class LegacyRecipeController {
 
     private final LegacyRecipeEditor editor;
     private final RecipeService recipes;
+    private final RecipeFileService files;
+    private final KitchenMessages messages;
 
     @PostMapping("/ingredients")
     @PreAuthorize(KitchenAccess.RECIPE_UPDATE)
@@ -92,5 +101,16 @@ public class LegacyRecipeController {
     public ResponseEntity<ApiResponse<Void>> syncCosts(@PathVariable UUID recipeId) {
         recipes.recalculate(recipeId);
         return ResponseEntity.ok(ApiResponse.success(null, null));
+    }
+
+    @PutMapping(value = "/files", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize(KitchenAccess.RECIPE_UPDATE)
+    @Operation(summary = "Replace a file's content (deprecated)",
+            description = "Multipart: fileId, file, optional description. Same checks as POST /recipes/{id}/files; id and cover kept. "
+                    + "Use DELETE + POST, or PATCH /recipes/{id}/files/{fileId} for metadata.", deprecated = true)
+    public ResponseEntity<ApiResponse<RecipeFileResponse>> replaceFile(@PathVariable UUID recipeId, @RequestParam UUID fileId,
+            @RequestPart("file") MultipartFile file, @RequestParam(required = false) String description) {
+        RecipeFileResponse replaced = files.replace(recipeId, fileId, file, description);
+        return ResponseEntity.ok(ApiResponse.success(messages.get("kitchen.file.replaced", replaced.fileName()), replaced));
     }
 }
