@@ -55,11 +55,12 @@ spring:
       mail.smtp.writetimeout: 5000
   servlet:
     multipart:
-      # Avatar uploads (PUT /users/me/avatar). Exceeding max-file-size → 413 on field "file".
-      max-file-size: 2MB
-      max-request-size: 3MB
+      # Recipe files (≤ app.kitchen.max-file-size) are the largest upload; smaller limits (avatars 2MB,
+      # imports 2MB) are enforced by their own services. Exceeding max-file-size → 413 on field "file".
+      max-file-size: 26MB
+      max-request-size: 27MB
   messages:
-    basename: i18n/messages,i18n/api,i18n/iam,i18n/security,i18n/finance
+    basename: i18n/messages,i18n/api,i18n/iam,i18n/security,i18n/finance,i18n/kitchen
     encoding: UTF-8
     fallback-to-system-locale: false
   web:
@@ -113,6 +114,19 @@ app:
   imports:
     max-file-size: 2MB
     max-rows: 2000
+  # Kitchen catalog & recipes (KitchenProperties)
+  kitchen:
+    stale-price-days: 60
+    synchronous-ripple-limit: 500
+    cost-previews-per-minute: 120
+    max-file-size: 25MB
+    max-files-per-recipe: 40
+    tenant-file-quota: 500MB
+    signed-url-minutes: 15
+    file-purge-after-days: 30
+    # Username that receives a copy of the SYSTEM recipe library on startup (empty = none)
+    demo-tenant: ${KITCHEN_DEMO_TENANT:}
+    job-delay-ms: 15000
 
 server:
   port: 9191
@@ -125,7 +139,7 @@ server:
   tomcat:
     # Let Tomcat read (and discard) an oversized upload so the client receives the 413 envelope
     # instead of a connection reset.
-    max-swallow-size: 10MB
+    max-swallow-size: 30MB
   error:
     include-message: always
     include-binding-errors: always

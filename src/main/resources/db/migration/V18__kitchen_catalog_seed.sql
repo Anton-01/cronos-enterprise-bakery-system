@@ -165,9 +165,9 @@ CROSS JOIN (VALUES ('es'), ('en')) l(locale)
 ON CONFLICT (allergen_id, locale) DO NOTHING;
 
 INSERT INTO allergen_keywords (allergen_id, owner_id, locale, keyword)
-SELECT a.id, NULL, 'es', k FROM seed_allergens s JOIN allergens a ON a.code = s.code AND a.owner_id IS NULL, unnest(s.kw_es) k
+SELECT a.id, NULL::uuid, 'es', k FROM seed_allergens s JOIN allergens a ON a.code = s.code AND a.owner_id IS NULL, unnest(s.kw_es) k
 UNION ALL
-SELECT a.id, NULL, 'en', k FROM seed_allergens s JOIN allergens a ON a.code = s.code AND a.owner_id IS NULL, unnest(s.kw_en) k
+SELECT a.id, NULL::uuid, 'en', k FROM seed_allergens s JOIN allergens a ON a.code = s.code AND a.owner_id IS NULL, unnest(s.kw_en) k
 ON CONFLICT DO NOTHING;
 
 -- ─── ingredients (§10.3) ────────────────────────────────────────────────────────────────
