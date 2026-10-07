@@ -27,6 +27,11 @@ public class KitchenCaches {
 
     private final CacheManager cacheManager;
 
+    /** {@code kitchenStats} key: {@code kind} is "ingredients" or "recipes". */
+    public static String statsKey(String kind, java.util.UUID tenantId) {
+        return kind + ':' + tenantId;
+    }
+
     public KitchenCaches(CacheManager cacheManager) {
         this.cacheManager = cacheManager;
     }
