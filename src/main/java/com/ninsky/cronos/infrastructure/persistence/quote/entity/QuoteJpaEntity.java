@@ -105,6 +105,9 @@ public class QuoteJpaEntity extends AuditableEntity {
     @Builder.Default
     private boolean isRevoked = false;
 
+    @Column(name = "price_review_required", nullable = false)
+    private boolean priceReviewRequired;
+
     @Version
     @Builder.Default
     private Long version = 0L;

@@ -8,13 +8,13 @@ import com.ninsky.cronos.application.service.mail.MailService;
 import com.ninsky.cronos.domain.model.auth.User;
 import com.ninsky.cronos.domain.model.auth.UserProfile;
 import com.ninsky.cronos.domain.model.quote.Quote;
-import com.ninsky.cronos.domain.model.recipe.Recipe;
 import com.ninsky.cronos.domain.model.recipe.RecipeShare;
 import com.ninsky.cronos.domain.port.auth.UserProfileRepositoryPort;
 import com.ninsky.cronos.domain.port.auth.UserRepositoryPort;
 import com.ninsky.cronos.domain.port.quote.QuoteRepositoryPort;
-import com.ninsky.cronos.domain.port.recipe.RecipeRepositoryPort;
 import com.ninsky.cronos.domain.port.recipe.RecipeShareRepositoryPort;
+import com.ninsky.cronos.kitchen.recipe.RecipeAggregate;
+import com.ninsky.cronos.kitchen.recipe.RecipeStore;
 import com.ninsky.cronos.infrastructure.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -46,7 +46,7 @@ public class EmailNotificationListener {
     private final UserRepositoryPort userRepository;
     private final UserProfileRepositoryPort userProfileRepository;
     private final RecipeShareRepositoryPort recipeShareRepository;
-    private final RecipeRepositoryPort recipeRepository;
+    private final RecipeStore recipeStore;
 
     @Value("${app.frontend.url}")
     private String frontendUrl;
@@ -95,7 +95,7 @@ public class EmailNotificationListener {
     public void handleRecipeShared(RecipeSharedEvent event) {
         RecipeShare share = recipeShareRepository.findById(event.shareId())
                 .orElseThrow(() -> new ResourceNotFoundException("Enlace no encontrado"));
-        Recipe recipe = recipeRepository.findById(share.getRecipeId())
+        RecipeAggregate recipe = recipeStore.findLive(share.getRecipeId())
                 .orElseThrow(() -> new ResourceNotFoundException("Receta no encontrada"));
         UserProfile senderProfile = userProfileRepository.findByUserId(share.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("Perfil de usuario no encontrado"));
@@ -108,7 +108,7 @@ public class EmailNotificationListener {
                 .subject(senderName + " ha compartido una receta contigo")
                 .templateName("recipes/share-recipe")
                 .variables(Map.of("senderName", senderName,
-                        "recipeName", recipe.getName(), "shareUrl", shareUrl,
+                        "recipeName", recipe.head().name(), "shareUrl", shareUrl,
                         "expirationDays", String.valueOf(expirationDays)
                 )).build();
 

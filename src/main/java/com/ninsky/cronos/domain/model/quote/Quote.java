@@ -49,6 +49,7 @@ public class Quote {
     private Integer viewsCount = 0;
     @Builder.Default
     private boolean isRevoked = false;
+    private boolean priceReviewRequired;
     @Builder.Default
     private Long version = 0L;
     @Builder.Default

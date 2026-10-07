@@ -48,6 +48,12 @@ public class RecipeStore {
                 .stream().findFirst().map(head -> assemble(List.of(head)).getFirst());
     }
 
+    /** A live recipe regardless of owner (shares, notifications). */
+    public Optional<RecipeAggregate> findLive(UUID id) {
+        return heads(HEAD + " WHERE r.id = :id AND r.deleted_at IS NULL", new MapSqlParameterSource().addValue("id", id))
+                .stream().findFirst().map(head -> assemble(List.of(head)).getFirst());
+    }
+
     /** Locks the tenant's live recipe row for an update. */
     public Optional<RecipeAggregate> lockOwned(UUID id, UUID tenantId) {
         return heads(HEAD + " WHERE r.id = :id AND r.deleted_at IS NULL AND r.owner_id = :tenant FOR UPDATE",

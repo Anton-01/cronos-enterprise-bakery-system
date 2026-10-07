@@ -90,6 +90,11 @@ public class AllergenCatalog {
             return Optional.ofNullable(byId.get(id));
         }
 
+        /** By the UUID the deprecated {@code /allergen/**} API exposes. */
+        public Optional<Entry> findByLegacyId(UUID legacyId) {
+            return byId.values().stream().filter(e -> legacyId.equals(e.legacyId())).findFirst();
+        }
+
         public List<AllergenRef> refs(Collection<Long> ids, String language) {
             return ids.stream().distinct().map(byId::get).filter(Objects::nonNull)
                     .map(e -> e.ref(language))

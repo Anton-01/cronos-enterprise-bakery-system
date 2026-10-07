@@ -3,6 +3,8 @@ package com.ninsky.cronos.application.request.quote;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import com.ninsky.cronos.kitchen.recipe.RecipeConfiguration;
+import jakarta.validation.Valid;
 import lombok.Builder;
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -32,5 +34,12 @@ public record QuoteItemRequest(
         @DecimalMin(value = "0.01", message = "Unit price must be greater than zero")
         BigDecimal unitPrice,
 
-        String notes
+        String notes,
+
+        // Only with recipeId: exclusions, substitutions and batch size (kitchen §6.1)
+        @Valid
+        RecipeConfiguration recipeConfiguration,
+
+        // Sell below cost; needs QUOTE.QUOTE.APPROVE (kitchen §6.2 rule 3)
+        Boolean allowBelowCost
 ) {}

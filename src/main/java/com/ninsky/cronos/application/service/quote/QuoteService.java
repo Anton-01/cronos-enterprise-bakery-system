@@ -3,28 +3,39 @@ package com.ninsky.cronos.application.service.quote;
 import com.ninsky.cronos.application.event.QuoteEmailRequestedEvent;
 import com.ninsky.cronos.application.request.quote.CreateQuoteRequest;
 import com.ninsky.cronos.application.request.quote.QuoteItemRequest;
+import com.ninsky.cronos.application.response.envelope.ApiWarning;
 import com.ninsky.cronos.application.response.quote.*;
 import com.ninsky.cronos.infrastructure.storage.StoragePort;
 import com.ninsky.cronos.domain.model.auth.User;
 import com.ninsky.cronos.domain.model.auth.UserProfile;
 import com.ninsky.cronos.domain.entity.enums.QuoteStatus;
+import com.ninsky.cronos.domain.model.audit.AuditAction;
+import com.ninsky.cronos.domain.model.audit.AuditSeverity;
 import com.ninsky.cronos.domain.model.quote.Quote;
 import com.ninsky.cronos.domain.model.quote.QuoteAccessLog;
 import com.ninsky.cronos.domain.model.quote.QuoteItem;
-import com.ninsky.cronos.domain.model.recipe.Recipe;
-import com.ninsky.cronos.domain.model.recipe.RecipeFile;
 import com.ninsky.cronos.domain.port.auth.UserProfileRepositoryPort;
 import com.ninsky.cronos.domain.port.auth.UserRepositoryPort;
 import com.ninsky.cronos.domain.port.quote.QuoteAccessLogRepositoryPort;
 import com.ninsky.cronos.domain.port.quote.QuoteRepositoryPort;
-import com.ninsky.cronos.domain.port.recipe.RecipeFileRepositoryPort;
-import com.ninsky.cronos.domain.port.recipe.RecipeRepositoryPort;
 import com.ninsky.cronos.finance.pricing.PriceLine;
 import com.ninsky.cronos.finance.pricing.PricingCalculator;
 import com.ninsky.cronos.finance.pricing.PricingResult;
 import com.ninsky.cronos.finance.pricing.PricingSnapshot;
 import com.ninsky.cronos.finance.settings.PricingSnapshotResolver;
+import com.ninsky.cronos.iam.audit.AuditEvent;
+import com.ninsky.cronos.iam.audit.AuditRecorder;
+import com.ninsky.cronos.iam.audit.AuditTargets;
+import com.ninsky.cronos.iam.permission.Permissions;
+import com.ninsky.cronos.iam.shared.Actor;
+import com.ninsky.cronos.iam.shared.ActorProvider;
+import com.ninsky.cronos.infrastructure.exception.ApiErrorCode;
 import com.ninsky.cronos.infrastructure.exception.BusinessException;
+import com.ninsky.cronos.infrastructure.exception.Violations;
+import com.ninsky.cronos.kitchen.recipe.QuoteRecipePricer;
+import com.ninsky.cronos.kitchen.shared.ApiWarningCode;
+import com.ninsky.cronos.kitchen.shared.KitchenMessages;
+import com.ninsky.cronos.kitchen.shared.Warned;
 import com.ninsky.cronos.infrastructure.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,11 +48,15 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.IntStream;
 
@@ -51,8 +66,11 @@ import java.util.stream.IntStream;
 public class QuoteService {
 
     private final QuoteRepositoryPort quoteRepository;
-    private final RecipeRepositoryPort recipeRepository;
-    private final RecipeFileRepositoryPort recipeFileRepository;
+    private final QuoteRecipePricer recipePricer;
+    private final KitchenMessages messages;
+    private final AuditRecorder audit;
+    private final ActorProvider actors;
+    private final Clock clock;
     private final UserRepositoryPort userRepository;
     private final UserProfileRepositoryPort userProfileRepository;
     private final StoragePort cloudStorageService;
@@ -72,11 +90,12 @@ public class QuoteService {
                         .quoteNumber(quote.getQuoteNumber()).clientName(quote.getClientName())
                         .total(quote.getTotal()).status(quote.getStatus())
                         .createdAt(quote.getCreatedAt()).publicToken(quote.getPublicToken())
+                        .priceReviewRequired(quote.isPriceReviewRequired())
                         .build());
     }
 
     @Transactional
-    public InternalQuoteResponse createQuote(String username, CreateQuoteRequest request) {
+    public Warned<InternalQuoteResponse> createQuote(String username, CreateQuoteRequest request) {
         log.info("Initiating quote creation for client: {}", request.clientName());
 
         User user = userRepository.findByUsername(username).orElseThrow();
@@ -98,15 +117,16 @@ public class QuoteService {
                 .publicToken(generatedToken).extraFeeDescription(request.extraFeeDescription())
                 .items(new ArrayList<>()).build();
 
-        price(quote, snapshot, request, user.getId());
+        Priced priced = price(quote, snapshot, request, actors.require());
 
         Quote savedQuote = quoteRepository.save(quote);
+        auditBelowCost(savedQuote, request, priced.belowCostApproved());
         log.info("Quote generated successfully. Quote ID: {}, Quote Number: {}", savedQuote.getId(), savedQuote.getQuoteNumber());
 
-        return InternalQuoteResponse.builder().id(savedQuote.getId()).quoteNumber(savedQuote.getQuoteNumber())
+        return new Warned<>(InternalQuoteResponse.builder().id(savedQuote.getId()).quoteNumber(savedQuote.getQuoteNumber())
                 .clientName(savedQuote.getClientName()).total(savedQuote.getTotal())
                 .status(savedQuote.getStatus()).createdAt(savedQuote.getCreatedAt())
-                .publicToken(savedQuote.getPublicToken()).build();
+                .publicToken(savedQuote.getPublicToken()).build(), priced.warnings());
     }
 
     @Transactional(readOnly = true)
@@ -128,6 +148,11 @@ public class QuoteService {
                         .unitPrice(item.getUnitPrice())
                         .subtotal(item.getSubtotal())
                         .notes(item.getNotes())
+                        .recipeConfiguration(recipePricer.configuration(item.getRecipeConfiguration()))
+                        .allergens(recipePricer.allergens(item.getAllergens()))
+                        .recipeVersion(item.getRecipeVersion())
+                        .costCalculatedAt(item.getCostCalculatedAt())
+                        .priceReviewRequired(item.isPriceReviewRequired())
                         .build())
                 .toList();
 
@@ -148,12 +173,13 @@ public class QuoteService {
                 .taxRateId(quote.getTaxRateId()).taxFactorType(quote.getTaxFactorType())
                 .currencyDecimalPlaces(quote.getCurrencyDecimalPlaces()).pricesIncludeTax(quote.getPricesIncludeTax())
                 .roundingMode(quote.getRoundingMode()).subtotal(quote.getSubtotal()).taxAmount(quote.getTaxAmount())
+                .priceReviewRequired(quote.isPriceReviewRequired())
                 .items(itemDtos)
                 .build();
     }
 
     @Transactional
-    public InternalQuoteResponse updateQuote(String username, UUID quoteId, CreateQuoteRequest request) {
+    public Warned<InternalQuoteResponse> updateQuote(String username, UUID quoteId, CreateQuoteRequest request) {
         log.info("Updating quote {} for user {}", quoteId, username);
 
         User user = userRepository.findByUsername(username).orElseThrow();
@@ -175,15 +201,16 @@ public class QuoteService {
         // Recalculate with the stored snapshot; only what the request changes is re-resolved
         PricingSnapshot snapshot = pricingSnapshots.forExistingDocument(snapshotOf(quote), pricingInput(request));
         quote.getItems().clear();
-        price(quote, snapshot, request, user.getId());
+        Priced priced = price(quote, snapshot, request, actors.require());
 
         quoteRepository.save(quote);
+        auditBelowCost(quote, request, priced.belowCostApproved());
         log.info("Quote {} updated successfully. New total: {}", quote.getId(), quote.getTotal());
 
-        return InternalQuoteResponse.builder().id(quote.getId()).quoteNumber(quote.getQuoteNumber())
+        return new Warned<>(InternalQuoteResponse.builder().id(quote.getId()).quoteNumber(quote.getQuoteNumber())
                 .clientName(quote.getClientName()).total(quote.getTotal())
                 .status(quote.getStatus()).createdAt(quote.getCreatedAt())
-                .publicToken(quote.getPublicToken()).build();
+                .publicToken(quote.getPublicToken()).build(), priced.warnings());
     }
 
     @Transactional
@@ -317,8 +344,15 @@ public class QuoteService {
                 .publicToken(quote.getPublicToken()).items(itemDtos).accessLogs(logDtos).build();
     }
 
-    /** Applies the snapshot and prices every line through the single {@link PricingCalculator} (spec §11.2). */
-    private void price(Quote quote, PricingSnapshot snapshot, CreateQuoteRequest request, UUID userId) {
+    /** Warnings of the envelope and the item indexes approved below cost. */
+    private record Priced(List<ApiWarning> warnings, List<Integer> belowCostApproved) {
+    }
+
+    /**
+     * Applies the snapshot, re-prices recipe items with the cost engine (kitchen §6.2), enforces the
+     * loss guard and prices every line through the single {@link PricingCalculator} (spec §11.2).
+     */
+    private Priced price(Quote quote, PricingSnapshot snapshot, CreateQuoteRequest request, Actor actor) {
         quote.setCurrency(snapshot.currencyCode());
         quote.setCurrencyDecimalPlaces(snapshot.currencyDecimalPlaces());
         quote.setTaxRateId(snapshot.taxRateId());
@@ -326,12 +360,21 @@ public class QuoteService {
         quote.setTaxRate(snapshot.effectiveRatePercent());
         quote.setPricesIncludeTax(snapshot.pricesIncludeTax());
         quote.setRoundingMode(snapshot.roundingMode());
+        // Saving re-prices every item, so the ripple's review flag is settled
+        quote.setPriceReviewRequired(false);
+
+        Instant now = clock.instant();
+        List<Optional<QuoteRecipePricer.Priced>> recipes = IntStream.range(0, request.items().size())
+                .mapToObj(i -> Optional.ofNullable(request.items().get(i).recipeId())
+                        .map(id -> recipePricer.price(actor.id(), id, request.items().get(i).recipeConfiguration(), i, now)))
+                .toList();
+        Priced priced = guard(request, recipes, snapshot.currencyCode(), actor);
 
         PricingResult result = pricingCalculator.calculate(snapshot.rules(),
                 request.items().stream().map(item -> new PriceLine(item.quantity(), item.unitPrice())).toList(),
                 request.deliveryFee(), request.extraFee());
         IntStream.range(0, request.items().size())
-                .mapToObj(i -> toItem(request.items().get(i), userId, result.lines().get(i).net()))
+                .mapToObj(i -> toItem(request.items().get(i), recipes.get(i).orElse(null), result.lines().get(i).net(), i))
                 .forEach(quote::addItem);
 
         quote.setSubtotal(result.subtotal());
@@ -339,23 +382,60 @@ public class QuoteService {
         quote.setDeliveryFee(result.deliveryFee());
         quote.setExtraFee(result.extraFee());
         quote.setTotal(result.total());
+        return priced;
     }
 
-    private QuoteItem toItem(QuoteItemRequest itemReq, UUID userId, BigDecimal lineNet) {
-        Recipe recipe = null;
-        String imagePath = null;
-        if (itemReq.recipeId() != null) {
-            recipe = recipeRepository.findByIdAndUserId(itemReq.recipeId(), userId)
-                    .orElseThrow(() -> new BusinessException("Recipe not found or access denied: " + itemReq.recipeId()));
-            imagePath = recipeFileRepository.findByRecipeIdOrderByCreatedAtDesc(recipe.getId()).stream().filter(RecipeFile::isPrimary)
-                    .findFirst().map(RecipeFile::getFilePath).orElse(null);
+    /** Loss guard and target-margin warnings (kitchen §6.2 rule 3); cost is comparable only in its own currency. */
+    private Priced guard(CreateQuoteRequest request, List<Optional<QuoteRecipePricer.Priced>> recipes, String currency, Actor actor) {
+        Violations violations = new Violations();
+        List<ApiWarning> warnings = new ArrayList<>();
+        List<Integer> approved = new ArrayList<>();
+        boolean canApprove = actor.holds(Permissions.QUOTE_APPROVE);
+        for (int i = 0; i < request.items().size(); i++) {
+            QuoteItemRequest item = request.items().get(i);
+            Optional<QuoteRecipePricer.Priced> recipe = recipes.get(i).filter(p -> p.currency().equalsIgnoreCase(currency));
+            if (recipes.get(i).isPresent() && recipe.isEmpty()) {
+                continue;
+            }
+            BigDecimal cost = recipe.map(QuoteRecipePricer.Priced::unitCost).orElse(item.unitCost());
+            String field = "items[" + i + "].unitPrice";
+            if (cost != null && item.unitPrice().compareTo(cost) < 0) {
+                if (Boolean.TRUE.equals(item.allowBelowCost()) && canApprove) {
+                    approved.add(i);
+                } else {
+                    violations.add(ApiErrorCode.PRICE_BELOW_COST, field, "kitchen.quote.priceBelowCost", cost.toPlainString());
+                }
+            } else if (recipe.isPresent() && item.unitPrice().compareTo(recipe.get().marginFloor()) < 0) {
+                warnings.add(new ApiWarning(ApiWarningCode.BELOW_TARGET_MARGIN.name(), field,
+                        messages.get("kitchen.warning.belowTargetMargin", recipe.get().marginFloor().toPlainString())));
+            }
         }
-        return QuoteItem.builder().recipeId(recipe != null ? recipe.getId() : null).productName(itemReq.productName())
+        violations.throwIfAny();
+        return new Priced(warnings, approved);
+    }
+
+    private void auditBelowCost(Quote quote, CreateQuoteRequest request, List<Integer> approved) {
+        if (approved.isEmpty()) {
+            return;
+        }
+        audit.record(AuditEvent.of(AuditAction.QUOTE_BELOW_COST_APPROVED, AuditTargets.QUOTE, quote.getId(), quote.getQuoteNumber())
+                .severity(AuditSeverity.WARNING)
+                .params(Map.of("items", approved.stream().map(i -> request.items().get(i).productName()).toList()))
+                .build());
+    }
+
+    /** Recipe items keep the server cost and the snapshot; custom items keep what the client sent. */
+    private QuoteItem toItem(QuoteItemRequest itemReq, QuoteRecipePricer.Priced recipe, BigDecimal lineNet, int order) {
+        QuoteItem.QuoteItemBuilder item = QuoteItem.builder().productName(itemReq.productName())
                 .productDescription(itemReq.productDescription()).productSize(itemReq.productSize())
-                .imageFilePath(imagePath).quantity(itemReq.quantity())
-                .unitCost(itemReq.unitCost()).profitPercentage(itemReq.profitPercentage())
-                .unitPrice(itemReq.unitPrice()).subtotal(lineNet)
-                .notes(itemReq.notes()).build();
+                .quantity(itemReq.quantity()).unitCost(itemReq.unitCost()).profitPercentage(itemReq.profitPercentage())
+                .unitPrice(itemReq.unitPrice()).subtotal(lineNet).notes(itemReq.notes()).displayOrder(order);
+        if (recipe != null) {
+            item.recipeId(recipe.recipeId()).unitCost(recipe.unitCost()).imageFilePath(recipe.coverKey())
+                    .recipeConfiguration(recipe.configuration()).allergens(recipe.allergens())
+                    .recipeVersion(recipe.recipeVersion()).costCalculatedAt(recipe.costCalculatedAt());
+        }
+        return item.build();
     }
 
     private static PricingSnapshotResolver.PricingInput pricingInput(CreateQuoteRequest request) {
@@ -381,7 +461,8 @@ public class QuoteService {
 
             return PublicQuoteItemResponse.builder().productName(item.getProductName())
                     .productDescription(item.getProductDescription()).productSize(item.getProductSize()).mainImageUrl(signedImageUrl)
-                    .quantity(item.getQuantity()).unitPrice(item.getUnitPrice()).subtotal(item.getSubtotal()).build();
+                    .quantity(item.getQuantity()).unitPrice(item.getUnitPrice()).subtotal(item.getSubtotal())
+                    .allergens(recipePricer.allergens(item.getAllergens())).build();
         }).toList();
     }
 }
