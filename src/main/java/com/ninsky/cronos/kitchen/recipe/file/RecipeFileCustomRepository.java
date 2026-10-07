@@ -21,7 +21,7 @@ import java.util.UUID;
 /** {@code recipe_files} persistence; blobs live in object storage under {@code storage_key}. */
 @Repository
 @RequiredArgsConstructor
-public class RecipeFileStore {
+public class RecipeFileCustomRepository {
 
     private static final String SELECT = "SELECT f.id, f.recipe_id, f.storage_key, f.file_name, f.kind, f.mime_type, f.size_bytes, "
             + "f.description, f.is_cover, f.thumbnail_key, f.uploaded_at, " + UserRefMapper.columns("f.uploaded_by")

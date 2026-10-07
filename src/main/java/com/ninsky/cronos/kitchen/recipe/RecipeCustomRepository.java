@@ -29,7 +29,7 @@ import java.util.stream.Collectors;
 /** JDBC persistence of the recipe aggregate; batch loads keep the ripple at three queries. */
 @Repository
 @RequiredArgsConstructor
-public class RecipeStore {
+public class RecipeCustomRepository {
 
     private static final String HEAD = """
             SELECT r.id, r.code, r.owner_id, r.name, r.category_id, r.difficulty, r.description, r.process_html, r.storage_instructions,
@@ -275,7 +275,7 @@ public class RecipeStore {
                 .addValue("version", head.version());
     }
 
-    private static final RowMapper<RecipeAggregate.Head> HEAD_MAPPER = RecipeStore::head;
+    private static final RowMapper<RecipeAggregate.Head> HEAD_MAPPER = RecipeCustomRepository::head;
 
     private static RecipeAggregate.Head head(ResultSet rs, int row) throws SQLException {
         RecipeAggregate.Cost cost = new RecipeAggregate.Cost(rs.getBigDecimal("ingredients_cost"), rs.getBigDecimal("waste_cost"),

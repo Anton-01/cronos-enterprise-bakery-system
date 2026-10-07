@@ -13,7 +13,7 @@ import com.ninsky.cronos.domain.model.audit.Actor;
 import com.ninsky.cronos.domain.model.audit.AuditAction;
 import com.ninsky.cronos.infrastructure.exception.ApiException;
 import com.ninsky.cronos.kitchen.allergen.AllergenCatalog;
-import com.ninsky.cronos.kitchen.allergen.AllergenRepository;
+import com.ninsky.cronos.kitchen.allergen.AllergenCustomRepository;
 import com.ninsky.cronos.kitchen.shared.KitchenCodes;
 import com.ninsky.cronos.kitchen.shared.KitchenStatus;
 import com.ninsky.cronos.kitchen.shared.Scope;
@@ -58,7 +58,7 @@ public class LegacyAllergenService implements AllergenService {
 
     private final com.ninsky.cronos.kitchen.allergen.AllergenService allergens;
     private final AllergenCatalog catalog;
-    private final AllergenRepository repository;
+    private final AllergenCustomRepository repository;
     private final ActorProvider actors;
     private final CatalogAuditTrail auditTrail;
     private final ImportProperties importProperties;

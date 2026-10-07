@@ -3,7 +3,7 @@ package com.ninsky.cronos.kitchen.recipe;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
 import java.util.Collection;
@@ -13,9 +13,9 @@ import java.util.Set;
 import java.util.UUID;
 
 /** Quote side effects of recipe changes (§4.5 step 3) and the margin reference price. */
-@Component
+@Repository
 @RequiredArgsConstructor
-public class QuoteFlags {
+public class QuoteFlagCustomRepository {
 
     private final NamedParameterJdbcTemplate jdbc;
 

@@ -8,6 +8,25 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: cronos
+          POSTGRES_USER: cronos
+          POSTGRES_PASSWORD: cronos
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U cronos" --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+    env:
+      DB_URL: jdbc:postgresql://localhost:5432/cronos
+      DB_USERNAME: cronos
+      DB_PASSWORD: cronos
+      MAIL_PASSWORD: ci
+      JWT_SECRET: ci-only-secret-0123456789abcdef0123456789abcdef0123456789abcdef
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4

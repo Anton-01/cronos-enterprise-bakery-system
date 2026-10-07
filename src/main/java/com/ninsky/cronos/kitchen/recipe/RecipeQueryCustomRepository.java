@@ -21,7 +21,7 @@ import java.util.UUID;
 /** Read side of recipes: filtered pages, header stats, quote picker, contained allergens per page. */
 @Repository
 @RequiredArgsConstructor
-public class RecipeQueries {
+public class RecipeQueryCustomRepository {
 
     static final Map<String, String> SORTS = Map.of(
             "updatedAt", "coalesce(r.updated_at, r.created_at)",
@@ -35,7 +35,7 @@ public class RecipeQueries {
                 OR EXISTS (SELECT 1 FROM recipe_line_allergens la WHERE la.line_id = l.id AND la.allergen_id IN (:freeOf))))""";
 
     private final NamedParameterJdbcTemplate jdbc;
-    private final RecipeStore store;
+    private final RecipeCustomRepository store;
 
     /** Page of recipe ids in order; heads are loaded by the store. */
     public CatalogPage<UUID> page(UUID tenant, RecipeFilter filter, PageQuery query) {

@@ -21,7 +21,7 @@ import java.util.UUID;
 /** Ingredient writes: head, texts, allergens, substitutes and append-only prices. */
 @Repository
 @RequiredArgsConstructor
-public class IngredientRepository {
+public class IngredientCustomRepository {
 
     private final NamedParameterJdbcTemplate jdbc;
 

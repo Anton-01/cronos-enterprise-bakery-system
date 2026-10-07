@@ -4,10 +4,10 @@ import com.ninsky.cronos.finance.shared.UserRefMapper;
 import com.ninsky.cronos.infrastructure.web.paging.CatalogPage;
 import com.ninsky.cronos.kitchen.allergen.AllergenCatalog;
 import com.ninsky.cronos.kitchen.costing.CostContext;
-import com.ninsky.cronos.kitchen.ingredient.IngredientQueries;
+import com.ninsky.cronos.kitchen.ingredient.IngredientQueryCustomRepository;
 import com.ninsky.cronos.kitchen.recipe.file.RecipeFileService;
-import com.ninsky.cronos.kitchen.recipe.file.RecipeFileStore;
-import com.ninsky.cronos.kitchen.shared.CategoryLookup;
+import com.ninsky.cronos.kitchen.recipe.file.RecipeFileCustomRepository;
+import com.ninsky.cronos.kitchen.shared.KitchenCategoryCustomRepository;
 import com.ninsky.cronos.kitchen.shared.KitchenProperties;
 import com.ninsky.cronos.kitchen.shared.Scope;
 import com.ninsky.cronos.kitchen.unit.UnitCatalog;
@@ -27,12 +27,12 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class RecipeViews {
 
-    private final RecipeQueries queries;
-    private final IngredientQueries ingredients;
+    private final RecipeQueryCustomRepository queries;
+    private final IngredientQueryCustomRepository ingredients;
     private final AllergenCatalog allergens;
-    private final CategoryLookup categories;
+    private final KitchenCategoryCustomRepository categories;
     private final UnitCatalog units;
-    private final RecipeFileStore files;
+    private final RecipeFileCustomRepository files;
     private final RecipeFileService fileService;
     private final CostContext costContext;
     private final UserRefMapper userRefs;
@@ -54,19 +54,19 @@ public class RecipeViews {
     public RecipeDetail detail(RecipeAggregate recipe, UUID tenant, String language) {
         RecipeAggregate.Head head = recipe.head();
         List<UUID> ingredientIds = recipe.lines().stream().map(RecipeAggregate.Line::ingredientId).distinct().toList();
-        Map<UUID, IngredientQueries.Row> rows = ingredients.findAll(tenant, language, ingredientIds);
+        Map<UUID, IngredientQueryCustomRepository.Row> rows = ingredients.findAll(tenant, language, ingredientIds);
         Map<UUID, List<Long>> declared = ingredients.allergenIds(ingredientIds);
         Map<Long, UnitInfo> unitMap = units.snapshot().byId();
         AllergenCatalog.View view = allergens.view(tenant);
 
         List<RecipeDetail.Line> lines = recipe.lines().stream().map(l -> new RecipeDetail.Line(l.id(), l.ingredientId(),
-                Optional.ofNullable(rows.get(l.ingredientId())).map(IngredientQueries.Row::name).orElse(null), l.section(), l.quantity(),
+                Optional.ofNullable(rows.get(l.ingredientId())).map(IngredientQueryCustomRepository.Row::name).orElse(null), l.section(), l.quantity(),
                 l.unitId(), Optional.ofNullable(unitMap.get(l.unitId())).map(UnitInfo::code).orElse(null), l.optional(), l.quoteSelectable(),
                 l.notes(), RecipeAllergens.ofLine(l, declared, view, language), l.lineCost(), l.displayOrder())).toList();
         List<RecipeDetail.FixedCost> fixed = recipe.fixed().stream().map(f -> new RecipeDetail.FixedCost(f.id(), f.userFixedCostId(), f.name(),
                 f.method(), f.minutes(), f.percentage(), f.cost())).toList();
-        List<RecipeFileStore.Row> fileRows = files.list(head.id());
-        String cover = fileRows.stream().filter(RecipeFileStore.Row::cover).findFirst()
+        List<RecipeFileCustomRepository.Row> fileRows = files.list(head.id());
+        String cover = fileRows.stream().filter(RecipeFileCustomRepository.Row::cover).findFirst()
                 .map(f -> Optional.ofNullable(f.thumbnailKey()).orElse(f.storageKey())).orElse(null);
         Map<Long, String> categoryNames = categories.names(head.categoryId() == null ? List.of() : List.of(head.categoryId()));
         RecipeAggregate.Cost cost = head.cost();

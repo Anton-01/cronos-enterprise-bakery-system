@@ -4,9 +4,7 @@ import com.ninsky.cronos.kitchen.shared.AllergenRef;
 import com.ninsky.cronos.kitchen.shared.KitchenCaches;
 import com.ninsky.cronos.kitchen.shared.KitchenStatus;
 import com.ninsky.cronos.kitchen.shared.Scope;
-import com.ninsky.cronos.kitchen.shared.Sql;
 import lombok.RequiredArgsConstructor;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -33,7 +31,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class AllergenCatalog {
 
-    private final NamedParameterJdbcTemplate jdbc;
+    private final AllergenCustomRepository repository;
     private final KitchenCaches caches;
 
     /** One allergen with every locale; keyword maps are locale → normalised keywords. */
@@ -116,41 +114,24 @@ public class AllergenCatalog {
     }
 
     private View load(UUID tenantId) {
-        Map<String, Object> params = Map.of("tenant", tenantId);
-        record Head(long id, String code, UUID ownerId, String icon, List<String> regulations, KitchenStatus status,
-                    UUID legacyId, long version, Instant updatedAt) {
-        }
-        List<Head> heads = jdbc.query("""
-                SELECT id, code, owner_id, icon, regulations, status, legacy_id, version, updated_at
-                FROM allergens WHERE owner_id IS NULL OR owner_id = :tenant""", params,
-                (rs, i) -> new Head(rs.getLong("id"), rs.getString("code"), Sql.uuid(rs, "owner_id"), rs.getString("icon"),
-                        Sql.strings(rs, "regulations"), KitchenStatus.valueOf(rs.getString("status")), Sql.uuid(rs, "legacy_id"),
-                        rs.getLong("version"), Sql.instant(rs, "updated_at")));
+        List<AllergenCustomRepository.HeadRow> heads = repository.heads(tenantId);
 
         Map<Long, Map<String, String>> names = new HashMap<>();
         Map<Long, Map<String, String>> descriptions = new HashMap<>();
-        jdbc.query("""
-                SELECT n.allergen_id, n.locale, n.name, n.description FROM allergen_i18n n
-                JOIN allergens a ON a.id = n.allergen_id WHERE a.owner_id IS NULL OR a.owner_id = :tenant""", params, rs -> {
-            long id = rs.getLong("allergen_id");
-            String locale = rs.getString("locale");
-            names.computeIfAbsent(id, k -> new HashMap<>()).put(locale, rs.getString("name"));
-            Optional.ofNullable(rs.getString("description"))
-                    .ifPresent(d -> descriptions.computeIfAbsent(id, k -> new HashMap<>()).put(locale, d));
+        repository.texts(tenantId).forEach(t -> {
+            names.computeIfAbsent(t.allergenId(), k -> new HashMap<>()).put(t.locale(), t.name());
+            Optional.ofNullable(t.description())
+                    .ifPresent(d -> descriptions.computeIfAbsent(t.allergenId(), k -> new HashMap<>()).put(t.locale(), d));
         });
 
-        Map<Long, Map<String, List<String>>> platform = new HashMap<>();
-        Map<Long, Map<String, List<String>>> own = new HashMap<>();
-        jdbc.query("""
-                SELECT k.allergen_id, k.owner_id, k.locale, k.keyword FROM allergen_keywords k
-                JOIN allergens a ON a.id = k.allergen_id
-                WHERE (a.owner_id IS NULL OR a.owner_id = :tenant) AND (k.owner_id IS NULL OR k.owner_id = :tenant)
-                ORDER BY k.keyword""", params, rs -> {
-            Map<Long, Map<String, List<String>>> target = rs.getObject("owner_id") == null ? platform : own;
-            target.computeIfAbsent(rs.getLong("allergen_id"), k -> new HashMap<>())
-                    .computeIfAbsent(rs.getString("locale"), k -> new java.util.ArrayList<>())
-                    .add(rs.getString("keyword"));
-        });
+        // Platform vs tenant keywords: allergen → locale → keywords
+        Map<Boolean, Map<Long, Map<String, List<String>>>> keywords = repository.keywords(tenantId).stream()
+                .collect(Collectors.partitioningBy(k -> k.ownerId() == null,
+                        Collectors.groupingBy(AllergenCustomRepository.KeywordRow::allergenId,
+                                Collectors.groupingBy(AllergenCustomRepository.KeywordRow::locale,
+                                        Collectors.mapping(AllergenCustomRepository.KeywordRow::keyword, Collectors.toList())))));
+        Map<Long, Map<String, List<String>>> platform = keywords.get(true);
+        Map<Long, Map<String, List<String>>> own = keywords.get(false);
 
         Map<Long, Entry> entries = heads.stream()
                 .map(h -> new Entry(h.id(), h.code(), h.ownerId(), h.icon(), h.regulations(), h.status(),

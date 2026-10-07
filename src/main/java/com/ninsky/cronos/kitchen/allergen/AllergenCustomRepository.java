@@ -1,6 +1,7 @@
 package com.ninsky.cronos.kitchen.allergen;
 
 import com.ninsky.cronos.kitchen.shared.KitchenStatus;
+import com.ninsky.cronos.kitchen.shared.Sql;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -16,12 +17,50 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/** Allergen writes and usage counts; reads go through the cached {@link AllergenCatalog}. */
+/** Allergen SQL: writes, usage counts and the raw rows the cached {@link AllergenCatalog} assembles. */
 @Repository
 @RequiredArgsConstructor
-public class AllergenRepository {
+public class AllergenCustomRepository {
 
     private final NamedParameterJdbcTemplate jdbc;
+
+    public record HeadRow(long id, String code, UUID ownerId, String icon, List<String> regulations, KitchenStatus status,
+                          UUID legacyId, long version, Instant updatedAt) {
+    }
+
+    public record TextRow(long allergenId, String locale, String name, String description) {
+    }
+
+    /** {@code ownerId} null = platform keyword. */
+    public record KeywordRow(long allergenId, UUID ownerId, String locale, String keyword) {
+    }
+
+    /** SYSTEM ∪ tenant allergens. */
+    public List<HeadRow> heads(UUID tenantId) {
+        return jdbc.query("""
+                SELECT id, code, owner_id, icon, regulations, status, legacy_id, version, updated_at
+                FROM allergens WHERE owner_id IS NULL OR owner_id = :tenant""", Map.of("tenant", tenantId),
+                (rs, i) -> new HeadRow(rs.getLong("id"), rs.getString("code"), Sql.uuid(rs, "owner_id"), rs.getString("icon"),
+                        Sql.strings(rs, "regulations"), KitchenStatus.valueOf(rs.getString("status")), Sql.uuid(rs, "legacy_id"),
+                        rs.getLong("version"), Sql.instant(rs, "updated_at")));
+    }
+
+    public List<TextRow> texts(UUID tenantId) {
+        return jdbc.query("""
+                SELECT n.allergen_id, n.locale, n.name, n.description FROM allergen_i18n n
+                JOIN allergens a ON a.id = n.allergen_id WHERE a.owner_id IS NULL OR a.owner_id = :tenant""", Map.of("tenant", tenantId),
+                (rs, i) -> new TextRow(rs.getLong("allergen_id"), rs.getString("locale"), rs.getString("name"), rs.getString("description")));
+    }
+
+    /** Platform keywords plus the tenant's own, alphabetical. */
+    public List<KeywordRow> keywords(UUID tenantId) {
+        return jdbc.query("""
+                SELECT k.allergen_id, k.owner_id, k.locale, k.keyword FROM allergen_keywords k
+                JOIN allergens a ON a.id = k.allergen_id
+                WHERE (a.owner_id IS NULL OR a.owner_id = :tenant) AND (k.owner_id IS NULL OR k.owner_id = :tenant)
+                ORDER BY k.keyword""", Map.of("tenant", tenantId),
+                (rs, i) -> new KeywordRow(rs.getLong("allergen_id"), Sql.uuid(rs, "owner_id"), rs.getString("locale"), rs.getString("keyword")));
+    }
 
     public long insert(String code, UUID ownerId, String icon, List<String> regulations, UUID actor, Instant now) {
         Long id = jdbc.queryForObject("""

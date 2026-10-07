@@ -10,7 +10,7 @@ import com.ninsky.cronos.infrastructure.exception.ApiException;
 import com.ninsky.cronos.infrastructure.storage.StoragePort;
 import com.ninsky.cronos.kitchen.recipe.RecipeAggregate;
 import com.ninsky.cronos.kitchen.recipe.RecipeRevisions;
-import com.ninsky.cronos.kitchen.recipe.RecipeStore;
+import com.ninsky.cronos.kitchen.recipe.RecipeCustomRepository;
 import com.ninsky.cronos.kitchen.shared.KitchenProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,8 +43,8 @@ public class RecipeFileService {
     private static final int MAX_NAME = 150;
     private static final int MAX_DESCRIPTION = 200;
 
-    private final RecipeStore recipes;
-    private final RecipeFileStore files;
+    private final RecipeCustomRepository recipes;
+    private final RecipeFileCustomRepository files;
     private final RecipeRevisions revisions;
     private final StoragePort storage;
     private final KitchenProperties properties;
@@ -96,7 +96,7 @@ public class RecipeFileService {
 
         Instant now = clock.instant();
         boolean cover = type.image() && !files.hasCover(recipeId);
-        files.insert(new RecipeFileStore.NewFile(id, recipeId, key, ensureExtension(fileName, type), type.kind(), type.mimeType(), stored.length,
+        files.insert(new RecipeFileCustomRepository.NewFile(id, recipeId, key, ensureExtension(fileName, type), type.kind(), type.mimeType(), stored.length,
                 sha256(stored), blankToNull(description), cover, thumbKey, tenant, now));
         long version = recipes.bumpVersion(recipeId, tenant, now);
         revisions.write(recipeId, version, tenant, now, RecipeRevisions.Reason.of("kitchen.revision.fileUploaded", fileName),
@@ -111,7 +111,7 @@ public class RecipeFileService {
     public RecipeFileResponse update(UUID recipeId, UUID fileId, RecipeFileUpdate request) {
         UUID tenant = actors.require().id();
         recipes.lockOwned(recipeId, tenant).orElseThrow(RecipeFileService::recipeNotFound);
-        RecipeFileStore.Row file = files.find(recipeId, fileId).orElseThrow(RecipeFileService::fileNotFound);
+        RecipeFileCustomRepository.Row file = files.find(recipeId, fileId).orElseThrow(RecipeFileService::fileNotFound);
         if (request.description() != null) {
             if (request.description().length() > MAX_DESCRIPTION) {
                 throw ApiException.invalid("description", "api.validation.maxLength", MAX_DESCRIPTION);
@@ -133,7 +133,7 @@ public class RecipeFileService {
     public void delete(UUID recipeId, UUID fileId) {
         UUID tenant = actors.require().id();
         RecipeAggregate recipe = recipes.lockOwned(recipeId, tenant).orElseThrow(RecipeFileService::recipeNotFound);
-        RecipeFileStore.Row file = files.find(recipeId, fileId).orElseThrow(RecipeFileService::fileNotFound);
+        RecipeFileCustomRepository.Row file = files.find(recipeId, fileId).orElseThrow(RecipeFileService::fileNotFound);
         files.delete(fileId);
         if (file.cover()) {
             files.promoteCover(recipeId);
@@ -152,7 +152,7 @@ public class RecipeFileService {
         return files.list(recipeId).stream().map(this::response).toList();
     }
 
-    public RecipeFileResponse response(RecipeFileStore.Row row) {
+    public RecipeFileResponse response(RecipeFileCustomRepository.Row row) {
         int minutes = properties.signedUrlMinutes();
         return new RecipeFileResponse(row.id(), row.fileName(), signed(row.storageKey(), minutes), signed(row.thumbnailKey(), minutes),
                 row.kind(), row.mimeType(), row.sizeBytes(), row.description(), row.cover(), row.uploadedAt(), row.uploadedBy());

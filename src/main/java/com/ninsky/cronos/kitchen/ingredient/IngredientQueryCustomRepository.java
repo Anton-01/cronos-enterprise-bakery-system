@@ -4,7 +4,7 @@ import com.ninsky.cronos.finance.shared.UserRef;
 import com.ninsky.cronos.finance.shared.UserRefMapper;
 import com.ninsky.cronos.infrastructure.web.paging.CatalogPage;
 import com.ninsky.cronos.infrastructure.web.paging.PageQuery;
-import com.ninsky.cronos.kitchen.costing.EffectivePrices;
+import com.ninsky.cronos.kitchen.costing.IngredientPriceCustomRepository;
 import com.ninsky.cronos.kitchen.costing.PriceSource;
 import com.ninsky.cronos.kitchen.shared.Dimension;
 import com.ninsky.cronos.kitchen.shared.KitchenStatus;
@@ -32,7 +32,7 @@ import java.util.UUID;
 /** Read side of ingredients: one SQL per list/detail with the effective price joined LATERAL. */
 @Repository
 @RequiredArgsConstructor
-public class IngredientQueries {
+public class IngredientQueryCustomRepository {
 
     static final Map<String, String> SORTS = Map.of(
             "name", "kitchen_fold(n.name)",
@@ -45,7 +45,7 @@ public class IngredientQueries {
             LEFT JOIN LATERAL (SELECT count(DISTINCT l.recipe_id) AS used FROM recipe_lines l JOIN recipes r ON r.id = l.recipe_id
                 WHERE l.ingredient_id = i.id AND r.owner_id = :tenant AND r.deleted_at IS NULL) u ON TRUE""";
     private static final String FROM = " FROM ingredients i JOIN ingredient_i18n n ON n.ingredient_id = i.id AND n.locale = :lang"
-            + " JOIN categories c ON c.id = i.category_id " + EffectivePrices.LATERAL + " " + USED;
+            + " JOIN categories c ON c.id = i.category_id " + IngredientPriceCustomRepository.LATERAL + " " + USED;
     private static final String VISIBLE = " WHERE (i.owner_id IS NULL OR i.owner_id = :tenant)";
     private static final String COLUMNS = "SELECT i.id, i.code, i.owner_id, i.category_id, c.name AS category_name, i.base_dimension, "
             + "i.yield_percent, i.status, n.name, ep.cost_per_base_unit, ep.priced_at, ep.owner_id AS price_owner, coalesce(u.used, 0) AS used";
@@ -216,7 +216,7 @@ public class IngredientQueries {
                        count(*) FILTER (WHERE EXISTS (SELECT 1 FROM ingredient_allergens ia WHERE ia.ingredient_id = i.id)) AS with_allergens,
                        count(*) FILTER (WHERE ep.priced_at < :staleBefore) AS stale,
                        count(*) FILTER (WHERE ep.cost_per_base_unit IS NULL) AS unpriced
-                FROM ingredients i""" + " " + EffectivePrices.LATERAL + VISIBLE + " AND i.status = 'ACTIVE'",
+                FROM ingredients i""" + " " + IngredientPriceCustomRepository.LATERAL + VISIBLE + " AND i.status = 'ACTIVE'",
                 new MapSqlParameterSource().addValue("tenant", tenant).addValue("staleBefore", staleBefore),
                 (rs, i) -> new IngredientStats(rs.getLong("total"), rs.getLong("system_rows"), rs.getLong("own_rows"),
                         rs.getLong("with_allergens"), rs.getLong("stale"), rs.getLong("unpriced")));

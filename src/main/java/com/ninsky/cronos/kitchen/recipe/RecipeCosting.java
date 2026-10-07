@@ -30,7 +30,7 @@ public class RecipeCosting {
 
     private static final BigDecimal HUNDRED = BigDecimal.valueOf(100);
 
-    private final RecipeStore store;
+    private final RecipeCustomRepository store;
     private final RecipeRevisions revisions;
     private final EffectivePrices prices;
     private final UnitCatalog units;

@@ -12,11 +12,11 @@ import com.ninsky.cronos.domain.port.auth.UserRepositoryPort;
 import com.ninsky.cronos.domain.port.recipe.RecipeShareAccessLogRepositoryPort;
 import com.ninsky.cronos.domain.port.recipe.RecipeShareRepositoryPort;
 import com.ninsky.cronos.infrastructure.exception.BusinessException;
-import com.ninsky.cronos.kitchen.ingredient.IngredientQueries;
+import com.ninsky.cronos.kitchen.ingredient.IngredientQueryCustomRepository;
 import com.ninsky.cronos.kitchen.recipe.RecipeAggregate;
-import com.ninsky.cronos.kitchen.recipe.RecipeStore;
+import com.ninsky.cronos.kitchen.recipe.RecipeCustomRepository;
 import com.ninsky.cronos.kitchen.recipe.file.RecipeFileService;
-import com.ninsky.cronos.kitchen.recipe.file.RecipeFileStore;
+import com.ninsky.cronos.kitchen.recipe.file.RecipeFileCustomRepository;
 import com.ninsky.cronos.kitchen.shared.KitchenMessages;
 import com.ninsky.cronos.kitchen.unit.UnitCatalog;
 import com.ninsky.cronos.kitchen.unit.UnitInfo;
@@ -42,13 +42,13 @@ public class RecipeShareService {
 
     private final RecipeShareRepositoryPort shareRepository;
     private final RecipeShareAccessLogRepositoryPort accessLogRepository;
-    private final RecipeStore recipeStore;
-    private final RecipeFileStore recipeFileStore;
+    private final RecipeCustomRepository recipeStore;
+    private final RecipeFileCustomRepository recipeFileStore;
     private final RecipeFileService recipeFileService;
     private final UserRepositoryPort userRepository;
     private final UserProfileRepositoryPort userProfileRepository;
     private final ApplicationEventPublisher eventPublisher;
-    private final IngredientQueries ingredientQueries;
+    private final IngredientQueryCustomRepository ingredientQueries;
     private final UnitCatalog unitCatalog;
 
     @Value("${app.frontend.urlSharePublicRecipe}")
@@ -128,12 +128,12 @@ public class RecipeShareService {
 
         // Two batched lookups: ingredient names (owner's view) and cached units
         String language = KitchenMessages.language();
-        Map<UUID, IngredientQueries.Row> ingredients = ingredientQueries.findAll(viewer, language,
+        Map<UUID, IngredientQueryCustomRepository.Row> ingredients = ingredientQueries.findAll(viewer, language,
                 recipe.lines().stream().map(RecipeAggregate.Line::ingredientId).collect(Collectors.toSet()));
         Map<Long, UnitInfo> units = unitCatalog.findAll(recipe.lines().stream().map(RecipeAggregate.Line::unitId).collect(Collectors.toSet()));
 
         List<PublicIngredientDto> lines = recipe.lines().stream().map(line -> PublicIngredientDto.builder()
-                .name(Optional.ofNullable(ingredients.get(line.ingredientId())).map(IngredientQueries.Row::name).orElse("Insumo desconocido"))
+                .name(Optional.ofNullable(ingredients.get(line.ingredientId())).map(IngredientQueryCustomRepository.Row::name).orElse("Insumo desconocido"))
                 .quantity(line.quantity())
                 .unitName(Optional.ofNullable(units.get(line.unitId())).map(UnitInfo::name).orElse(""))
                 .isOptional(line.optional()).build()).toList();

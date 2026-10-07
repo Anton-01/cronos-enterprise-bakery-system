@@ -3,7 +3,7 @@ package com.ninsky.cronos.kitchen.shared;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Repository;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -12,9 +12,9 @@ import java.util.Set;
 import java.util.UUID;
 
 /** Category checks and names for kitchen rows (types INGREDIENT / PRODUCT). */
-@Component
+@Repository
 @RequiredArgsConstructor
-public class CategoryLookup {
+public class KitchenCategoryCustomRepository {
 
     private final NamedParameterJdbcTemplate jdbc;
 

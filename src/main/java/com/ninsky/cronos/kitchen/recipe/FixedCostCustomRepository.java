@@ -4,7 +4,7 @@ import com.ninsky.cronos.kitchen.costing.FixedCostMethod;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
 import java.util.Collection;
@@ -15,9 +15,9 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /** The tenant's master fixed costs ({@code user_fixed_costs}). */
-@Component
+@Repository
 @RequiredArgsConstructor
-public class FixedCostLookup {
+public class FixedCostCustomRepository {
 
     private final NamedParameterJdbcTemplate jdbc;
 

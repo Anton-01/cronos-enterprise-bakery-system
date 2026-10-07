@@ -114,7 +114,7 @@ public final class CostEngine {
         }
 
         public BigDecimal lineCost(String key) {
-            return lines.stream().filter(l -> l.key().equals(key)).map(LineResult::lineCost).findFirst().orElse(null);
+            return lines.stream().filter(l -> l.key().equals(key)).findFirst().map(LineResult::lineCost).orElse(null);
         }
     }
 

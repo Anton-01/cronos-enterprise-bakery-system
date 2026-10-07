@@ -3,14 +3,13 @@ package com.ninsky.cronos.kitchen.job;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
-import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Component;
 
-import java.util.Map;
+import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
-/** Outbox of kitchen background work ({@code kitchen_jobs}); claimed with SKIP LOCKED so instances never collide. */
+/** Outbox of kitchen background work: JSON payloads over {@link KitchenJobCustomRepository}. */
 @Component
 @RequiredArgsConstructor
 public class KitchenJobs {
@@ -18,36 +17,31 @@ public class KitchenJobs {
     static final String RECALCULATE = "RECALCULATE_RECIPES";
     static final int MAX_ATTEMPTS = 5;
 
-    private final NamedParameterJdbcTemplate jdbc;
+    private final KitchenJobCustomRepository repository;
     private final ObjectMapper objectMapper;
 
     public record Claimed(long id, RecalculationJob job, int attempts) {
     }
 
     public void enqueue(RecalculationJob job) {
-        jdbc.update("INSERT INTO kitchen_jobs (kind, payload) VALUES (:kind, CAST(:payload AS jsonb))",
-                new MapSqlParameterSource().addValue("kind", RECALCULATE).addValue("payload", write(job)));
+        repository.insert(RECALCULATE, write(job));
     }
 
     /** Locks the oldest pending job for the current transaction. */
     Optional<Claimed> claim() {
-        return jdbc.query("""
-                SELECT id, payload, attempts FROM kitchen_jobs WHERE status = 'PENDING' ORDER BY id LIMIT 1 FOR UPDATE SKIP LOCKED""",
-                Map.of(), (rs, i) -> new Claimed(rs.getLong("id"), read(rs.getString("payload")), rs.getInt("attempts"))).stream().findFirst();
+        return repository.claim().map(row -> new Claimed(row.id(), read(row.payload()), row.attempts()));
     }
 
     void done(long id) {
-        jdbc.update("UPDATE kitchen_jobs SET status = 'DONE', processed_at = now() WHERE id = :id", Map.of("id", id));
+        repository.done(id);
     }
 
     void failed(long id, int attempts, String error) {
-        jdbc.update("""
-                UPDATE kitchen_jobs SET attempts = :attempts, last_error = left(:error, 500),
-                    status = CASE WHEN :attempts >= :max THEN 'FAILED' ELSE 'PENDING' END,
-                    processed_at = CASE WHEN :attempts >= :max THEN now() END
-                WHERE id = :id""",
-                new MapSqlParameterSource().addValue("id", id).addValue("attempts", attempts).addValue("error", String.valueOf(error))
-                        .addValue("max", MAX_ATTEMPTS));
+        repository.failed(id, attempts, String.valueOf(error), MAX_ATTEMPTS);
+    }
+
+    List<UUID> recipesWithoutOwnPrice(UUID ingredientId) {
+        return repository.recipesWithoutOwnPrice(ingredientId);
     }
 
     private String write(RecalculationJob job) {

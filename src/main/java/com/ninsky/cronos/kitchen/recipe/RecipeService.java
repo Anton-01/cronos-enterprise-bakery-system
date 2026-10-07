@@ -36,8 +36,8 @@ public class RecipeService {
 
     private static final String COPY_SUFFIX = "_COPY";
 
-    private final RecipeStore store;
-    private final RecipeQueries queries;
+    private final RecipeCustomRepository store;
+    private final RecipeQueryCustomRepository queries;
     private final RecipeValidator validator;
     private final RecipeViews views;
     private final RecipeCosting costing;
@@ -52,7 +52,7 @@ public class RecipeService {
     @Transactional(readOnly = true)
     public CatalogPage<RecipeSummary> page(RecipeFilter filter, Integer page, Integer size, String sort) {
         UUID tenant = tenant();
-        PageQuery query = PageQuery.of(page, size, sort, RecipeQueries.SORTS, RecipeQueries.DEFAULT_SORT);
+        PageQuery query = PageQuery.of(page, size, sort, RecipeQueryCustomRepository.SORTS, RecipeQueryCustomRepository.DEFAULT_SORT);
         return views.summaries(queries.page(tenant, filter, query), tenant, KitchenMessages.language());
     }
 

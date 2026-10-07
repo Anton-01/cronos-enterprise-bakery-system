@@ -5,8 +5,8 @@ import com.ninsky.cronos.infrastructure.exception.Violations;
 import com.ninsky.cronos.kitchen.allergen.AllergenCatalog;
 import com.ninsky.cronos.kitchen.costing.BaseQuantity;
 import com.ninsky.cronos.kitchen.costing.FixedCostMethod;
-import com.ninsky.cronos.kitchen.ingredient.IngredientQueries;
-import com.ninsky.cronos.kitchen.shared.CategoryLookup;
+import com.ninsky.cronos.kitchen.ingredient.IngredientQueryCustomRepository;
+import com.ninsky.cronos.kitchen.shared.KitchenCategoryCustomRepository;
 import com.ninsky.cronos.kitchen.shared.KitchenStatus;
 import com.ninsky.cronos.kitchen.shared.Numbers;
 import com.ninsky.cronos.kitchen.shared.TextNormalizer;
@@ -38,10 +38,10 @@ public class RecipeValidator {
     static final BigDecimal DEFAULT_MARGIN = BigDecimal.valueOf(60);
     static final BigDecimal DEFAULT_WASTE = BigDecimal.valueOf(3);
 
-    private final RecipeStore store;
-    private final IngredientQueries ingredients;
-    private final CategoryLookup categories;
-    private final FixedCostLookup fixedCosts;
+    private final RecipeCustomRepository store;
+    private final IngredientQueryCustomRepository ingredients;
+    private final KitchenCategoryCustomRepository categories;
+    private final FixedCostCustomRepository fixedCosts;
     private final UnitCatalog units;
 
     /** Lookups shared by the line checks. */
@@ -108,7 +108,7 @@ public class RecipeValidator {
     public List<RecipeAggregate.Line> lines(List<RecipeRequest.LineRequest> requests, String path, Context context, Violations violations) {
         RecipeAggregate current = context.current();
         List<UUID> ids = requests.stream().map(RecipeRequest.LineRequest::ingredientId).filter(Objects::nonNull).distinct().toList();
-        Map<UUID, IngredientQueries.Row> rows = ingredients.findAll(context.tenant(), context.language(), ids);
+        Map<UUID, IngredientQueryCustomRepository.Row> rows = ingredients.findAll(context.tenant(), context.language(), ids);
         Map<UUID, BigDecimal> densities = ingredients.densities(rows.keySet());
         Map<UUID, List<Long>> declared = ingredients.allergenIds(rows.keySet());
         Set<String> seen = new HashSet<>();
@@ -122,7 +122,7 @@ public class RecipeValidator {
             if (line.id() != null && (existing.isEmpty() || !lineIds.add(line.id()))) {
                 violations.invalid(prefix + "id", "kitchen.recipe.line.foreign");
             }
-            IngredientQueries.Row ingredient = line.ingredientId() == null ? null : rows.get(line.ingredientId());
+            IngredientQueryCustomRepository.Row ingredient = line.ingredientId() == null ? null : rows.get(line.ingredientId());
             boolean keptInactive = ingredient != null && existing.map(e -> e.ingredientId().equals(line.ingredientId())).orElse(false);
             if (ingredient == null || (ingredient.status() != KitchenStatus.ACTIVE && !keptInactive)) {
                 violations.invalid(prefix + "ingredientId", line.ingredientId() == null ? "api.validation.required" : "kitchen.ingredient.invalid");
@@ -174,14 +174,14 @@ public class RecipeValidator {
     /** Fixed-cost rules; also used by the editor-mode cost preview. */
     public List<RecipeAggregate.Fixed> fixed(List<RecipeRequest.FixedCostRequest> requests, String path, UUID tenant, Violations violations) {
         violations.invalidIf(requests.size() > MAX_FIXED, path, "api.validation.listSize", 0, MAX_FIXED);
-        Map<UUID, FixedCostLookup.Master> masters = fixedCosts.find(tenant,
+        Map<UUID, FixedCostCustomRepository.Master> masters = fixedCosts.find(tenant,
                 requests.stream().map(RecipeRequest.FixedCostRequest::userFixedCostId).filter(Objects::nonNull).toList());
         Set<UUID> seen = new HashSet<>();
         List<RecipeAggregate.Fixed> fixed = new ArrayList<>();
         for (int i = 0; i < requests.size(); i++) {
             RecipeRequest.FixedCostRequest request = requests.get(i);
             String prefix = path + "[" + i + "].";
-            FixedCostLookup.Master master = request.userFixedCostId() == null ? null : masters.get(request.userFixedCostId());
+            FixedCostCustomRepository.Master master = request.userFixedCostId() == null ? null : masters.get(request.userFixedCostId());
             if (master == null || !master.active()) {
                 violations.invalid(prefix + "userFixedCostId", "kitchen.fixedCost.invalid");
                 continue;
