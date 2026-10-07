@@ -11,7 +11,7 @@ public final class ProcessHtmlSanitizer {
     public static final int MAX_LENGTH = 100_000;
 
     private static final Pattern TAGS = Pattern.compile("<[^>]*>");
-    private static final Pattern ENTITY_SPACES = Pattern.compile("&nbsp;|&#160;|\\s");
+    private static final Pattern ENTITY_SPACES = Pattern.compile("&nbsp;|&#160;|[\\s\\u00A0]");
 
     private static final PolicyFactory POLICY = new HtmlPolicyBuilder()
             .allowElements("p", "br", "strong", "b", "em", "i", "u", "s", "h1", "h2", "h3", "ol", "ul", "li", "blockquote", "code", "pre",
