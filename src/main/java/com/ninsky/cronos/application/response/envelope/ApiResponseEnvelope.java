@@ -20,7 +20,8 @@ public record ApiResponseEnvelope<T>(
         String status,
         String message,
         @JsonInclude(JsonInclude.Include.ALWAYS) T data,
-        List<ApiError> errors
+        List<ApiError> errors,
+        @JsonInclude(JsonInclude.Include.NON_EMPTY) List<ApiWarning> warnings
 ) {
     public record Meta(String traceId, Instant timestamp) {
         public static Meta now(String traceId) {
@@ -29,10 +30,15 @@ public record ApiResponseEnvelope<T>(
     }
 
     public static <T> ApiResponseEnvelope<T> success(String traceId, String message, T data) {
-        return new ApiResponseEnvelope<>(Meta.now(traceId), "SUCCESS", message, data, null);
+        return success(traceId, message, data, null);
+    }
+
+    /** Success with non-blocking {@code warnings[]}; omitted from the JSON when empty. */
+    public static <T> ApiResponseEnvelope<T> success(String traceId, String message, T data, List<ApiWarning> warnings) {
+        return new ApiResponseEnvelope<>(Meta.now(traceId), "SUCCESS", message, data, null, warnings);
     }
 
     public static <T> ApiResponseEnvelope<T> error(String traceId, String message, List<ApiError> errors) {
-        return new ApiResponseEnvelope<>(Meta.now(traceId), "ERROR", message, null, errors);
+        return new ApiResponseEnvelope<>(Meta.now(traceId), "ERROR", message, null, errors, null);
     }
 }

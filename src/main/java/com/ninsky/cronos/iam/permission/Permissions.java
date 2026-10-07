@@ -37,6 +37,9 @@ public final class Permissions {
     public static final String CATALOG_CATEGORY_MANAGE = "CATALOG.CATEGORY.MANAGE";
     public static final String CATALOG_ALLERGEN_READ = "CATALOG.ALLERGEN.READ";
     public static final String CATALOG_ALLERGEN_MANAGE = "CATALOG.ALLERGEN.MANAGE";
+    public static final String CATALOG_INGREDIENT_READ = "CATALOG.INGREDIENT.READ";
+    /** Platform staff: edit SYSTEM ingredients (identity, allergens, reference price, substitutes). */
+    public static final String CATALOG_INGREDIENT_MANAGE = "CATALOG.INGREDIENT.MANAGE";
     public static final String CATALOG_IMPORT_READ = "CATALOG.IMPORT.READ";
     public static final String CATALOG_IMPORT_EXECUTE = "CATALOG.IMPORT.EXECUTE";
 

@@ -2,7 +2,7 @@ package com.ninsky.cronos.infrastructure.exception;
 
 import org.springframework.http.HttpStatus;
 
-/** Stable error codes of the IAM/Finance contract (spec §1.3). Never localised. */
+/** Stable error codes of the IAM/Finance and kitchen contracts. Never localised. */
 public enum ApiErrorCode {
     VALIDATION_ERROR(HttpStatus.BAD_REQUEST),
     RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND),
@@ -26,6 +26,12 @@ public enum ApiErrorCode {
     PAYLOAD_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE),
     UNSUPPORTED_MEDIA_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE),
     RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS),
+    // Kitchen catalog & recipes (§8)
+    UNIT_INCOMPATIBLE(HttpStatus.BAD_REQUEST),
+    CURRENCY_NOT_SUPPORTED(HttpStatus.BAD_REQUEST),
+    QUOTA_EXCEEDED(HttpStatus.CONFLICT),
+    PRICE_BELOW_COST(HttpStatus.BAD_REQUEST),
+    INVALID_SUBSTITUTION(HttpStatus.BAD_REQUEST),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR);
 
     private final HttpStatus status;

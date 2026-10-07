@@ -10,6 +10,10 @@ public final class AuditTargets {
     public static final String TAX_RATE = "TAX_RATE";
     public static final String FINANCE_SETTINGS = "FINANCE_SETTINGS";
     public static final String AUDIT_LOG = "AUDIT_LOG";
+    public static final String ALLERGEN = "ALLERGEN";
+    public static final String INGREDIENT = "INGREDIENT";
+    public static final String RECIPE = "RECIPE";
+    public static final String QUOTE = "QUOTE";
     public static final String ENDPOINT = "ENDPOINT";
 
     private AuditTargets() {
