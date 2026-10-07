@@ -40,6 +40,9 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import com.ninsky.cronos.iam.policy.TwoFactorRequirementCustomRepository;
+import com.ninsky.cronos.iam.access.UserAccessCustomRepository;
+import com.ninsky.cronos.iam.audit.AuditLogCustomRepository;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -76,7 +79,8 @@ import static org.mockito.Mockito.when;
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 @Import({TwoFactorAccountService.class, TwoFactorCustomRepository.class, SecondFactor.class, TwoFactorSecretCipher.class,
-        JdbcTwoFactorRequirement.class, CachedSecurityPolicyProvider.class, SecurityPolicyCustomRepository.class, UserReadCustomRepository.class,
+        JdbcTwoFactorRequirement.class, TwoFactorRequirementCustomRepository.class, UserAccessCustomRepository.class, AuditLogCustomRepository.class,
+        CachedSecurityPolicyProvider.class, SecurityPolicyCustomRepository.class, UserReadCustomRepository.class,
         AccessVersions.class, JdbcAuditRecorder.class, CacheConfig.class, V7__normalize_legacy_phone_numbers.class,
         V11__iam_seed.class, V14__remove_super_admin_from_2fa_required_roles.class, V16__move_totp_secrets.class,
         TwoFactorPostgresIT.Beans.class})

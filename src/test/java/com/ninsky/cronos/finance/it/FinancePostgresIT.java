@@ -47,6 +47,9 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import com.ninsky.cronos.finance.shared.FinanceLockCustomRepository;
+import com.ninsky.cronos.infrastructure.persistence.lock.AdvisoryLockCustomRepository;
+import com.ninsky.cronos.iam.audit.AuditLogCustomRepository;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Propagation;
@@ -87,7 +90,8 @@ import static org.mockito.Mockito.when;
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 @Import({CurrencyService.class, CurrencyQueryCustomRepository.class, TaxRateService.class, TaxRateQueryCustomRepository.class, FinanceSettingsService.class,
-        PricingSnapshotResolver.class, FinanceLocks.class, FinanceSettingsCache.class, UserRefCustomRepository.class, DefaultTaxRateExpiryJob.class,
+        PricingSnapshotResolver.class, FinanceLocks.class, FinanceLockCustomRepository.class, AdvisoryLockCustomRepository.class,
+        AuditLogCustomRepository.class, FinanceSettingsCache.class, UserRefCustomRepository.class, DefaultTaxRateExpiryJob.class,
         JdbcAuditRecorder.class, CacheConfig.class, EncryptedStringConverter.class, EncryptedLocalDateConverter.class, FinancePostgresIT.Beans.class})
 class FinancePostgresIT {
 

@@ -33,7 +33,6 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.sql.Timestamp;
@@ -61,9 +60,13 @@ import static org.mockito.Mockito.when;
         AccountPostgresIT.Beans.class})
 abstract class AccountPostgresIT {
 
-    @Container
+    /** One container for every subclass: the cached Spring context keeps its port (stopped by Ryuk at JVM exit). */
     @ServiceConnection
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
+
+    static {
+        POSTGRES.start();
+    }
 
     @MockitoBean
     protected FieldEncryptionService fieldEncryptionService;
