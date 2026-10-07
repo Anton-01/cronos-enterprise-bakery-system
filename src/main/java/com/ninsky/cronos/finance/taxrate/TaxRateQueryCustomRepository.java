@@ -3,7 +3,7 @@ package com.ninsky.cronos.finance.taxrate;
 import com.ninsky.cronos.finance.pricing.TaxFactorType;
 import com.ninsky.cronos.finance.shared.FinanceStatus;
 import com.ninsky.cronos.finance.shared.SqlSupport;
-import com.ninsky.cronos.finance.shared.UserRefMapper;
+import com.ninsky.cronos.finance.shared.UserRefCustomRepository;
 import com.ninsky.cronos.infrastructure.web.paging.CatalogPage;
 import com.ninsky.cronos.infrastructure.web.paging.PageQuery;
 import lombok.RequiredArgsConstructor;
@@ -19,7 +19,7 @@ import java.util.Optional;
 /** Read side of IVA rates; {@code inUse} = referenced by a quote snapshot. */
 @Repository
 @RequiredArgsConstructor
-public class TaxRateQueries {
+public class TaxRateQueryCustomRepository {
 
     /** API sort field → SQL (spec §10.3). */
     public static final Map<String, String> SORTS = Map.of("name", "lower(t.name)", "ratePercent", "t.rate_percent",
@@ -30,12 +30,12 @@ public class TaxRateQueries {
 
     private static final String SELECT = "SELECT t.id, t.code, t.name, t.description, t.sat_tax_code, t.factor_type, t.rate_percent, "
             + "t.valid_from, t.valid_to, t.is_default, t.status, t.created_at, t.updated_at, t.version, " + IN_USE + " AS in_use, "
-            + UserRefMapper.columns("t.updated_by") + " FROM tax_rates t" + UserRefMapper.join("t.updated_by");
+            + UserRefCustomRepository.columns("t.updated_by") + " FROM tax_rates t" + UserRefCustomRepository.join("t.updated_by");
     private static final String FILTER = " WHERE (CAST(:search AS text) IS NULL OR t.code ILIKE :search OR t.name ILIKE :search"
             + " OR t.description ILIKE :search) AND (CAST(:status AS text) IS NULL OR t.status = :status)";
 
     private final NamedParameterJdbcTemplate jdbc;
-    private final UserRefMapper userRefs;
+    private final UserRefCustomRepository userRefs;
 
     public CatalogPage<TaxRateResponse> page(String search, FinanceStatus status, PageQuery query) {
         MapSqlParameterSource params = new MapSqlParameterSource()

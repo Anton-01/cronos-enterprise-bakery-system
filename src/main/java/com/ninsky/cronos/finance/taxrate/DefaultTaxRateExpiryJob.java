@@ -3,13 +3,13 @@ package com.ninsky.cronos.finance.taxrate;
 import com.ninsky.cronos.domain.model.audit.AuditAction;
 import com.ninsky.cronos.domain.model.audit.AuditSeverity;
 import com.ninsky.cronos.iam.audit.AuditEvent;
+import com.ninsky.cronos.iam.audit.AuditLogCustomRepository;
 import com.ninsky.cronos.iam.audit.AuditRecorder;
 import com.ninsky.cronos.iam.audit.AuditTargets;
 import com.ninsky.cronos.iam.shared.TenantTime;
+import com.ninsky.cronos.infrastructure.persistence.lock.AdvisoryLockCustomRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,7 +31,8 @@ public class DefaultTaxRateExpiryJob {
     private static final long JOB_LOCK_KEY = 7_426_101L;
 
     private final TaxRateRepository repository;
-    private final NamedParameterJdbcTemplate jdbc;
+    private final AdvisoryLockCustomRepository locks;
+    private final AuditLogCustomRepository auditLog;
     private final AuditRecorder audit;
     private final Clock clock;
 
@@ -40,7 +41,7 @@ public class DefaultTaxRateExpiryJob {
     public void run() {
         LocalDate today = TenantTime.today(clock);
         // Held until this transaction ends, after the independent audit insert has committed.
-        jdbc.query("SELECT pg_advisory_xact_lock(:key)", Map.of("key", JOB_LOCK_KEY), rs -> { });
+        locks.lockForTransaction(JOB_LOCK_KEY);
         repository.findByIsDefaultTrue()
                 .filter(rate -> rate.getValidTo() != null && rate.getValidTo().isBefore(today))
                 .filter(rate -> !alreadyReported(rate.getId(), today))
@@ -56,15 +57,7 @@ public class DefaultTaxRateExpiryJob {
 
     /** audit_log.created_at holds tenant wall time. */
     private boolean alreadyReported(long rateId, LocalDate today) {
-        Boolean exists = jdbc.queryForObject("""
-                SELECT EXISTS (SELECT 1 FROM audit_log WHERE action = :action AND target_type = :type AND target_id = :id
-                               AND created_at >= :from)""",
-                new MapSqlParameterSource()
-                        .addValue("action", AuditAction.FINANCE_DEFAULT_EXPIRED.name())
-                        .addValue("type", AuditTargets.TAX_RATE)
-                        .addValue("id", Long.toString(rateId))
-                        .addValue("from", today.atStartOfDay()),
-                Boolean.class);
-        return Boolean.TRUE.equals(exists);
+        return auditLog.existsForTargetSince(AuditAction.FINANCE_DEFAULT_EXPIRED.name(), AuditTargets.TAX_RATE, Long.toString(rateId),
+                today.atStartOfDay());
     }
 }

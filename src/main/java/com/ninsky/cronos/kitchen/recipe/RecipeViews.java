@@ -1,6 +1,6 @@
 package com.ninsky.cronos.kitchen.recipe;
 
-import com.ninsky.cronos.finance.shared.UserRefMapper;
+import com.ninsky.cronos.finance.shared.UserRefCustomRepository;
 import com.ninsky.cronos.infrastructure.web.paging.CatalogPage;
 import com.ninsky.cronos.kitchen.allergen.AllergenCatalog;
 import com.ninsky.cronos.kitchen.costing.CostContext;
@@ -35,7 +35,7 @@ public class RecipeViews {
     private final RecipeFileCustomRepository files;
     private final RecipeFileService fileService;
     private final CostContext costContext;
-    private final UserRefMapper userRefs;
+    private final UserRefCustomRepository userRefs;
     private final KitchenProperties properties;
 
     public CatalogPage<RecipeSummary> summaries(CatalogPage<UUID> ids, UUID tenant, String language) {

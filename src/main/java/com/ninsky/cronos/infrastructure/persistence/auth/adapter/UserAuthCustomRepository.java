@@ -22,7 +22,7 @@ import java.util.UUID;
  * Infrastructure adapter for {@link UserAuthLookupPort}. Sits on the highest-frequency path in
  * the app (login, and every authenticated request via {@code CustomUserDetailsService}) — fetches
  * only the columns needed to authenticate/authorize (no {@code UserProfile}, no audit columns, no
- * JPA entity graph), mirroring {@code JdbcErrorCatalogAdapter}'s style. Cached the same way the
+ * JPA entity graph), mirroring {@code ErrorCatalogCustomRepository}'s style. Cached the same way the
  * JPA-based lookup it replaces was (keyed by the raw login id string) — this preserves, not
  * introduces, the pre-existing risk that a cache entry keyed by username isn't invalidated by an
  * eviction keyed by userId elsewhere (e.g. {@code UserService.changePassword}); not redesigned
@@ -30,7 +30,7 @@ import java.util.UUID;
  */
 @Slf4j
 @Repository
-public class JdbcUserAuthAdapter implements UserAuthLookupPort {
+public class UserAuthCustomRepository implements UserAuthLookupPort {
 
     private static final String EMAIL_FIELD_CONTEXT = "email";
 
@@ -74,7 +74,7 @@ public class JdbcUserAuthAdapter implements UserAuthLookupPort {
     private final FieldEncryptionService fieldEncryptionService;
     private final BlindIndexService blindIndexService;
 
-    public JdbcUserAuthAdapter(JdbcTemplate jdbcTemplate, FieldEncryptionService fieldEncryptionService, BlindIndexService blindIndexService) {
+    public UserAuthCustomRepository(JdbcTemplate jdbcTemplate, FieldEncryptionService fieldEncryptionService, BlindIndexService blindIndexService) {
         this.jdbcTemplate = jdbcTemplate;
         this.fieldEncryptionService = fieldEncryptionService;
         this.blindIndexService = blindIndexService;

@@ -42,7 +42,7 @@ public class UserAvatarService {
     private final ImageProcessor images;
     private final AvatarStorage storage;
     private final UserAccountRepository accounts;
-    private final UserReadRepository users;
+    private final UserReadCustomRepository users;
     private final AccessGuards guards;
     private final ActorProvider actors;
     private final AuditRecorder recorder;
@@ -51,7 +51,7 @@ public class UserAvatarService {
     private final TransactionTemplate tx;
 
     public UserAvatarService(ImageProcessor images, AvatarStorage storage, UserAccountRepository accounts,
-                             UserReadRepository users, AccessGuards guards, ActorProvider actors, AuditRecorder recorder,
+                             UserReadCustomRepository users, AccessGuards guards, ActorProvider actors, AuditRecorder recorder,
                              UserDirectory directory, ApplicationEventPublisher events, PlatformTransactionManager transactions) {
         this.images = images;
         this.storage = storage;

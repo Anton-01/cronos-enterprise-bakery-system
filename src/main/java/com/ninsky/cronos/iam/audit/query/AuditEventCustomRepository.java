@@ -12,15 +12,19 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.function.Consumer;
 
 /** Filtered, newest-first reads of the {@code audit_log} ledger (spec §7.3). */
 @Repository
 @RequiredArgsConstructor
-public class AuditEventRepository {
+public class AuditEventCustomRepository {
 
     private static final int FETCH_SIZE = 500;
+    /** API sort field → SQL. */
+    public static final Map<String, String> SORTS = Map.of("occurredAt", "a.created_at");
+
     private static final String SELECT = """
             SELECT a.id, a.created_at, a.category, a.action, a.outcome, a.severity,
                    a.actor_user_id, a.actor_username, a.actor_label, au.avatar_key AS actor_avatar_key,

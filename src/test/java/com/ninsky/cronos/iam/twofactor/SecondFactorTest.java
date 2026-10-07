@@ -31,13 +31,13 @@ class SecondFactorTest {
     private static final byte[] SEALED = {1, 2, 3};
     private static final Instant NOW = Instant.ofEpochSecond(1_234_567_890);
 
-    private final TwoFactorStore store = mock(TwoFactorStore.class);
+    private final TwoFactorCustomRepository store = mock(TwoFactorCustomRepository.class);
     private final TwoFactorSecretCipher cipher = mock(TwoFactorSecretCipher.class);
     private final SecondFactor secondFactor = new SecondFactor(store, cipher, Clock.fixed(NOW, ZoneOffset.UTC));
 
     @BeforeEach
     void enrolled() {
-        when(store.enrolled(USER)).thenReturn(Optional.of(new TwoFactorStore.Enrolled(SEALED, null, NOW)));
+        when(store.enrolled(USER)).thenReturn(Optional.of(new TwoFactorCustomRepository.Enrolled(SEALED, null, NOW)));
         when(cipher.open(SEALED)).thenReturn(Optional.of(SECRET));
     }
 
@@ -59,7 +59,7 @@ class SecondFactorTest {
     @Test
     void recoveryCodeIsMatchedByHashAndConsumed() {
         String hash = new BCryptPasswordEncoder(4).encode("7KQ4-M2XD");
-        when(store.unusedRecoveryCodes(USER)).thenReturn(List.of(new TwoFactorStore.RecoveryCode(9, hash)));
+        when(store.unusedRecoveryCodes(USER)).thenReturn(List.of(new TwoFactorCustomRepository.RecoveryCode(9, hash)));
         when(store.useRecoveryCode(9, NOW)).thenReturn(true);
         assertThat(secondFactor.verify(USER, "7kq4 m2xd")).isEqualTo(SecondFactor.Result.RECOVERY_CODE);
         verify(store).useRecoveryCode(9, NOW);
@@ -68,7 +68,7 @@ class SecondFactorTest {
     @Test
     void unknownOrRacedRecoveryCodesFail() {
         String hash = new BCryptPasswordEncoder(4).encode("7KQ4-M2XD");
-        when(store.unusedRecoveryCodes(USER)).thenReturn(List.of(new TwoFactorStore.RecoveryCode(9, hash)));
+        when(store.unusedRecoveryCodes(USER)).thenReturn(List.of(new TwoFactorCustomRepository.RecoveryCode(9, hash)));
         assertThat(secondFactor.verify(USER, "AAAA-BBBB")).isEqualTo(SecondFactor.Result.INVALID_RECOVERY_CODE);
         when(store.useRecoveryCode(9, NOW)).thenReturn(false);
         assertThat(secondFactor.verify(USER, "7KQ4-M2XD")).isEqualTo(SecondFactor.Result.INVALID_RECOVERY_CODE);

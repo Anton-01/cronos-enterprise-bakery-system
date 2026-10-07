@@ -26,6 +26,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -34,7 +35,7 @@ import java.util.stream.Collectors;
 /** Read side of IAM users: search, detail, roles per user, export stream (JDBC, decrypting in-process). */
 @Repository
 @RequiredArgsConstructor
-public class UserReadRepository {
+public class UserReadCustomRepository {
 
     /** API sort field → SQL expression; {@code email} is sorted in memory (ciphertext column). */
     public static final Map<String, String> SORTS = Map.of(
@@ -62,6 +63,12 @@ public class UserReadRepository {
     private final BlindIndexService blindIndex;
 
     public record Page(List<UserRow> rows, long total) {
+    }
+
+    /** The subset of {@code ids} that exist. */
+    public Set<UUID> existingIds(Collection<UUID> ids) {
+        return ids.isEmpty() ? Set.of()
+                : Set.copyOf(jdbc.queryForList("SELECT id FROM users WHERE id IN (:ids)", new MapSqlParameterSource("ids", Set.copyOf(ids)), UUID.class));
     }
 
     public Page search(UserSearch search, PageQuery page) {

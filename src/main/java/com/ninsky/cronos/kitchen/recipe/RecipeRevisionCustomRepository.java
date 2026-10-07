@@ -1,7 +1,7 @@
 package com.ninsky.cronos.kitchen.recipe;
 
 import com.ninsky.cronos.finance.shared.UserRef;
-import com.ninsky.cronos.finance.shared.UserRefMapper;
+import com.ninsky.cronos.finance.shared.UserRefCustomRepository;
 import com.ninsky.cronos.kitchen.shared.Sql;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -23,7 +23,7 @@ public class RecipeRevisionCustomRepository {
     public static final Map<String, String> SORTS = Map.of("version", "rv.version");
 
     private final NamedParameterJdbcTemplate jdbc;
-    private final UserRefMapper userRefs;
+    private final UserRefCustomRepository userRefs;
 
     public record Row(long version, Instant changedAt, UserRef changedBy, String summaryKey, String summaryParams, String changes,
                       BigDecimal costPerUnit) {
@@ -64,7 +64,7 @@ public class RecipeRevisionCustomRepository {
     /** Newest first. */
     public List<Row> page(UUID recipeId, int limit, long offset) {
         return jdbc.query("SELECT rv.version, rv.changed_at, rv.summary_key, rv.summary_params, rv.changes, rv.cost_per_unit, "
-                        + UserRefMapper.columns("rv.changed_by") + " FROM recipe_revisions rv" + UserRefMapper.join("rv.changed_by")
+                        + UserRefCustomRepository.columns("rv.changed_by") + " FROM recipe_revisions rv" + UserRefCustomRepository.join("rv.changed_by")
                         + " WHERE rv.recipe_id = :recipe ORDER BY rv.version DESC LIMIT :limit OFFSET :offset",
                 new MapSqlParameterSource().addValue("recipe", recipeId).addValue("limit", limit).addValue("offset", offset),
                 (rs, i) -> new Row(rs.getLong("version"), Sql.instant(rs, "changed_at"), userRefs.map(rs), rs.getString("summary_key"),

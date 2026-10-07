@@ -34,7 +34,7 @@ class UserTokensTest {
     private static final UUID USER = UUID.fromString("6d1f6f0e-2d55-4c1a-9a0c-3b8f4f6f2a11");
 
     private final NamedParameterJdbcTemplate jdbc = mock(NamedParameterJdbcTemplate.class);
-    private final JdbcUserTokens tokens = new JdbcUserTokens(jdbc, Clock.fixed(NOW, ZoneOffset.UTC));
+    private final UserTokenCustomRepository tokens = new UserTokenCustomRepository(jdbc, Clock.fixed(NOW, ZoneOffset.UTC));
 
     @Test
     void rawTokensAreUrlSafeUniqueAndWellFormed() {

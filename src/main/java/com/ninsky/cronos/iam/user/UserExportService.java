@@ -33,13 +33,13 @@ public class UserExportService {
             "twoFactorEnabled", "lastLoginAt", "createdAt", "accessExpiresAt");
     private static final int CHUNK = 500;
 
-    private final UserReadRepository users;
+    private final UserReadCustomRepository users;
     private final ActorProvider actors;
     private final AuditRecorder recorder;
     private final TransactionTemplate readOnly;
     private final KeyedRateLimiter limiter = new KeyedRateLimiter(5, Duration.ofMinutes(10));
 
-    public UserExportService(UserReadRepository users, ActorProvider actors, AuditRecorder recorder,
+    public UserExportService(UserReadCustomRepository users, ActorProvider actors, AuditRecorder recorder,
                              PlatformTransactionManager transactions) {
         this.users = users;
         this.actors = actors;

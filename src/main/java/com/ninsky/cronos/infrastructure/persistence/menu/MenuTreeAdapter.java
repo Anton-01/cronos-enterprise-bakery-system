@@ -2,10 +2,7 @@ package com.ninsky.cronos.infrastructure.persistence.menu;
 
 import com.ninsky.cronos.domain.model.menu.MenuNode;
 import com.ninsky.cronos.domain.port.menu.MenuPort;
-import org.springframework.cache.annotation.Cacheable;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowMapper;
-import org.springframework.stereotype.Repository;
+import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -16,25 +13,25 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Infrastructure adapter for {@link MenuPort}. The flat row set is fetched via {@link MenuItemLoader}
+ * Infrastructure adapter for {@link MenuPort}. The flat row set is fetched via {@link MenuCustomRepository}
  * (a separate bean so its {@code @Cacheable} method goes through the Spring proxy — self-invocation
  * within one class would otherwise bypass caching entirely). Tree assembly clones each cached node
  * before mutating it, since {@code @Cacheable} returns the same shared instances on every hit and
  * this adapter builds a different pruned tree per caller's permission set.
  */
-@Repository
-public class JdbcMenuAdapter implements MenuPort {
+@Component
+public class MenuTreeAdapter implements MenuPort {
 
-    private final MenuItemLoader menuItemLoader;
+    private final MenuCustomRepository menuItemLoader;
 
-    public JdbcMenuAdapter(MenuItemLoader menuItemLoader) {
+    public MenuTreeAdapter(MenuCustomRepository menuItemLoader) {
         this.menuItemLoader = menuItemLoader;
     }
 
     @Override
     public List<MenuNode> buildTree(Set<String> grantedPermissionNames) {
         List<MenuNode> allItems = menuItemLoader.fetchAllActive().stream()
-                .map(JdbcMenuAdapter::copyOf)
+                .map(MenuTreeAdapter::copyOf)
                 .collect(Collectors.toList());
         List<MenuNode> roots = assembleTree(allItems);
         return roots.stream()
@@ -94,46 +91,5 @@ public class JdbcMenuAdapter implements MenuPort {
 
         node.setChildren(prunedChildren);
         return node;
-    }
-
-    /** Package-private bean holding just the cached raw-row fetch, so {@code @Cacheable} is invoked through Spring's proxy. */
-    @Repository
-    static class MenuItemLoader {
-
-        private static final String SELECT_ACTIVE_ITEMS = """
-                SELECT id, parent_id, code, label_en, label_es, icon, path, display_order, required_permission
-                FROM menu_items
-                WHERE is_active = TRUE
-                ORDER BY display_order ASC
-                """;
-
-        private static final RowMapper<MenuNode> ROW_MAPPER = (rs, rowNum) -> {
-            // ResultSet.wasNull() only reflects the MOST RECENTLY read column, so it must be checked
-            // immediately after reading parent_id, before any other rs.getXxx() call touches it.
-            long rawParentId = rs.getLong("parent_id");
-            Long parentId = rs.wasNull() ? null : rawParentId;
-            return MenuNode.builder()
-                    .id(rs.getLong("id"))
-                    .parentId(parentId)
-                    .code(rs.getString("code"))
-                    .labelEn(rs.getString("label_en"))
-                    .labelEs(rs.getString("label_es"))
-                    .icon(rs.getString("icon"))
-                    .path(rs.getString("path"))
-                    .displayOrder(rs.getInt("display_order"))
-                    .requiredPermission(rs.getString("required_permission"))
-                    .build();
-        };
-
-        private final JdbcTemplate jdbcTemplate;
-
-        MenuItemLoader(JdbcTemplate jdbcTemplate) {
-            this.jdbcTemplate = jdbcTemplate;
-        }
-
-        @Cacheable("menuItems")
-        List<MenuNode> fetchAllActive() {
-            return jdbcTemplate.query(SELECT_ACTIVE_ITEMS, ROW_MAPPER);
-        }
     }
 }

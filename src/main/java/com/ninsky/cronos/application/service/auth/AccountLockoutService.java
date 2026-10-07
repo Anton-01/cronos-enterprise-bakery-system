@@ -13,10 +13,9 @@ import com.ninsky.cronos.iam.signin.AuthProjectionCache;
 import com.ninsky.cronos.iam.user.StatusReason;
 import com.ninsky.cronos.iam.user.UserStatus;
 import com.ninsky.cronos.iam.user.UserStatusWriter;
+import com.ninsky.cronos.iam.signin.CredentialCustomRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
@@ -38,7 +37,7 @@ public class AccountLockoutService {
     static final String AUTO_LOCKOUT = "AUTO_LOCKOUT";
     static final String AUTO_UNLOCK = "AUTO_UNLOCK";
 
-    private final NamedParameterJdbcTemplate jdbc;
+    private final CredentialCustomRepository credentials;
     private final SecurityPolicyProvider policies;
     private final UserStatusWriter statusWriter;
     private final AuditRecorder recorder;
@@ -48,10 +47,7 @@ public class AccountLockoutService {
     /** Counts one failure; returns true when this failure locked the account. */
     public boolean registerFailure(UUID userId, UserStatus status, String label) {
         Instant now = TenantTime.now(clock);
-        Integer attempts = jdbc.queryForObject("""
-                UPDATE users SET failed_login_attempts = failed_login_attempts + 1, last_failed_login = :now
-                WHERE id = :id RETURNING failed_login_attempts""",
-                new MapSqlParameterSource("id", userId).addValue("now", TenantTime.toLocal(now)), Integer.class);
+        Integer attempts = credentials.incrementFailedAttempts(userId, TenantTime.toLocal(now));
         SecurityPolicy policy = policies.current();
         if (status != UserStatus.ACTIVE || attempts == null || attempts < policy.maxFailedAttempts()) {
             return false;
@@ -84,8 +80,7 @@ public class AccountLockoutService {
 
     /** Clears the counter and stamps the login time. */
     public void registerSuccess(UUID userId) {
-        jdbc.update("UPDATE users SET failed_login_attempts = 0, last_login_at = :now WHERE id = :id",
-                new MapSqlParameterSource("id", userId).addValue("now", TenantTime.nowLocal(clock)));
+        credentials.recordSuccessfulLogin(userId, TenantTime.nowLocal(clock));
     }
 
     public long getRemainingLockoutTime(Instant until) {

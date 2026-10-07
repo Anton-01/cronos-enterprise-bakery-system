@@ -2,7 +2,7 @@ package com.ninsky.cronos.finance.currency;
 
 import com.ninsky.cronos.finance.shared.FinanceStatus;
 import com.ninsky.cronos.finance.shared.SqlSupport;
-import com.ninsky.cronos.finance.shared.UserRefMapper;
+import com.ninsky.cronos.finance.shared.UserRefCustomRepository;
 import com.ninsky.cronos.infrastructure.web.paging.CatalogPage;
 import com.ninsky.cronos.infrastructure.web.paging.PageQuery;
 import lombok.RequiredArgsConstructor;
@@ -18,7 +18,7 @@ import java.util.Optional;
 /** Read side of currencies: list/detail projections with {@code inUse} computed by EXISTS (spec §9.2). */
 @Repository
 @RequiredArgsConstructor
-public class CurrencyQueries {
+public class CurrencyQueryCustomRepository {
 
     /** API sort field → SQL (spec §9.3). */
     public static final Map<String, String> SORTS = Map.of("code", "c.code", "name", "lower(c.name)", "status", "c.status");
@@ -31,12 +31,12 @@ public class CurrencyQueries {
 
     private static final String SELECT = "SELECT c.id, c.code, c.numeric_code, c.name, c.symbol, c.decimal_places, c.symbol_position, "
             + "c.is_default, c.status, c.created_at, c.updated_at, c.version, " + IN_USE + " AS in_use, "
-            + UserRefMapper.columns("c.updated_by") + " FROM currencies c" + UserRefMapper.join("c.updated_by");
+            + UserRefCustomRepository.columns("c.updated_by") + " FROM currencies c" + UserRefCustomRepository.join("c.updated_by");
     private static final String FILTER = " WHERE (CAST(:search AS text) IS NULL OR c.code ILIKE :search OR c.name ILIKE :search)"
             + " AND (CAST(:status AS text) IS NULL OR c.status = :status)";
 
     private final NamedParameterJdbcTemplate jdbc;
-    private final UserRefMapper userRefs;
+    private final UserRefCustomRepository userRefs;
 
     public CatalogPage<CurrencyResponse> page(String search, FinanceStatus status, PageQuery query) {
         MapSqlParameterSource params = new MapSqlParameterSource()

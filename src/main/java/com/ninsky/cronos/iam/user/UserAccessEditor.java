@@ -1,7 +1,7 @@
 package com.ninsky.cronos.iam.user;
 
 import com.ninsky.cronos.iam.access.AccessSnapshot;
-import com.ninsky.cronos.iam.access.AccessSnapshotLoader;
+import com.ninsky.cronos.iam.access.AccessSnapshotCustomRepository;
 import com.ninsky.cronos.iam.access.EffectiveAccess;
 import com.ninsky.cronos.iam.access.EffectiveEntry;
 import com.ninsky.cronos.iam.access.EffectivePermissionResolver;
@@ -14,7 +14,7 @@ import com.ninsky.cronos.iam.shared.IamRules;
 import com.ninsky.cronos.iam.shared.KeyedRateLimiter;
 import com.ninsky.cronos.iam.shared.PermissionGroupRef;
 import com.ninsky.cronos.iam.sod.SodEvaluator;
-import com.ninsky.cronos.iam.sod.SodRuleRepository;
+import com.ninsky.cronos.iam.sod.SodRuleCustomRepository;
 import com.ninsky.cronos.iam.user.api.AccessPreview;
 import com.ninsky.cronos.iam.user.api.AccessRequest;
 import com.ninsky.cronos.iam.user.api.BulkResult;
@@ -38,16 +38,16 @@ import java.util.UUID;
 @Service
 public class UserAccessEditor {
 
-    private final UserReadRepository users;
-    private final AccessSnapshotLoader loader;
+    private final UserReadCustomRepository users;
+    private final AccessSnapshotCustomRepository loader;
     private final UserAccessChanges changes;
-    private final SodRuleRepository sodRules;
+    private final SodRuleCustomRepository sodRules;
     private final ActorProvider actors;
     private final BulkRunner bulk;
     private final KeyedRateLimiter previewLimiter = new KeyedRateLimiter(60, Duration.ofMinutes(1));
 
-    public UserAccessEditor(UserReadRepository users, AccessSnapshotLoader loader, UserAccessChanges changes,
-                            SodRuleRepository sodRules, ActorProvider actors, BulkRunner bulk) {
+    public UserAccessEditor(UserReadCustomRepository users, AccessSnapshotCustomRepository loader, UserAccessChanges changes,
+                            SodRuleCustomRepository sodRules, ActorProvider actors, BulkRunner bulk) {
         this.users = users;
         this.loader = loader;
         this.changes = changes;

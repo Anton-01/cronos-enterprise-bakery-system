@@ -10,7 +10,7 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 /**
- * {@code JdbcUserAuthAdapter} caches auth projections under the login id and under {@code id:{userId}}.
+ * {@code UserAuthCustomRepository} caches auth projections under the login id and under {@code id:{userId}}.
  * After a committed rename, drop both so the principal (and {@code Authentication#getName()}, used
  * e.g. as the JPA auditor) reflects the new username immediately and the old name stops resolving.
  */

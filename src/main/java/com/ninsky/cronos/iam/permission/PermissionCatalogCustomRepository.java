@@ -9,11 +9,11 @@ import java.util.List;
  * module/resource/action/risk/dependencies, and marks codes no longer in the registry as deprecated
  * (rows referenced by roles are never deleted).
  */
-public class PermissionCatalogWriter {
+public class PermissionCatalogCustomRepository {
 
     private final JdbcTemplate jdbc;
 
-    public PermissionCatalogWriter(JdbcTemplate jdbc) {
+    public PermissionCatalogCustomRepository(JdbcTemplate jdbc) {
         this.jdbc = jdbc;
     }
 

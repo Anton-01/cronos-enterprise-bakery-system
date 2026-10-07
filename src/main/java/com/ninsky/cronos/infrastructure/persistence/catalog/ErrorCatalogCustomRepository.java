@@ -15,7 +15,7 @@ import java.util.Optional;
  * catalog rows change rarely and are read on every error response.
  */
 @Repository
-public class JdbcErrorCatalogAdapter implements ErrorCatalogPort {
+public class ErrorCatalogCustomRepository implements ErrorCatalogPort {
 
     private static final String SELECT_BY_CODE = """
             SELECT cer.error_code, cs.category, cs.http_status, cer.image_url,
@@ -38,7 +38,7 @@ public class JdbcErrorCatalogAdapter implements ErrorCatalogPort {
 
     private final JdbcTemplate jdbcTemplate;
 
-    public JdbcErrorCatalogAdapter(JdbcTemplate jdbcTemplate) {
+    public ErrorCatalogCustomRepository(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
     }
 

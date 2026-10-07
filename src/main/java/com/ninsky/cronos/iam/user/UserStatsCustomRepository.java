@@ -16,7 +16,7 @@ import java.util.Map;
 /** Counters of {@code GET /iam/users/stats}; one pass over {@code users}. */
 @Repository
 @RequiredArgsConstructor
-public class UserStatsRepository {
+public class UserStatsCustomRepository {
 
     private static final int DORMANT_DAYS = 90;
     private static final int EXPIRING_DAYS = 30;

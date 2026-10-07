@@ -5,7 +5,7 @@ import com.ninsky.cronos.iam.access.AccessVersions;
 import com.ninsky.cronos.iam.audit.JdbcAuditRecorder;
 import com.ninsky.cronos.iam.policy.CachedSecurityPolicyProvider;
 import com.ninsky.cronos.iam.policy.JdbcTwoFactorRequirement;
-import com.ninsky.cronos.iam.policy.SecurityPolicyStore;
+import com.ninsky.cronos.iam.policy.SecurityPolicyCustomRepository;
 import com.ninsky.cronos.iam.shared.Actor;
 import com.ninsky.cronos.iam.shared.ActorProvider;
 import com.ninsky.cronos.iam.shared.migration.V11__iam_seed;
@@ -17,13 +17,13 @@ import com.ninsky.cronos.iam.twofactor.SecondFactor;
 import com.ninsky.cronos.iam.twofactor.Totp;
 import com.ninsky.cronos.iam.twofactor.TwoFactorAccountService;
 import com.ninsky.cronos.iam.twofactor.TwoFactorSecretCipher;
-import com.ninsky.cronos.iam.twofactor.TwoFactorStore;
+import com.ninsky.cronos.iam.twofactor.TwoFactorCustomRepository;
 import com.ninsky.cronos.iam.twofactor.Base32;
 import com.ninsky.cronos.iam.twofactor.api.ConfirmEnrollmentRequest;
 import com.ninsky.cronos.iam.twofactor.api.DisableTwoFactorRequest;
 import com.ninsky.cronos.iam.twofactor.api.TwoFactorEnrollment;
 import com.ninsky.cronos.iam.twofactor.api.TwoFactorRecoveryCodes;
-import com.ninsky.cronos.iam.user.UserReadRepository;
+import com.ninsky.cronos.iam.user.UserReadCustomRepository;
 import com.ninsky.cronos.infrastructure.config.CacheConfig;
 import com.ninsky.cronos.infrastructure.config.security.SecurityProperties;
 import com.ninsky.cronos.infrastructure.exception.ApiErrorCode;
@@ -75,8 +75,8 @@ import static org.mockito.Mockito.when;
 @DataJpaTest(properties = {"spring.jpa.hibernate.ddl-auto=validate", "spring.flyway.enabled=true"})
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
-@Import({TwoFactorAccountService.class, TwoFactorStore.class, SecondFactor.class, TwoFactorSecretCipher.class,
-        JdbcTwoFactorRequirement.class, CachedSecurityPolicyProvider.class, SecurityPolicyStore.class, UserReadRepository.class,
+@Import({TwoFactorAccountService.class, TwoFactorCustomRepository.class, SecondFactor.class, TwoFactorSecretCipher.class,
+        JdbcTwoFactorRequirement.class, CachedSecurityPolicyProvider.class, SecurityPolicyCustomRepository.class, UserReadCustomRepository.class,
         AccessVersions.class, JdbcAuditRecorder.class, CacheConfig.class, V7__normalize_legacy_phone_numbers.class,
         V11__iam_seed.class, V14__remove_super_admin_from_2fa_required_roles.class, V16__move_totp_secrets.class,
         TwoFactorPostgresIT.Beans.class})

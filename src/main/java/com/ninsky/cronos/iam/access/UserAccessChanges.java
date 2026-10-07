@@ -13,13 +13,11 @@ import com.ninsky.cronos.iam.shared.Actor;
 import com.ninsky.cronos.iam.shared.TenantTime;
 import com.ninsky.cronos.iam.sod.SodConflict;
 import com.ninsky.cronos.iam.sod.SodEvaluator;
-import com.ninsky.cronos.iam.sod.SodRuleRepository;
+import com.ninsky.cronos.iam.sod.SodRuleCustomRepository;
 import com.ninsky.cronos.infrastructure.exception.ApiErrorCode;
 import com.ninsky.cronos.infrastructure.exception.ApiException;
 import com.ninsky.cronos.infrastructure.exception.Violations;
 import lombok.RequiredArgsConstructor;
-import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,12 +44,12 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class UserAccessChanges {
 
-    private final AccessSnapshotLoader loader;
-    private final NamedParameterJdbcTemplate jdbc;
+    private final AccessSnapshotCustomRepository loader;
+    private final UserAccessCustomRepository repository;
     private final AccessVersions versions;
     private final SessionRevoker revoker;
     private final AccessGuards guards;
-    private final SodRuleRepository sodRules;
+    private final SodRuleCustomRepository sodRules;
     private final AuditRecorder recorder;
     private final Clock clock;
 
@@ -213,50 +211,25 @@ public class UserAccessChanges {
     }
 
     private void requireUser(UUID userId) {
-        Boolean exists = jdbc.queryForObject("SELECT EXISTS (SELECT 1 FROM users WHERE id = :id)", Map.of("id", userId), Boolean.class);
-        if (!Boolean.TRUE.equals(exists)) {
+        if (!repository.userExists(userId)) {
             throw ApiException.notFound("iam.user.notFound");
         }
     }
 
     /** Bumps the user's version; a stale {@code expectedVersion} is a 409. */
     private void touchUser(UUID userId, Actor actor, Long expectedVersion) {
-        int rows = jdbc.update("""
-                        UPDATE users SET version = version + 1, updated_at = :now, updated_by_id = :actor
-                        WHERE id = :id AND (CAST(:expected AS BIGINT) IS NULL OR version = :expected)""",
-                new MapSqlParameterSource("id", userId).addValue("actor", actor.id())
-                        .addValue("now", TenantTime.nowLocal(clock)).addValue("expected", expectedVersion));
-        if (rows == 0) {
+        if (!repository.touchUser(userId, actor.id(), TenantTime.nowLocal(clock), expectedVersion)) {
             throw ApiException.concurrentModification();
         }
     }
 
     private void persist(UUID userId, Evaluation evaluation, Actor actor) {
-        var params = new MapSqlParameterSource("userId", userId).addValue("actor", actor.id());
-        Set<Long> roleIds = ids(evaluation.after().roles(), RoleGrant::id);
-        Set<Long> groupIds = ids(evaluation.after().groups(), GroupGrant::id);
-        jdbc.update("DELETE FROM user_roles WHERE user_id = :userId AND NOT (role_id = ANY(:ids))",
-                params.addValue("ids", roleIds.toArray(Long[]::new)));
-        roleIds.forEach(id -> jdbc.update("""
-                INSERT INTO user_roles (user_id, role_id, created_by_id) VALUES (:userId, :roleId, :actor)
-                ON CONFLICT DO NOTHING""", new MapSqlParameterSource(params.getValues()).addValue("roleId", id)));
-        jdbc.update("DELETE FROM user_permission_groups WHERE user_id = :userId AND NOT (group_id = ANY(:ids))",
-                new MapSqlParameterSource(params.getValues()).addValue("ids", groupIds.toArray(Long[]::new)));
-        groupIds.forEach(id -> jdbc.update("""
-                INSERT INTO user_permission_groups (user_id, group_id, created_by_id) VALUES (:userId, :groupId, :actor)
-                ON CONFLICT DO NOTHING""", new MapSqlParameterSource(params.getValues()).addValue("groupId", id)));
-
+        repository.replaceRoles(userId, ids(evaluation.after().roles(), RoleGrant::id), actor.id());
+        repository.replaceGroups(userId, ids(evaluation.after().groups(), GroupGrant::id), actor.id());
         Map<String, String> overrides = new LinkedHashMap<>();
         evaluation.after().grants().forEach(code -> overrides.put(code, "GRANT"));
         evaluation.after().denials().forEach(code -> overrides.put(code, "DENY"));
-        jdbc.update("DELETE FROM user_permission_overrides WHERE user_id = :userId AND NOT (permission_code = ANY(:codes))",
-                new MapSqlParameterSource(params.getValues()).addValue("codes", overrides.keySet().toArray(String[]::new)));
-        overrides.forEach((code, effect) -> jdbc.update("""
-                INSERT INTO user_permission_overrides (user_id, permission_code, effect, created_by_id)
-                VALUES (:userId, :code, :effect, :actor)
-                ON CONFLICT (user_id, permission_code) DO UPDATE SET effect = EXCLUDED.effect
-                WHERE user_permission_overrides.effect <> EXCLUDED.effect""",
-                new MapSqlParameterSource(params.getValues()).addValue("code", code).addValue("effect", effect)));
+        repository.replaceOverrides(userId, overrides, actor.id());
     }
 
     private void audit(UUID userId, Evaluation evaluation, String reason) {
@@ -289,9 +262,7 @@ public class UserAccessChanges {
     }
 
     private String targetLabel(UUID userId) {
-        return jdbc.queryForObject("""
-                SELECT coalesce(NULLIF(btrim(concat_ws(' ', p.first_name, p.last_name)), ''), u.username)
-                FROM users u LEFT JOIN user_profiles p ON p.user_id = u.id WHERE u.id = :id""", Map.of("id", userId), String.class);
+        return repository.userLabel(userId);
     }
 
     private static void diff(Map<String, Object> changes, String key, List<String> from, List<String> to) {

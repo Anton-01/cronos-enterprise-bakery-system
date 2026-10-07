@@ -16,7 +16,7 @@ import java.util.UUID;
 
 /** JDBC access to enrolments, enrolled secrets and recovery-code hashes (contract §8.2 tables). */
 @Repository
-public class TwoFactorStore {
+public class TwoFactorCustomRepository {
 
     public record Enrollment(UUID id, UUID userId, byte[] secretEnc, int failedTries, Instant expiresAt, Instant consumedAt) {
     }
@@ -29,7 +29,7 @@ public class TwoFactorStore {
 
     private final NamedParameterJdbcTemplate jdbc;
 
-    public TwoFactorStore(NamedParameterJdbcTemplate jdbc) {
+    public TwoFactorCustomRepository(NamedParameterJdbcTemplate jdbc) {
         this.jdbc = jdbc;
     }
 

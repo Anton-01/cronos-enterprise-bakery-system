@@ -257,7 +257,7 @@ public class IngredientService {
     public CatalogPage<PriceHistoryEntry> prices(UUID id, Integer page, Integer size) {
         UUID tenant = tenant();
         queries.find(tenant, KitchenMessages.language(), id).orElseThrow(IngredientViews::notFound);
-        return queries.history(tenant, id, PageQuery.of(page, size, null, Map.of("pricedAt", "p.priced_at"), "pricedAt,desc"));
+        return queries.history(tenant, id, PageQuery.of(page, size, null, IngredientQueryCustomRepository.HISTORY_SORTS, "pricedAt,desc"));
     }
 
     @Transactional(readOnly = true)

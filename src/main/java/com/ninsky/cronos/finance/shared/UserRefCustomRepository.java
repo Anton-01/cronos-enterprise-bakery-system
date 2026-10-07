@@ -5,7 +5,7 @@ import com.ninsky.cronos.account.avatar.domain.AvatarKey;
 import com.ninsky.cronos.account.shared.domain.DomainValidationException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Repository;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -17,9 +17,9 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /** Reads a {@link UserRef} from the columns produced by {@link #columns(String)} / {@link #join(String)}. */
-@Component
+@Repository
 @RequiredArgsConstructor
-public class UserRefMapper {
+public class UserRefCustomRepository {
 
     private final AvatarStorage avatarStorage;
     private final NamedParameterJdbcTemplate jdbc;

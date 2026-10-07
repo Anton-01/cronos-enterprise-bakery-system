@@ -5,7 +5,9 @@ import com.ninsky.cronos.domain.model.audit.AuditSeverity;
 import com.ninsky.cronos.finance.pricing.TaxFactorType;
 import com.ninsky.cronos.finance.shared.FinanceStatus;
 import com.ninsky.cronos.iam.audit.AuditEvent;
+import com.ninsky.cronos.iam.audit.AuditLogCustomRepository;
 import com.ninsky.cronos.iam.audit.AuditRecorder;
+import com.ninsky.cronos.infrastructure.persistence.lock.AdvisoryLockCustomRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -14,8 +16,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.jdbc.core.namedparam.SqlParameterSource;
 
 import java.time.LocalDate;
 import java.util.Optional;
@@ -40,7 +40,9 @@ class DefaultTaxRateExpiryJobTest {
     @Mock
     private TaxRateRepository repository;
     @Mock
-    private NamedParameterJdbcTemplate jdbc;
+    private AdvisoryLockCustomRepository locks;
+    @Mock
+    private AuditLogCustomRepository auditLog;
     @Mock
     private AuditRecorder audit;
 
@@ -48,8 +50,8 @@ class DefaultTaxRateExpiryJobTest {
 
     @BeforeEach
     void setUp() {
-        job = new DefaultTaxRateExpiryJob(repository, jdbc, audit, CLOCK);
-        when(jdbc.queryForObject(anyString(), any(SqlParameterSource.class), eq(Boolean.class))).thenReturn(false);
+        job = new DefaultTaxRateExpiryJob(repository, locks, auditLog, audit, CLOCK);
+        when(auditLog.existsForTargetSince(anyString(), anyString(), anyString(), any())).thenReturn(false);
     }
 
     @Test
@@ -70,7 +72,7 @@ class DefaultTaxRateExpiryJobTest {
     void alreadyReportedTodayIsSkipped() {
         when(repository.findByIsDefaultTrue()).thenReturn(Optional.of(
                 taxRate(2, "IVA_8", TaxFactorType.TASA, "8", FROM, TODAY.minusDays(1), true, FinanceStatus.ACTIVE)));
-        when(jdbc.queryForObject(anyString(), any(SqlParameterSource.class), eq(Boolean.class))).thenReturn(true);
+        when(auditLog.existsForTargetSince(anyString(), anyString(), anyString(), any())).thenReturn(true);
 
         job.run();
 

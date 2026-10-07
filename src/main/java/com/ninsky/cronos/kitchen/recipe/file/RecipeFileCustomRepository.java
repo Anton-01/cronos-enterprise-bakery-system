@@ -1,7 +1,7 @@
 package com.ninsky.cronos.kitchen.recipe.file;
 
 import com.ninsky.cronos.finance.shared.UserRef;
-import com.ninsky.cronos.finance.shared.UserRefMapper;
+import com.ninsky.cronos.finance.shared.UserRefCustomRepository;
 import com.ninsky.cronos.kitchen.shared.Sql;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -24,11 +24,11 @@ import java.util.UUID;
 public class RecipeFileCustomRepository {
 
     private static final String SELECT = "SELECT f.id, f.recipe_id, f.storage_key, f.file_name, f.kind, f.mime_type, f.size_bytes, "
-            + "f.description, f.is_cover, f.thumbnail_key, f.uploaded_at, " + UserRefMapper.columns("f.uploaded_by")
-            + " FROM recipe_files f" + UserRefMapper.join("f.uploaded_by");
+            + "f.description, f.is_cover, f.thumbnail_key, f.uploaded_at, " + UserRefCustomRepository.columns("f.uploaded_by")
+            + " FROM recipe_files f" + UserRefCustomRepository.join("f.uploaded_by");
 
     private final NamedParameterJdbcTemplate jdbc;
-    private final UserRefMapper userRefs;
+    private final UserRefCustomRepository userRefs;
 
     public record Row(UUID id, UUID recipeId, String storageKey, String fileName, FileKind kind, String mimeType, long sizeBytes,
                       String description, boolean cover, String thumbnailKey, Instant uploadedAt, UserRef uploadedBy) {

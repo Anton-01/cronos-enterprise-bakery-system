@@ -5,7 +5,7 @@ import com.ninsky.cronos.iam.user.UserStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Repository;
 
 import java.sql.Date;
 import java.sql.Timestamp;
@@ -13,9 +13,9 @@ import java.util.Optional;
 import java.util.UUID;
 
 /** Reads {@link AccountStanding} uncached, inside the caller's transaction. */
-@Component
+@Repository
 @RequiredArgsConstructor
-public class AccountStandings {
+public class AccountStandingCustomRepository {
 
     private final NamedParameterJdbcTemplate jdbc;
 

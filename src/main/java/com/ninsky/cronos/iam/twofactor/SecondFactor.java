@@ -30,11 +30,11 @@ public class SecondFactor {
     /** Recovery codes carry 40 random bits; cost 10 keeps a 10-code scan fast. */
     private static final PasswordEncoder RECOVERY_HASHER = new BCryptPasswordEncoder(10);
 
-    private final TwoFactorStore store;
+    private final TwoFactorCustomRepository store;
     private final TwoFactorSecretCipher cipher;
     private final Clock clock;
 
-    public SecondFactor(TwoFactorStore store, TwoFactorSecretCipher cipher, Clock clock) {
+    public SecondFactor(TwoFactorCustomRepository store, TwoFactorSecretCipher cipher, Clock clock) {
         this.store = store;
         this.cipher = cipher;
         this.clock = clock;

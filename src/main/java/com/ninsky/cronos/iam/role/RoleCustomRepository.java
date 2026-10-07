@@ -23,7 +23,7 @@ import java.util.UUID;
 /** JDBC access to roles, their permissions, groups and members. */
 @Repository
 @RequiredArgsConstructor
-public class RoleRepository {
+public class RoleCustomRepository {
 
     private static final String SELECT = """
             SELECT r.id, r.code, r.name, r.description, r.color, r.system, r.status, r.created_at, r.updated_at,

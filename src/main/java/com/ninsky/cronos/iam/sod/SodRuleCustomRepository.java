@@ -15,7 +15,7 @@ import java.util.stream.Collectors;
 /** Active SoD rules with their permission sets (seeded configuration, read-only). */
 @Repository
 @RequiredArgsConstructor
-public class SodRuleRepository {
+public class SodRuleCustomRepository {
 
     private final JdbcTemplate jdbc;
 

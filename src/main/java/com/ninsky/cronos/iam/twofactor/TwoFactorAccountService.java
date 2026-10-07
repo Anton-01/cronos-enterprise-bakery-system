@@ -16,7 +16,7 @@ import com.ninsky.cronos.iam.twofactor.api.RecoveryCodesRequest;
 import com.ninsky.cronos.iam.twofactor.api.TwoFactorEnrollment;
 import com.ninsky.cronos.iam.twofactor.api.TwoFactorRecoveryCodes;
 import com.ninsky.cronos.iam.twofactor.api.TwoFactorStatus;
-import com.ninsky.cronos.iam.user.UserReadRepository;
+import com.ninsky.cronos.iam.user.UserReadCustomRepository;
 import com.ninsky.cronos.iam.user.UserRow;
 import com.ninsky.cronos.infrastructure.config.security.SecurityProperties;
 import com.ninsky.cronos.infrastructure.exception.ApiErrorCode;
@@ -49,12 +49,12 @@ public class TwoFactorAccountService {
 
     private static final SecureRandom RANDOM = new SecureRandom();
 
-    private final TwoFactorStore store;
+    private final TwoFactorCustomRepository store;
     private final SecondFactor secondFactor;
     private final TwoFactorSecretCipher cipher;
     private final QrCodeRenderer qrCodes;
     private final TwoFactorRequirement requirement;
-    private final UserReadRepository users;
+    private final UserReadCustomRepository users;
     private final AccessVersions versions;
     private final OtherSessions otherSessions;
     private final AuditRecorder recorder;
@@ -65,8 +65,8 @@ public class TwoFactorAccountService {
     private final KeyedRateLimiter enrolments = new KeyedRateLimiter(10, Duration.ofHours(1));
 
     @SuppressWarnings("java:S107") // One collaborator per concern of the flow.
-    public TwoFactorAccountService(TwoFactorStore store, SecondFactor secondFactor, TwoFactorSecretCipher cipher,
-                                   QrCodeRenderer qrCodes, TwoFactorRequirement requirement, UserReadRepository users,
+    public TwoFactorAccountService(TwoFactorCustomRepository store, SecondFactor secondFactor, TwoFactorSecretCipher cipher,
+                                   QrCodeRenderer qrCodes, TwoFactorRequirement requirement, UserReadCustomRepository users,
                                    AccessVersions versions, OtherSessions otherSessions, AuditRecorder recorder,
                                    ApplicationEventPublisher events, PasswordEncoder passwords,
                                    SecurityProperties security, Clock clock) {
@@ -90,7 +90,7 @@ public class TwoFactorAccountService {
         boolean enabled = user(userId).twoFactorEnabled();
         return new TwoFactorStatus(enabled, requirement.isRequired(userId), requirement.requiredBy(userId),
                 enabled ? TwoFactorStatus.TOTP : null,
-                enabled ? store.enrolled(userId).map(TwoFactorStore.Enrolled::enrolledAt).orElse(null) : null,
+                enabled ? store.enrolled(userId).map(TwoFactorCustomRepository.Enrolled::enrolledAt).orElse(null) : null,
                 enabled ? store.remainingRecoveryCodes(userId) : 0);
     }
 
@@ -126,7 +126,7 @@ public class TwoFactorAccountService {
             throw ApiException.of(ApiErrorCode.TWO_FACTOR_ALREADY_ENABLED, null, "security.twoFactor.alreadyEnabled");
         }
         Instant now = clock.instant();
-        TwoFactorStore.Enrollment enrollment = store.lockEnrollment(request.enrollmentId(), userId)
+        TwoFactorCustomRepository.Enrollment enrollment = store.lockEnrollment(request.enrollmentId(), userId)
                 .filter(e -> e.consumedAt() == null)
                 .orElseThrow(() -> ApiException.notFound("security.twoFactor.enrollmentNotFound"));
         if (!enrollment.expiresAt().isAfter(now)) {

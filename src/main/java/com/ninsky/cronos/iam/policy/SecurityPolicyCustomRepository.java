@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.core.namedparam.SqlParameterSource;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Repository;
 
 import java.sql.Timestamp;
 import java.util.Collection;
@@ -15,9 +15,9 @@ import java.util.Set;
 import java.util.UUID;
 
 /** JDBC access to the singleton {@code security_policy} row and its 2FA role list. */
-@Component
+@Repository
 @RequiredArgsConstructor
-public class SecurityPolicyStore {
+public class SecurityPolicyCustomRepository {
 
     /** Spec §8 defaults, used only when the seed row is missing. */
     static final SecurityPolicy DEFAULTS = new SecurityPolicy(12, true, true, true, true, 5, 90, 5, 15, 30, 12, 3, 72,

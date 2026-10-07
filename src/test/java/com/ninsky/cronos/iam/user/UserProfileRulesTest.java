@@ -19,7 +19,7 @@ import static org.mockito.Mockito.when;
 
 class UserProfileRulesTest {
 
-    private final UserReadRepository users = mock(UserReadRepository.class);
+    private final UserReadCustomRepository users = mock(UserReadCustomRepository.class);
     private final UserProfileRules rules = new UserProfileRules(users,
             Clock.fixed(Instant.parse("2026-10-05T18:00:00Z"), ZoneOffset.UTC));
 

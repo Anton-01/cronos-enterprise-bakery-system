@@ -1,7 +1,7 @@
 package com.ninsky.cronos.kitchen.ingredient;
 
 import com.ninsky.cronos.finance.shared.UserRef;
-import com.ninsky.cronos.finance.shared.UserRefMapper;
+import com.ninsky.cronos.finance.shared.UserRefCustomRepository;
 import com.ninsky.cronos.infrastructure.web.paging.CatalogPage;
 import com.ninsky.cronos.infrastructure.web.paging.PageQuery;
 import com.ninsky.cronos.kitchen.costing.IngredientPriceCustomRepository;
@@ -40,6 +40,7 @@ public class IngredientQueryCustomRepository {
             "pricedAt", "ep.priced_at",
             "usedInRecipes", "used");
     static final String DEFAULT_SORT = "name,asc";
+    static final Map<String, String> HISTORY_SORTS = Map.of("pricedAt", "p.priced_at");
 
     private static final String USED = """
             LEFT JOIN LATERAL (SELECT count(DISTINCT l.recipe_id) AS used FROM recipe_lines l JOIN recipes r ON r.id = l.recipe_id
@@ -51,7 +52,7 @@ public class IngredientQueryCustomRepository {
             + "i.yield_percent, i.status, n.name, ep.cost_per_base_unit, ep.priced_at, ep.owner_id AS price_owner, coalesce(u.used, 0) AS used";
 
     private final NamedParameterJdbcTemplate jdbc;
-    private final UserRefMapper userRefs;
+    private final UserRefCustomRepository userRefs;
 
     /** A summary row before allergens and unit codes are attached. */
     public record Row(UUID id, String code, UUID ownerId, Long categoryId, String categoryName, Dimension baseDimension,
@@ -125,9 +126,9 @@ public class IngredientQueryCustomRepository {
 
     public Extra extra(UUID id) {
         return jdbc.queryForObject("SELECT i.density_g_per_ml, i.brand, i.created_at, i.updated_at, i.version, n.description, "
-                        + UserRefMapper.columns("i.updated_by") + " FROM ingredients i"
+                        + UserRefCustomRepository.columns("i.updated_by") + " FROM ingredients i"
                         + " LEFT JOIN ingredient_i18n n ON n.ingredient_id = i.id AND n.locale = :lang"
-                        + UserRefMapper.join("i.updated_by") + " WHERE i.id = :id",
+                        + UserRefCustomRepository.join("i.updated_by") + " WHERE i.id = :id",
                 new MapSqlParameterSource().addValue("id", id).addValue("lang", com.ninsky.cronos.kitchen.shared.KitchenMessages.language()),
                 (rs, i) -> new Extra(rs.getString("description"), rs.getString("brand"), rs.getBigDecimal("density_g_per_ml"),
                         Sql.instant(rs, "created_at"), Sql.instant(rs, "updated_at"), userRefs.map(rs), rs.getLong("version")));
@@ -180,8 +181,8 @@ public class IngredientQueryCustomRepository {
         Long total = jdbc.queryForObject("SELECT count(*) FROM ingredient_prices p" + where, params, Long.class);
         List<PriceHistoryEntry> content = jdbc.query("SELECT p.id, p.owner_id, p.purchase_quantity, p.purchase_unit_id, mu.code_identity, "
                         + "p.price, p.currency, p.supplier, p.priced_at, p.cost_per_base_unit, p.recorded_at, "
-                        + UserRefMapper.columns("p.recorded_by") + " FROM ingredient_prices p"
-                        + " JOIN measurement_units mu ON mu.id = p.purchase_unit_id" + UserRefMapper.join("p.recorded_by") + where
+                        + UserRefCustomRepository.columns("p.recorded_by") + " FROM ingredient_prices p"
+                        + " JOIN measurement_units mu ON mu.id = p.purchase_unit_id" + UserRefCustomRepository.join("p.recorded_by") + where
                         + " ORDER BY p.priced_at DESC, p.recorded_at DESC LIMIT :limit OFFSET :offset", params,
                 (rs, i) -> new PriceHistoryEntry(rs.getObject("id", UUID.class),
                         rs.getObject("owner_id") == null ? PriceSource.REFERENCE : PriceSource.OWN, rs.getBigDecimal("purchase_quantity"),

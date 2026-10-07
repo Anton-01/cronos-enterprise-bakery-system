@@ -10,7 +10,7 @@ import com.ninsky.cronos.iam.role.api.MembersRemoved;
 import com.ninsky.cronos.iam.role.api.MembersRequest;
 import com.ninsky.cronos.iam.role.api.IamRoleRequest;
 import com.ninsky.cronos.iam.role.api.StatusRequest;
-import com.ninsky.cronos.iam.user.UserReadRepository;
+import com.ninsky.cronos.iam.user.UserReadCustomRepository;
 import com.ninsky.cronos.iam.user.api.IamUserSummary;
 import com.ninsky.cronos.infrastructure.web.StrictApiContract;
 import com.ninsky.cronos.infrastructure.web.paging.CatalogPage;
@@ -106,7 +106,7 @@ public class RoleController {
                                                                            @RequestParam(required = false) Integer page,
                                                                            @RequestParam(required = false) Integer size,
                                                                            @RequestParam(required = false) String search) {
-        PageQuery query = PageQuery.of(page, size, null, UserReadRepository.SORTS, "displayName,asc");
+        PageQuery query = PageQuery.of(page, size, null, UserReadCustomRepository.SORTS, "displayName,asc");
         return ResponseEntity.ok(ApiResponse.success(roles.members(id, search, query)));
     }
 

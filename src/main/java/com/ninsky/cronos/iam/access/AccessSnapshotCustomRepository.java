@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
 /** Loads the resolver inputs with a handful of set-based queries. */
 @Repository
 @RequiredArgsConstructor
-public class AccessSnapshotLoader {
+public class AccessSnapshotCustomRepository {
 
     private final NamedParameterJdbcTemplate jdbc;
 

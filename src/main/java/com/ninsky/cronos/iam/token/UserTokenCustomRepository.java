@@ -4,7 +4,7 @@ import com.ninsky.cronos.iam.shared.TenantTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.Timestamp;
@@ -16,9 +16,9 @@ import java.util.Optional;
 import java.util.UUID;
 
 /** {@link UserTokens} over {@code user_tokens}; consumption is a single conditional UPDATE, so a token works once. */
-@Component
+@Repository
 @RequiredArgsConstructor
-public class JdbcUserTokens implements UserTokens {
+public class UserTokenCustomRepository implements UserTokens {
 
     private final NamedParameterJdbcTemplate jdbc;
     private final Clock clock;

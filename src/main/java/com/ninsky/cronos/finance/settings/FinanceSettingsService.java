@@ -6,7 +6,7 @@ import com.ninsky.cronos.finance.currency.CurrencyRepository;
 import com.ninsky.cronos.finance.shared.Changes;
 import com.ninsky.cronos.finance.shared.FinanceLocks;
 import com.ninsky.cronos.finance.shared.FinanceSettingsCache;
-import com.ninsky.cronos.finance.shared.UserRefMapper;
+import com.ninsky.cronos.finance.shared.UserRefCustomRepository;
 import com.ninsky.cronos.finance.taxrate.TaxRateOption;
 import com.ninsky.cronos.finance.taxrate.TaxRateRepository;
 import com.ninsky.cronos.iam.audit.AuditEvent;
@@ -29,7 +29,7 @@ public class FinanceSettingsService {
     private final FinanceSettingsRepository repository;
     private final CurrencyRepository currencies;
     private final TaxRateRepository taxRates;
-    private final UserRefMapper userRefs;
+    private final UserRefCustomRepository userRefs;
     private final FinanceSettingsCache cache;
     private final AuditRecorder audit;
     private final ActorProvider actors;

@@ -14,7 +14,7 @@ import java.util.UUID;
 /** Write side of IAM users over the legacy {@code users} + {@code user_profiles} tables. */
 @Repository
 @RequiredArgsConstructor
-public class UserWriteRepository {
+public class UserWriteCustomRepository {
 
     private static final String EMAIL_CONTEXT = "email";
 
@@ -115,5 +115,9 @@ public class UserWriteRepository {
                 .addValue("requireTwoFactor", p.requireTwoFactor())
                 .addValue("actor", actorId)
                 .addValue("nowLocal", TenantTime.toLocal(now));
+    }
+
+    public void setAvatarKey(UUID id, String key) {
+        jdbc.update("UPDATE users SET avatar_key = :key WHERE id = :id", new MapSqlParameterSource("key", key).addValue("id", id));
     }
 }

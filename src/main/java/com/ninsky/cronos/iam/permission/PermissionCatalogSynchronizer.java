@@ -14,10 +14,10 @@ import org.springframework.transaction.annotation.Transactional;
 @Order(0)
 public class PermissionCatalogSynchronizer implements ApplicationRunner {
 
-    private final PermissionCatalogWriter writer;
+    private final PermissionCatalogCustomRepository writer;
 
     public PermissionCatalogSynchronizer(JdbcTemplate jdbc) {
-        this.writer = new PermissionCatalogWriter(jdbc);
+        this.writer = new PermissionCatalogCustomRepository(jdbc);
     }
 
     @Override

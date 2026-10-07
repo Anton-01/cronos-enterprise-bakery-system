@@ -16,7 +16,7 @@ import com.ninsky.cronos.iam.shared.TenantTime;
 import com.ninsky.cronos.iam.shared.UserDirectory;
 import com.ninsky.cronos.iam.shared.UserRef;
 import com.ninsky.cronos.iam.signin.AccountStanding;
-import com.ninsky.cronos.iam.signin.AccountStandings;
+import com.ninsky.cronos.iam.signin.AccountStandingCustomRepository;
 import com.ninsky.cronos.iam.signin.CredentialWriter;
 import com.ninsky.cronos.iam.token.CredentialDelivery;
 import com.ninsky.cronos.iam.token.IssuedToken;
@@ -62,7 +62,7 @@ public class PasswordResetService {
     private final CredentialWriter credentials;
     private final UserStatusWriter statusWriter;
     private final SessionRevoker sessionRevoker;
-    private final AccountStandings standings;
+    private final AccountStandingCustomRepository standings;
     private final UserDirectory userDirectory;
     private final AuditRecorder recorder;
     private final ApplicationEventPublisher eventPublisher;

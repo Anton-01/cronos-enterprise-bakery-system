@@ -22,7 +22,7 @@ import java.util.UUID;
 /** JDBC access to permission groups. */
 @Repository
 @RequiredArgsConstructor
-public class PermissionGroupRepository {
+public class PermissionGroupCustomRepository {
 
     private static final String SELECT = """
             SELECT g.id, g.code, g.name, g.description, g.system, g.status, g.created_at, g.updated_at, g.version,
