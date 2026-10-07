@@ -3,8 +3,11 @@ package com.ninsky.cronos.infrastructure.persistence.quote.entity;
 import com.ninsky.cronos.domain.entity.base.AuditableEntity;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.UUID;
 
 /**
@@ -68,6 +71,24 @@ public class QuoteItemJpaEntity extends AuditableEntity {
 
     @Column(name = "display_order")
     private Integer displayOrder;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "recipe_configuration", columnDefinition = "jsonb")
+    private String recipeConfiguration;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "allergens", columnDefinition = "jsonb", nullable = false)
+    @Builder.Default
+    private String allergens = "[]";
+
+    @Column(name = "recipe_version")
+    private Long recipeVersion;
+
+    @Column(name = "cost_calculated_at")
+    private Instant costCalculatedAt;
+
+    @Column(name = "price_review_required", nullable = false)
+    private boolean priceReviewRequired;
 
     @Version
     @Builder.Default

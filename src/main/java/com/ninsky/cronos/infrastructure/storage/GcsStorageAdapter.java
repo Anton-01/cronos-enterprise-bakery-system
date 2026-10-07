@@ -60,6 +60,12 @@ public class GcsStorageAdapter implements StoragePort {
     }
 
     @Override
+    public void put(String key, byte[] bytes, String contentType) {
+        storage.create(BlobInfo.newBuilder(BlobId.of(bucketName, key)).setContentType(contentType).build(), bytes);
+        log.info("File uploaded to GCP: {}", key);
+    }
+
+    @Override
     public boolean deleteFile(String filePath) {
         BlobId blobId = BlobId.of(bucketName, filePath);
         boolean deleted = storage.delete(blobId);

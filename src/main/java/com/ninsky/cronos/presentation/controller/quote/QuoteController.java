@@ -4,6 +4,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import com.ninsky.cronos.iam.permission.Authorities;
 import com.ninsky.cronos.application.request.quote.CreateQuoteRequest;
 import com.ninsky.cronos.application.response.core.ApiResponse;
+import com.ninsky.cronos.kitchen.shared.Warned;
 import com.ninsky.cronos.application.response.quote.BakerQuoteDetailResponse;
 import com.ninsky.cronos.application.response.quote.InternalQuoteResponse;
 import com.ninsky.cronos.application.service.quote.QuoteService;
@@ -44,8 +45,9 @@ public class QuoteController {
     @PreAuthorize(Authorities.QUOTE_CREATE)
     @Operation(summary = "Create a new quote", description = "Generates a financial quote and a public sharing token")
     public ResponseEntity<ApiResponse<InternalQuoteResponse>> createQuote(Authentication authentication, @Valid @RequestBody CreateQuoteRequest request) {
-        InternalQuoteResponse response = quoteService.createQuote(authentication.getName(), request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Quote generated successfully", response));
+        Warned<InternalQuoteResponse> response = quoteService.createQuote(authentication.getName(), request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Quote generated successfully", response.data(), response.warnings()));
     }
 
     @GetMapping("/{quoteId}")
@@ -59,8 +61,8 @@ public class QuoteController {
     @PreAuthorize(Authorities.QUOTE_UPDATE)
     @Operation(summary = "Update a draft quote", description = "Modifies an existing quote if it has not been finalized")
     public ResponseEntity<ApiResponse<InternalQuoteResponse>> updateQuote(Authentication authentication, @PathVariable UUID quoteId, @Valid @RequestBody CreateQuoteRequest request) {
-        InternalQuoteResponse response = quoteService.updateQuote(authentication.getName(), quoteId, request);
-        return ResponseEntity.ok(ApiResponse.success("Quote updated successfully", response));
+        Warned<InternalQuoteResponse> response = quoteService.updateQuote(authentication.getName(), quoteId, request);
+        return ResponseEntity.ok(ApiResponse.success("Quote updated successfully", response.data(), response.warnings()));
     }
 
     @PostMapping("/{quoteId}/revoke")

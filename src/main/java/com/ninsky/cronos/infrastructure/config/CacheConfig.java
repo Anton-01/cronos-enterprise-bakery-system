@@ -30,6 +30,10 @@ public class CacheConfig {
         cacheManager.registerCustomCache("sodRules", shortLived(Duration.ofMinutes(5), 10));
         cacheManager.registerCustomCache("securityPolicy", shortLived(Duration.ofSeconds(30), 10));
         cacheManager.registerCustomCache("financeSettings", shortLived(Duration.ofSeconds(30), 10));
+        // Kitchen: evicted on write; TTL bounds cross-instance staleness.
+        cacheManager.registerCustomCache("kitchenUnits", shortLived(Duration.ofMinutes(10), 10));
+        cacheManager.registerCustomCache("kitchenAllergens", shortLived(Duration.ofMinutes(5), 5_000));
+        cacheManager.registerCustomCache("kitchenStats", shortLived(Duration.ofSeconds(30), 10_000));
         return cacheManager;
     }
 

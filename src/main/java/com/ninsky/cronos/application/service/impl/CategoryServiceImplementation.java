@@ -51,7 +51,7 @@ public class CategoryServiceImplementation implements CategoryService {
     private final ImportProperties importProperties;
 
     /** Every category created through this endpoint is USER-scoped and owned by the caller —
-     *  SYSTEM categories are seed-only (DataSeeder/CategoryDataSeeder) or CSV-imported, never
+     *  SYSTEM categories are seed-only (Flyway V18) or CSV-imported, never
      *  created through the normal REST path. */
     @Transactional
     @Override

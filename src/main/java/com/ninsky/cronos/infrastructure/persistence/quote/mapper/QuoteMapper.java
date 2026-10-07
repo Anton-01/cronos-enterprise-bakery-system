@@ -43,6 +43,7 @@ public class QuoteMapper {
                 .publicToken(entity.getPublicToken())
                 .viewsCount(entity.getViewsCount())
                 .isRevoked(entity.isRevoked())
+                .priceReviewRequired(entity.isPriceReviewRequired())
                 .version(entity.getVersion())
                 .deliveryFee(money(entity.getDeliveryFee(), scale))
                 .extraFee(money(entity.getExtraFee(), scale))
@@ -81,6 +82,7 @@ public class QuoteMapper {
                 .publicToken(domain.getPublicToken())
                 .viewsCount(domain.getViewsCount())
                 .isRevoked(domain.isRevoked())
+                .priceReviewRequired(domain.isPriceReviewRequired())
                 .version(domain.getVersion())
                 .deliveryFee(domain.getDeliveryFee())
                 .extraFee(domain.getExtraFee())
@@ -122,6 +124,11 @@ public class QuoteMapper {
                 .subtotal(money(entity.getSubtotal(), scale))
                 .notes(entity.getNotes())
                 .displayOrder(entity.getDisplayOrder())
+                .recipeConfiguration(entity.getRecipeConfiguration())
+                .allergens(entity.getAllergens())
+                .recipeVersion(entity.getRecipeVersion())
+                .costCalculatedAt(entity.getCostCalculatedAt())
+                .priceReviewRequired(entity.isPriceReviewRequired())
                 .version(entity.getVersion())
                 .build();
     }
@@ -143,6 +150,11 @@ public class QuoteMapper {
                 .subtotal(domain.getSubtotal())
                 .notes(domain.getNotes())
                 .displayOrder(domain.getDisplayOrder())
+                .recipeConfiguration(domain.getRecipeConfiguration())
+                .allergens(domain.getAllergens() == null ? "[]" : domain.getAllergens())
+                .recipeVersion(domain.getRecipeVersion())
+                .costCalculatedAt(domain.getCostCalculatedAt())
+                .priceReviewRequired(domain.isPriceReviewRequired())
                 .version(domain.getVersion())
                 .build();
     }

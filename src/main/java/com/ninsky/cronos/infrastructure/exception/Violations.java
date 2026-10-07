@@ -34,9 +34,17 @@ public final class Violations {
     public void throwIfAny() {
         if (!collected.isEmpty()) {
             List<ApiException.Violation> ordered = collected.stream()
-                    .sorted(java.util.Comparator.comparingInt(v -> v.code() == ApiErrorCode.VALIDATION_ERROR ? 0 : 1))
+                    .sorted(java.util.Comparator.comparingInt(Violations::rank))
                     .toList();
             throw new ApiException(ordered, null);
         }
+    }
+
+    /** VALIDATION_ERROR first, then other 400s, then everything else. */
+    private static int rank(ApiException.Violation violation) {
+        if (violation.code() == ApiErrorCode.VALIDATION_ERROR) {
+            return 0;
+        }
+        return violation.code().status().value() == 400 ? 1 : 2;
     }
 }

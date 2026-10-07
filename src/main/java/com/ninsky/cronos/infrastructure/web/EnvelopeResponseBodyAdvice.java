@@ -34,7 +34,7 @@ public class EnvelopeResponseBodyAdvice implements ResponseBodyAdvice<Object> {
         }
         String traceId = MDC.get(TraceIdFilter.TRACE_ID_MDC_KEY);
         return apiResponse.isSuccess()
-                ? ApiResponseEnvelope.success(traceId, apiResponse.getMessage(), apiResponse.getData())
+                ? ApiResponseEnvelope.success(traceId, apiResponse.getMessage(), apiResponse.getData(), apiResponse.getWarnings())
                 : ApiResponseEnvelope.error(traceId, apiResponse.getMessage(), null);
     }
 }

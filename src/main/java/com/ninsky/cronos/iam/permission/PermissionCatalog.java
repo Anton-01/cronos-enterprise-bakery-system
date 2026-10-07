@@ -60,6 +60,8 @@ public final class PermissionCatalog {
             PermissionDefinition.of(CATALOG_CATEGORY_MANAGE, MEDIUM),
             PermissionDefinition.of(CATALOG_ALLERGEN_READ, LOW),
             PermissionDefinition.of(CATALOG_ALLERGEN_MANAGE, MEDIUM),
+            PermissionDefinition.of(CATALOG_INGREDIENT_READ, LOW),
+            PermissionDefinition.of(CATALOG_INGREDIENT_MANAGE, HIGH, INGREDIENT_READ),
             PermissionDefinition.of(CATALOG_IMPORT_READ, MEDIUM),
             PermissionDefinition.of(CATALOG_IMPORT_EXECUTE, HIGH),
 

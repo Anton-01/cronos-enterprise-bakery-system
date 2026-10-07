@@ -26,7 +26,8 @@ public class CurrencyQueries {
 
     /** Every table storing a currency code; legacy rows may hold it in lower case. */
     static final String IN_USE = "(EXISTS (SELECT 1 FROM quotes q WHERE q.currency IN (c.code, lower(c.code)))"
-            + " OR EXISTS (SELECT 1 FROM raw_materials rm WHERE rm.currency IN (c.code, lower(c.code))))";
+            + " OR EXISTS (SELECT 1 FROM raw_materials rm WHERE rm.currency IN (c.code, lower(c.code)))"
+            + " OR EXISTS (SELECT 1 FROM ingredient_prices ip WHERE ip.currency = c.code))";
 
     private static final String SELECT = "SELECT c.id, c.code, c.numeric_code, c.name, c.symbol, c.decimal_places, c.symbol_position, "
             + "c.is_default, c.status, c.created_at, c.updated_at, c.version, " + IN_USE + " AS in_use, "

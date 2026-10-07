@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.UUID;
 
 /**
@@ -36,6 +37,13 @@ public class QuoteItem {
     private BigDecimal subtotal;
     private String notes;
     private Integer displayOrder;
+    // Recipe snapshot (kitchen §6.2): later recipe changes never alter an issued quote
+    private String recipeConfiguration;
+    @Builder.Default
+    private String allergens = "[]";
+    private Long recipeVersion;
+    private Instant costCalculatedAt;
+    private boolean priceReviewRequired;
     @Builder.Default
     private Long version = 0L;
 }

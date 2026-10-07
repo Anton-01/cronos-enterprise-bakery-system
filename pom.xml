@@ -292,6 +292,12 @@
             <artifactId>imageio-webp</artifactId>
             <version>${twelvemonkeys.version}</version>
         </dependency>
+        <!-- Allow-list sanitiser for recipe process HTML (kitchen K5). -->
+        <dependency>
+            <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
+            <artifactId>owasp-java-html-sanitizer</artifactId>
+            <version>20240325.1</version>
+        </dependency>
 
         <dependency>
             <groupId>org.springframework.security</groupId>

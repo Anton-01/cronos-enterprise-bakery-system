@@ -36,5 +36,7 @@ public record InternalQuoteResponse(
         Boolean pricesIncludeTax,
         FinanceRoundingMode roundingMode,
         BigDecimal subtotal,
-        BigDecimal taxAmount
+        BigDecimal taxAmount,
+        // An ingredient price changed since the items were priced (kitchen §4.5); saving re-prices
+        boolean priceReviewRequired
 ) {}

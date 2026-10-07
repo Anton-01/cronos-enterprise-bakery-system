@@ -18,15 +18,15 @@ import com.ninsky.cronos.domain.model.audit.AuditAction;
 import com.ninsky.cronos.domain.model.audit.FieldChange;
 import com.ninsky.cronos.domain.model.core.MeasurementUnit;
 import com.ninsky.cronos.domain.model.core.MeasurementUnitView;
-import com.ninsky.cronos.domain.model.core.RawMaterial;
 import com.ninsky.cronos.domain.model.core.UnitConversionResult;
 import com.ninsky.cronos.domain.port.core.MeasurementUnitRepositoryPort;
 import com.ninsky.cronos.domain.port.core.MeasurementUnitSearchCriteria;
 import com.ninsky.cronos.domain.port.core.MeasurementUnitUsagePort;
-import com.ninsky.cronos.domain.port.core.RawMaterialRepositoryPort;
 import com.ninsky.cronos.domain.port.core.UnitCatalogLockPort;
 import com.ninsky.cronos.domain.port.core.UnitTypeRepositoryPort;
 import com.ninsky.cronos.infrastructure.exception.CatalogException;
+import com.ninsky.cronos.kitchen.ingredient.IngredientQueries;
+import com.ninsky.cronos.kitchen.shared.KitchenMessages;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
@@ -56,7 +56,7 @@ public class MeasurementUnitServiceImplementation implements MeasurementUnitServ
     private final MeasurementUnitRepositoryPort measurementUnitRepository;
     private final UnitTypeRepositoryPort unitTypeRepository;
     private final MeasurementUnitUsagePort usagePort;
-    private final RawMaterialRepositoryPort rawMaterialRepository;
+    private final IngredientQueries ingredientQueries;
     private final UnitConversionService unitConversionService;
     private final UnitCatalogLockPort catalogLock;
     private final CatalogAuditTrail auditTrail;
@@ -154,7 +154,7 @@ public class MeasurementUnitServiceImplementation implements MeasurementUnitServ
     public UnitConversionResponse convert(UnitConversionRequest request, Actor actor) {
         MeasurementUnit from = requireUnit(request.fromUnitId());
         MeasurementUnit to = requireUnit(request.toUnitId());
-        UUID ingredientId = request.rawMaterialId() == null ? null : requireOwnedRawMaterial(request.rawMaterialId(), actor).getId();
+        UUID ingredientId = request.rawMaterialId() == null ? null : requireVisibleIngredient(request.rawMaterialId(), actor);
 
         UnitConversionResult result = unitConversionService.convertWithTrace(request.quantity(), from, to, ingredientId);
         return new UnitConversionResponse(
@@ -181,11 +181,11 @@ public class MeasurementUnitServiceImplementation implements MeasurementUnitServ
         return measurementUnitRepository.findById(id).orElseThrow(() -> CatalogException.notFound("catalog.unit.notFound", id));
     }
 
-    /** Someone else's raw material answers exactly like a missing one: no existence oracle across tenants. */
-    private RawMaterial requireOwnedRawMaterial(UUID rawMaterialId, Actor actor) {
-        return rawMaterialRepository.findById(rawMaterialId)
-                .filter(material -> actor.userId().equals(material.getUserId()))
-                .orElseThrow(() -> CatalogException.notFound("catalog.conversion.rawMaterialNotFound", rawMaterialId));
+    /** Own or SYSTEM ingredient; someone else's answers like a missing one (no cross-tenant oracle). */
+    private UUID requireVisibleIngredient(UUID ingredientId, Actor actor) {
+        return ingredientQueries.find(actor.userId(), KitchenMessages.language(), ingredientId)
+                .map(IngredientQueries.Row::id)
+                .orElseThrow(() -> CatalogException.notFound("catalog.conversion.rawMaterialNotFound", ingredientId));
     }
 
     private MeasurementUnitResponse toResponse(Long id, boolean inUse) {
