@@ -64,6 +64,16 @@ public class RecipeStore {
                 new MapSqlParameterSource().addValue("ids", Set.copyOf(ids))));
     }
 
+    /** Heads only (list rows), in the order of {@code ids}. */
+    public List<RecipeAggregate.Head> headsInOrder(List<UUID> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        Map<UUID, RecipeAggregate.Head> byId = heads(HEAD + " WHERE r.id IN (:ids)", new MapSqlParameterSource().addValue("ids", Set.copyOf(ids)))
+                .stream().collect(Collectors.toMap(RecipeAggregate.Head::id, h -> h));
+        return ids.stream().map(byId::get).filter(java.util.Objects::nonNull).toList();
+    }
+
     public List<UUID> idsUsingIngredient(UUID ingredientId, UUID tenantId) {
         return jdbc.queryForList("""
                 SELECT DISTINCT r.id FROM recipe_lines l JOIN recipes r ON r.id = l.recipe_id
@@ -123,6 +133,14 @@ public class RecipeStore {
                 WHERE id = :id AND version = :expected AND deleted_at IS NULL""",
                 new MapSqlParameterSource().addValue("id", id).addValue("expected", expectedVersion).addValue("status", status.name())
                         .addValue("now", at(now)).addValue("actor", actor)) == 1;
+    }
+
+    /** version + 1 for a change outside the head (files); returns the new version. */
+    public long bumpVersion(UUID id, UUID actor, Instant now) {
+        Long version = jdbc.queryForObject("""
+                UPDATE recipes SET version = version + 1, updated_at = :now, updated_by_id = :actor WHERE id = :id RETURNING version""",
+                new MapSqlParameterSource().addValue("id", id).addValue("now", at(now)).addValue("actor", actor), Long.class);
+        return version == null ? 0 : version;
     }
 
     public void softDelete(UUID id, UUID actor, Instant now) {

@@ -15,6 +15,9 @@ public interface StoragePort {
     /** Uploads {@code file} into a virtual {@code folder} (e.g. "recipes/{uuid}"); returns the stored file path. */
     String uploadFile(MultipartFile file, String folder) throws IOException;
 
+    /** Stores {@code bytes} under an exact, caller-chosen {@code key}. */
+    void put(String key, byte[] bytes, String contentType);
+
     boolean deleteFile(String filePath);
 
     /** A temporary, auto-expiring URL for viewing a stored file. */

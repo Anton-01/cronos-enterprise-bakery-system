@@ -6,6 +6,7 @@ import com.ninsky.cronos.infrastructure.exception.Violations;
 import com.ninsky.cronos.kitchen.allergen.AllergenCatalog;
 import com.ninsky.cronos.kitchen.costing.BaseQuantity;
 import com.ninsky.cronos.kitchen.costing.CostContext;
+import com.ninsky.cronos.kitchen.shared.CategoryLookup;
 import com.ninsky.cronos.kitchen.shared.Dimension;
 import com.ninsky.cronos.kitchen.shared.KitchenStatus;
 import com.ninsky.cronos.kitchen.shared.Numbers;
@@ -37,6 +38,7 @@ public class IngredientValidator {
     private static final Set<Dimension> DENSITY_BRIDGE = Set.of(Dimension.MASS, Dimension.VOLUME);
 
     private final IngredientQueries queries;
+    private final CategoryLookup categories;
     private final UnitCatalog units;
     private final CostContext costContext;
     private final Clock clock;
@@ -66,7 +68,7 @@ public class IngredientValidator {
 
         if (request.categoryId() == null) {
             violations.invalid("categoryId", "api.validation.required");
-        } else if (!queries.categoryUsable(target.tenant(), request.categoryId(), "INGREDIENT")) {
+        } else if (!categories.usable(target.tenant(), request.categoryId(), "INGREDIENT")) {
             violations.invalid("categoryId", "kitchen.category.invalid");
         }
         violations.invalidIf(request.description() != null && request.description().length() > 500, "description", "api.validation.maxLength", 500);

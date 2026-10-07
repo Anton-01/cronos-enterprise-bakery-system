@@ -81,16 +81,26 @@ public class RecipeCosting {
 
     /** Stores a result as the next version with its revision. */
     public Outcome persist(RecipeAggregate recipe, CostEngine.Result result, UUID actor, Instant now, RecipeRevisions.Reason reason) {
+        return persistAt(recipe, recipe.head().cost(), result, recipe.head().version() + 1, actor, now, reason, Map.of());
+    }
+
+    /**
+     * Stores a result as {@code version} with one revision holding {@code changes} plus the cost diff
+     * against {@code previous} (used by saves, which already bumped the version).
+     */
+    public Outcome persistAt(RecipeAggregate recipe, RecipeAggregate.Cost previous, CostEngine.Result result, long version, UUID actor,
+                             Instant now, RecipeRevisions.Reason reason, Map<String, Object> changes) {
         RecipeAggregate.Head head = recipe.head();
-        long version = head.version() + 1;
         store.storeCost(head.id(), result, now, version);
-        Map<String, Object> changes = Changes.start()
-                .track("costPerUnit", head.cost().costPerUnit(), result.costPerUnit())
-                .track("totalCost", head.cost().totalCost(), result.totalCost())
-                .track("costStatus", head.cost().status(), result.status())
-                .build();
-        revisions.write(head.id(), version, actor, now, reason, changes, result.costPerUnit());
-        return new Outcome(head.id(), head.ownerId(), head.name(), head.cost().suggestedUnitPrice(), head.targetMarginPercent(), result, version);
+        Map<String, Object> all = new java.util.LinkedHashMap<>(changes);
+        all.putAll(Changes.start()
+                .track("costPerUnit", previous == null ? null : previous.costPerUnit(), result.costPerUnit())
+                .track("totalCost", previous == null ? null : previous.totalCost(), result.totalCost())
+                .track("costStatus", previous == null ? null : previous.status(), result.status())
+                .build());
+        revisions.write(head.id(), version, actor, now, reason, all, result.costPerUnit());
+        return new Outcome(head.id(), head.ownerId(), head.name(), previous == null ? null : previous.suggestedUnitPrice(),
+                head.targetMarginPercent(), result, version);
     }
 
     private static List<UUID> ingredientIds(List<RecipeAggregate> recipes) {

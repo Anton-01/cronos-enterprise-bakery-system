@@ -268,14 +268,6 @@ public class IngredientQueries {
                 new MapSqlParameterSource().addValue("code", code).addValue("owner", ownerId), Boolean.class));
     }
 
-    /** ACTIVE INGREDIENT categories visible to the tenant. */
-    public boolean categoryUsable(UUID tenant, long categoryId, String type) {
-        return Boolean.TRUE.equals(jdbc.queryForObject("""
-                SELECT EXISTS (SELECT 1 FROM categories WHERE id = :id AND type = :type AND status = 'ACTIVE' AND deleted_at IS NULL
-                    AND (user_id IS NULL OR user_id = :tenant))""",
-                new MapSqlParameterSource().addValue("id", categoryId).addValue("type", type).addValue("tenant", tenant), Boolean.class));
-    }
-
     private static Row row(ResultSet rs) throws SQLException {
         BigDecimal cost = rs.getBigDecimal("cost_per_base_unit");
         PriceSource source = cost == null ? PriceSource.NONE : rs.getObject("price_owner") == null ? PriceSource.REFERENCE : PriceSource.OWN;
