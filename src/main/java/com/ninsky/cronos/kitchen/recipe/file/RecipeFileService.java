@@ -57,7 +57,7 @@ public class RecipeFileService {
     @Transactional
     public RecipeFileResponse upload(UUID recipeId, MultipartFile upload, String description) {
         UUID tenant = actors.require().id();
-        RecipeAggregate recipe = recipes.lockOwned(recipeId, tenant).orElseThrow(RecipeFileService::recipeNotFound);
+        RecipeAggregate recipe = owned(recipeId, tenant);
         checkUpload(upload, description, 0);
         if (files.count(recipeId) >= properties.maxFilesPerRecipe()) {
             throw ApiException.of(ApiErrorCode.QUOTA_EXCEEDED, "file", "kitchen.file.tooMany", properties.maxFilesPerRecipe());
@@ -83,7 +83,7 @@ public class RecipeFileService {
     @Transactional
     public RecipeFileResponse replace(UUID recipeId, UUID fileId, MultipartFile upload, String description) {
         UUID tenant = actors.require().id();
-        RecipeAggregate recipe = recipes.lockOwned(recipeId, tenant).orElseThrow(RecipeFileService::recipeNotFound);
+        RecipeAggregate recipe = owned(recipeId, tenant);
         RecipeFileCustomRepository.Row old = files.find(recipeId, fileId).orElseThrow(RecipeFileService::fileNotFound);
         checkUpload(upload, description, old.sizeBytes());
         Content content = store(tenant, recipeId, upload);
@@ -114,7 +114,7 @@ public class RecipeFileService {
     @Transactional
     public RecipeFileResponse uploadCover(UUID recipeId, MultipartFile upload) {
         UUID tenant = actors.require().id();
-        RecipeAggregate recipe = recipes.lockOwned(recipeId, tenant).orElseThrow(RecipeFileService::recipeNotFound);
+        RecipeAggregate recipe = owned(recipeId, tenant);
         checkUpload(upload, null, 0);
         if (files.count(recipeId) >= properties.maxFilesPerRecipe()) {
             throw ApiException.of(ApiErrorCode.QUOTA_EXCEEDED, "file", "kitchen.file.tooMany", properties.maxFilesPerRecipe());
@@ -134,7 +134,7 @@ public class RecipeFileService {
     @Transactional
     public void clearCover(UUID recipeId) {
         UUID tenant = actors.require().id();
-        RecipeAggregate recipe = recipes.lockOwned(recipeId, tenant).orElseThrow(RecipeFileService::recipeNotFound);
+        RecipeAggregate recipe = owned(recipeId, tenant);
         files.cover(recipeId).ifPresent(cover -> {
             files.unsetCover(cover.id());
             coverCleared(recipe, tenant, clock.instant(), cover.fileName());
@@ -171,7 +171,7 @@ public class RecipeFileService {
     @Transactional
     public RecipeFileResponse update(UUID recipeId, UUID fileId, RecipeFileUpdate request) {
         UUID tenant = actors.require().id();
-        RecipeAggregate recipe = recipes.lockOwned(recipeId, tenant).orElseThrow(RecipeFileService::recipeNotFound);
+        RecipeAggregate recipe = owned(recipeId, tenant);
         RecipeFileCustomRepository.Row file = files.find(recipeId, fileId).orElseThrow(RecipeFileService::fileNotFound);
         if (request.description() != null) {
             if (request.description().length() > MAX_DESCRIPTION) {
@@ -196,7 +196,7 @@ public class RecipeFileService {
     @Transactional
     public void delete(UUID recipeId, UUID fileId) {
         UUID tenant = actors.require().id();
-        RecipeAggregate recipe = recipes.lockOwned(recipeId, tenant).orElseThrow(RecipeFileService::recipeNotFound);
+        RecipeAggregate recipe = owned(recipeId, tenant);
         RecipeFileCustomRepository.Row file = files.find(recipeId, fileId).orElseThrow(RecipeFileService::fileNotFound);
         files.delete(fileId);
         if (file.cover()) {
@@ -395,6 +395,18 @@ public class RecipeFileService {
 
     private static String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value.strip();
+    }
+
+    /**
+     * The tenant's recipe, row-locked for a file or cover change. A recipe the caller cannot see is 404 (K8); a SYSTEM
+     * library recipe is visible but read-only (K7): 409 SYSTEM_RESOURCE_CONFLICT, as for every other recipe write.
+     */
+    private RecipeAggregate owned(UUID recipeId, UUID tenant) {
+        RecipeAggregate visible = recipes.findVisible(recipeId, tenant).orElseThrow(RecipeFileService::recipeNotFound);
+        if (visible.head().system()) {
+            throw ApiException.of(ApiErrorCode.SYSTEM_RESOURCE_CONFLICT, null, "kitchen.system.readOnly");
+        }
+        return recipes.lockOwned(recipeId, tenant).orElseThrow(RecipeFileService::recipeNotFound);
     }
 
     private static ApiException recipeNotFound() {

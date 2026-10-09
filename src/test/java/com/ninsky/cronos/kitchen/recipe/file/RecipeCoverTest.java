@@ -83,6 +83,7 @@ class RecipeCoverTest {
         when(head.id()).thenReturn(RECIPE);
         when(head.name()).thenReturn("Pastel");
         when(head.cost()).thenReturn(new RecipeAggregate.Cost(null, null, null, null, null, null, 0, CostStatus.CURRENT, null));
+        when(recipes.findVisible(RECIPE, ACTOR_ID)).thenReturn(Optional.of(recipe));
         when(recipes.lockOwned(RECIPE, ACTOR_ID)).thenReturn(Optional.of(recipe));
         when(recipes.bumpVersion(eq(RECIPE), any(), any())).thenReturn(7L);
         when(files.find(eq(RECIPE), any())).thenAnswer(call -> Optional.of(row(call.getArgument(1), "cover.jpg", true)));
@@ -183,10 +184,27 @@ class RecipeCoverTest {
 
     @Test
     void invisibleRecipeIs404() {
-        when(recipes.lockOwned(RECIPE, ACTOR_ID)).thenReturn(Optional.empty());
+        when(recipes.findVisible(RECIPE, ACTOR_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.clearCover(RECIPE)).isInstanceOfSatisfying(ApiException.class,
                 e -> assertThat(e.primaryCode()).isEqualTo(ApiErrorCode.RESOURCE_NOT_FOUND));
+    }
+
+    @Test
+    void libraryRecipeIsReadOnlyNotMissing() throws IOException {
+        RecipeAggregate library = mock(RecipeAggregate.class);
+        RecipeAggregate.Head head = mock(RecipeAggregate.Head.class);
+        when(library.head()).thenReturn(head);
+        when(head.system()).thenReturn(true);
+        when(recipes.findVisible(RECIPE, ACTOR_ID)).thenReturn(Optional.of(library));
+        MockMultipartFile image = png(800, 600);
+
+        assertThatThrownBy(() -> service.uploadCover(RECIPE, image)).isInstanceOfSatisfying(ApiException.class,
+                e -> assertThat(e.primaryCode()).isEqualTo(ApiErrorCode.SYSTEM_RESOURCE_CONFLICT));
+        assertThatThrownBy(() -> service.clearCover(RECIPE)).isInstanceOfSatisfying(ApiException.class,
+                e -> assertThat(e.primaryCode()).isEqualTo(ApiErrorCode.SYSTEM_RESOURCE_CONFLICT));
+        verify(storage, never()).put(any(), any(), any());
+        verify(recipes, never()).lockOwned(any(), any());
     }
 
     @Test
