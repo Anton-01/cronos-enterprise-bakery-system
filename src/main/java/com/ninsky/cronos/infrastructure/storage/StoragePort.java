@@ -18,6 +18,9 @@ public interface StoragePort {
     /** Stores {@code bytes} under an exact, caller-chosen {@code key}. */
     void put(String key, byte[] bytes, String contentType);
 
+    /** Server-side copy of {@code sourceKey} to {@code targetKey} (no download). */
+    void copy(String sourceKey, String targetKey);
+
     boolean deleteFile(String filePath);
 
     /** A temporary, auto-expiring URL for viewing a stored file. */

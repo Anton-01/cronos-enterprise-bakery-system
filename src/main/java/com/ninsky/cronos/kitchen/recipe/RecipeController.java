@@ -160,6 +160,23 @@ public class RecipeController {
                 .body(ApiResponse.success(messages.get("kitchen.file.uploaded", created.fileName()), created));
     }
 
+    @PutMapping(value = "/{id}/cover", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize(KitchenAccess.RECIPE_UPDATE)
+    @Operation(summary = "Upload a new cover", description = "JPEG/PNG/WebP by content, ≥ 600 px wide; stored as a recipe file and flagged "
+            + "as the only cover. Counts against the file quotas.")
+    public ResponseEntity<ApiResponse<RecipeFileResponse>> uploadCover(@PathVariable UUID id, @RequestPart("file") MultipartFile file) {
+        RecipeFileResponse cover = files.uploadCover(id, file);
+        return ResponseEntity.ok(ApiResponse.success(messages.get("kitchen.cover.changed"), cover));
+    }
+
+    @DeleteMapping("/{id}/cover")
+    @PreAuthorize(KitchenAccess.RECIPE_UPDATE)
+    @Operation(summary = "Clear the cover", description = "The image stays among the recipe files. Idempotent.")
+    public ResponseEntity<ApiResponse<Void>> clearCover(@PathVariable UUID id) {
+        files.clearCover(id);
+        return ResponseEntity.ok(ApiResponse.success(messages.get("kitchen.cover.cleared"), null));
+    }
+
     @PatchMapping("/{id}/files/{fileId}")
     @PreAuthorize(KitchenAccess.RECIPE_UPDATE)
     @Operation(summary = "Edit description or cover")

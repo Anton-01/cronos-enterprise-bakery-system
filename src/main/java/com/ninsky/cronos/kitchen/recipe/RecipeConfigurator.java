@@ -5,6 +5,7 @@ import com.ninsky.cronos.infrastructure.exception.Violations;
 import com.ninsky.cronos.kitchen.costing.BaseQuantity;
 import com.ninsky.cronos.kitchen.costing.CostContext;
 import com.ninsky.cronos.kitchen.costing.CostEngine;
+import com.ninsky.cronos.kitchen.costing.PricingMethod;
 import com.ninsky.cronos.kitchen.costing.CostIngredient;
 import com.ninsky.cronos.kitchen.costing.EffectivePrices;
 import com.ninsky.cronos.kitchen.ingredient.IngredientQueryCustomRepository;
@@ -49,7 +50,7 @@ public class RecipeConfigurator {
      * @param path   field prefix, e.g. {@code configuration} or {@code items[2].recipeConfiguration}
      */
     public Configured price(UUID tenant, RecipeAggregate recipe, RecipeConfiguration configuration, String path,
-                            BigDecimal wastePercent, BigDecimal targetMarginPercent, Violations violations) {
+                            BigDecimal wastePercent, BigDecimal targetMarginPercent, PricingMethod pricingMethod, Violations violations) {
         RecipeConfiguration config = configuration == null ? new RecipeConfiguration(null, null, null) : configuration;
         Set<UUID> excluded = new HashSet<>();
         for (int i = 0; i < config.excludedLineIds().size(); i++) {
@@ -108,6 +109,7 @@ public class RecipeConfigurator {
                 recipe.head().yieldQuantity(), targetYield,
                 Optional.ofNullable(wastePercent).orElse(recipe.head().wastePercent()),
                 Optional.ofNullable(targetMarginPercent).orElse(recipe.head().targetMarginPercent()),
+                Optional.ofNullable(pricingMethod).orElse(recipe.head().pricingMethod()),
                 excluded.stream().map(UUID::toString).collect(Collectors.toSet()), costContext.current().rules());
         CostEngine.Result result = engine.calculate(request);
 

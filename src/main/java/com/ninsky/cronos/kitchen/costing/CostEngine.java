@@ -16,10 +16,11 @@ import java.util.stream.Stream;
  * scale = targetYield / baseYield;  batches = ceil(scale)
  * line:  qty = quantity × ratio × scale → base units → lineCost = round(baseQty × costPerBaseUnit) | null
  * ingredients = Σ lineCost;  waste = round(ingredients × waste%)
- * fixed: HOURLY = amount × min/60 × batches; PER_UNIT = amount × targetYield;
+ * fixed: HOURLY = amount × min/60 × batches;
+ *        PER_UNIT = amount × targetYield, or amount × quantity × batches when the row sets units per batch;
  *        PER_BATCH = amount × batches; PERCENTAGE = pct × (ingredients + waste)
  * total = ingredients + waste + Σ fixed;  perUnit = round(total / targetYield)
- * suggested = round(total / targetYield × (1 + margin%))
+ * suggested = round(MARKUP: total / targetYield × (1 + margin%) | MARGIN: total / targetYield ÷ (1 − margin%))
  * </pre>
  * Scale 10 HALF_EVEN internally; money rounded per line, then summed (CFDI style).
  */
@@ -64,11 +65,19 @@ public final class CostEngine {
         }
     }
 
-    /** A fixed cost; {@code percentage} on the recipe overrides {@code masterPercentage}. */
+    /**
+     * A fixed cost; {@code percentage} on the recipe overrides {@code masterPercentage}. {@code quantity} = PER_UNIT
+     * units per batch (null = one per yield unit, the legacy rule).
+     */
     public record Fixed(String key, FixedCostMethod method, BigDecimal defaultAmount, BigDecimal masterPercentage,
-                        BigDecimal percentage, Integer minutes) {
+                        BigDecimal percentage, Integer minutes, BigDecimal quantity) {
         public Fixed {
             Objects.requireNonNull(method, "method");
+        }
+
+        public Fixed(String key, FixedCostMethod method, BigDecimal defaultAmount, BigDecimal masterPercentage, BigDecimal percentage,
+                     Integer minutes) {
+            this(key, method, defaultAmount, masterPercentage, percentage, minutes, null);
         }
     }
 
@@ -77,7 +86,8 @@ public final class CostEngine {
      *                     iff its key is not in the set (configurator mode)
      */
     public record Request(List<Line> lines, List<Fixed> fixed, BigDecimal baseYield, BigDecimal targetYield,
-                          BigDecimal wastePercent, BigDecimal targetMarginPercent, Set<String> excludedKeys, Rules rules) {
+                          BigDecimal wastePercent, BigDecimal targetMarginPercent, PricingMethod pricingMethod, Set<String> excludedKeys,
+                          Rules rules) {
         public Request {
             lines = List.copyOf(lines);
             fixed = List.copyOf(fixed);
@@ -92,6 +102,17 @@ public final class CostEngine {
             }
             wastePercent = wastePercent == null ? BigDecimal.ZERO : wastePercent;
             targetMarginPercent = targetMarginPercent == null ? BigDecimal.ZERO : targetMarginPercent;
+            pricingMethod = PricingMethod.orDefault(pricingMethod);
+            // Validators enforce the ranges; this only rules out the undefined price (division by ≤ 0).
+            if (pricingMethod == PricingMethod.MARGIN && targetMarginPercent.compareTo(PricingMethod.MAX_MARGIN_PERCENT) >= 0) {
+                throw new IllegalArgumentException("MARGIN needs targetMarginPercent < 100");
+            }
+        }
+
+        /** MARKUP request (every caller before the pricing method existed). */
+        public Request(List<Line> lines, List<Fixed> fixed, BigDecimal baseYield, BigDecimal targetYield, BigDecimal wastePercent,
+                       BigDecimal targetMarginPercent, Set<String> excludedKeys, Rules rules) {
+            this(lines, fixed, baseYield, targetYield, wastePercent, targetMarginPercent, PricingMethod.MARKUP, excludedKeys, rules);
         }
 
         boolean includes(Line line) {
@@ -105,9 +126,10 @@ public final class CostEngine {
     public record FixedResult(String key, BigDecimal cost) {
     }
 
+    /** {@code pricingMethod} = the method actually applied to {@code suggestedUnitPrice}. */
     public record Result(List<LineResult> lines, List<FixedResult> fixed, BigDecimal ingredientsCost, BigDecimal wasteCost,
                          BigDecimal fixedCosts, BigDecimal totalCost, BigDecimal costPerUnit, BigDecimal suggestedUnitPrice,
-                         int unpricedLines) {
+                         int unpricedLines, PricingMethod pricingMethod) {
 
         public CostStatus status() {
             return unpricedLines > 0 ? CostStatus.INCOMPLETE : CostStatus.CURRENT;
@@ -115,6 +137,10 @@ public final class CostEngine {
 
         public BigDecimal lineCost(String key) {
             return lines.stream().filter(l -> l.key().equals(key)).findFirst().map(LineResult::lineCost).orElse(null);
+        }
+
+        public BigDecimal fixedCost(String key) {
+            return fixed.stream().filter(f -> f.key().equals(key)).findFirst().map(FixedResult::cost).orElse(null);
         }
     }
 
@@ -136,9 +162,9 @@ public final class CostEngine {
 
         BigDecimal total = ingredients.add(waste).add(fixedTotal);
         BigDecimal perUnitRaw = total.divide(request.targetYield(), SCALE, INTERNAL);
-        BigDecimal markup = BigDecimal.ONE.add(request.targetMarginPercent().divide(HUNDRED, SCALE, INTERNAL));
-        return new Result(lines, fixed, ingredients, waste, fixedTotal, total, rules.round(perUnitRaw),
-                rules.round(perUnitRaw.multiply(markup)), unpriced);
+        BigDecimal suggested = request.pricingMethod().price(perUnitRaw, request.targetMarginPercent(), SCALE, INTERNAL);
+        return new Result(lines, fixed, ingredients, waste, fixedTotal, total, rules.round(perUnitRaw), rules.round(suggested), unpriced,
+                request.pricingMethod());
     }
 
     private static LineResult line(Line line, Request request, BigDecimal scale) {
@@ -160,7 +186,7 @@ public final class CostEngine {
         return switch (fixed.method()) {
             case HOURLY_RATE -> amount.multiply(BigDecimal.valueOf(fixed.minutes() == null ? 0 : fixed.minutes()))
                     .divide(SIXTY, SCALE, INTERNAL).multiply(batches);
-            case PER_UNIT -> amount.multiply(targetYield);
+            case PER_UNIT -> fixed.quantity() == null ? amount.multiply(targetYield) : amount.multiply(fixed.quantity()).multiply(batches);
             case FIXED_PER_BATCH -> amount.multiply(batches);
             case PERCENTAGE -> orZero(fixed.percentage() != null ? fixed.percentage() : fixed.masterPercentage())
                     .divide(HUNDRED, SCALE, INTERNAL).multiply(percentageBase);

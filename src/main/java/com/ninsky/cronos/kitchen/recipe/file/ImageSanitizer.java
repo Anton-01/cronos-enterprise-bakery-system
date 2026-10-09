@@ -27,24 +27,26 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Recipe images (§5.7): metadata stripped and a 400 px thumbnail. JPEG/PNG are decoded and re-encoded
+ * Recipe images (§5.7): metadata stripped, a 400 px thumbnail and an 800 px "card" variant (list cards and the book
+ * view, baking-studio §2.2). JPEG/PNG are decoded and re-encoded
  * (EXIF/GPS never survive); WebP has no JDK writer, so its EXIF/XMP RIFF chunks are removed instead.
- * Thumbnails are WebP via the system libwebp ({@link WebpEncoder}), JPEG when it is missing. Rejects decompression bombs before decoding.
+ * Variants are WebP via the system libwebp ({@link WebpEncoder}), JPEG when it is missing. Rejects decompression bombs before decoding.
  */
 @Slf4j
 public final class ImageSanitizer {
 
     public static final int THUMBNAIL_EDGE = 400;
+    public static final int CARD_EDGE = 800;
     static final long MAX_PIXELS = 40_000_000L;
     private static final float JPEG_QUALITY = 0.9f;
     private static final float WEBP_QUALITY = 82f;
     private static final Set<String> WEBP_METADATA = Set.of("EXIF", "XMP ");
 
-    /** Clean original + thumbnail. */
-    public record Result(byte[] image, Thumbnail thumbnail) {
+    /** Clean original, thumbnail and card variants, and the decoded size in pixels. */
+    public record Result(byte[] image, Thumbnail thumbnail, Thumbnail card, int width, int height) {
     }
 
-    /** Encoded thumbnail with its storage extension and content type. */
+    /** An encoded variant with its storage extension and content type. */
     public record Thumbnail(byte[] bytes, String extension, String mimeType) {
     }
 
@@ -64,7 +66,8 @@ public final class ImageSanitizer {
                 case "png" -> encode(decoded, "png");
                 default -> stripWebpMetadata(upload);
             };
-            return new Result(clean, encodeThumbnail(thumbnail(decoded)));
+            return new Result(clean, encodeThumbnail(scaled(decoded, THUMBNAIL_EDGE)), encodeThumbnail(scaled(decoded, CARD_EDGE)),
+                    decoded.getWidth(), decoded.getHeight());
         } catch (IOException e) {
             throw corrupt();
         }
@@ -117,8 +120,9 @@ public final class ImageSanitizer {
         return new Thumbnail(encode(image, "jpeg"), "jpg", "image/jpeg");
     }
 
-    private static BufferedImage thumbnail(BufferedImage source) {
-        double scale = Math.min(1.0, (double) THUMBNAIL_EDGE / Math.max(source.getWidth(), source.getHeight()));
+    /** Longest edge at most {@code edge} (never upscaled). */
+    private static BufferedImage scaled(BufferedImage source, int edge) {
+        double scale = Math.min(1.0, (double) edge / Math.max(source.getWidth(), source.getHeight()));
         return flatten(source, Math.max(1, (int) Math.round(source.getWidth() * scale)), Math.max(1, (int) Math.round(source.getHeight() * scale)));
     }
 

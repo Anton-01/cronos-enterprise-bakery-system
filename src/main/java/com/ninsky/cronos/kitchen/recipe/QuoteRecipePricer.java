@@ -50,7 +50,7 @@ public class QuoteRecipePricer {
         RecipeAggregate recipe = store.findVisible(recipeId, tenant)
                 .orElseThrow(() -> ApiException.invalid(path + ".recipeId", "kitchen.quote.recipeNotFound"));
         RecipeConfigurator.Configured configured = configurator.price(tenant, recipe, configuration, path + ".recipeConfiguration",
-                null, null, new Violations());
+                null, null, null, new Violations());
         List<AllergenRef> refs = allergens.view(tenant).refs(configured.allergenIds(), KitchenMessages.language());
         String cover = files.coverKeys(List.of(recipe.id())).get(recipe.id());
         return new Priced(recipe.id(), configured.result().costPerUnit(), configured.result().suggestedUnitPrice(),

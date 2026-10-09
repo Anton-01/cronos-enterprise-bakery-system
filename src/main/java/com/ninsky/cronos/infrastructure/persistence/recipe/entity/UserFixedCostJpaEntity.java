@@ -30,7 +30,7 @@ public class UserFixedCostJpaEntity extends AuditableEntity {
     @Column(nullable = false, length = 50)
     private String type;
 
-    @Column(name = "default_amount", nullable = false, precision = 15, scale = 2)
+    @Column(name = "default_amount", nullable = false, precision = 14, scale = 4)
     private BigDecimal defaultAmount;
 
     @Column(name = "percentage", nullable = false, precision = 5, scale = 2)
@@ -40,9 +40,23 @@ public class UserFixedCostJpaEntity extends AuditableEntity {
     @Column(name = "calculation_method", nullable = false, length = 50)
     private String calculationMethod;
 
-    @Column(name = "is_active")
+    @Column(name = "is_active", nullable = false)
     @Builder.Default
     private boolean isActive = true;
+
+    @Column(name = "applies_by_default", nullable = false)
+    @Builder.Default
+    private boolean appliesByDefault = false;
+
+    @Column(name = "monthly_amount", precision = 14, scale = 4)
+    private BigDecimal monthlyAmount;
+
+    @Column(name = "monthly_basis", precision = 14, scale = 4)
+    private BigDecimal monthlyBasis;
+
+    /** Set on rows created from the default catalog; kept only so seeding stays idempotent. */
+    @Column(name = "seed_code", length = 40, updatable = false)
+    private String seedCode;
 
     @Version
     @Builder.Default

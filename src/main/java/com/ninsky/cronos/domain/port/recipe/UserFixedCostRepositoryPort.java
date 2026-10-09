@@ -10,6 +10,8 @@ import java.util.UUID;
 public interface UserFixedCostRepositoryPort {
     UserFixedCost save(UserFixedCost cost);
     Optional<UserFixedCost> findByIdAndUserId(UUID id, UUID userId);
-    Page<UserFixedCost> findByUserIdAndIsActiveTrue(UUID userId, Pageable pageable);
-    Page<UserFixedCost> findByUserIdAndIsActiveTrueAndNameContainingIgnoreCase(UUID userId, String name, Pageable pageable);
+    /** Active and inactive rows (the client filters, baking-studio §4.2). */
+    Page<UserFixedCost> findByUserId(UUID userId, Pageable pageable);
+    Page<UserFixedCost> findByUserIdAndNameContainingIgnoreCase(UUID userId, String name, Pageable pageable);
+    void delete(UUID id);
 }

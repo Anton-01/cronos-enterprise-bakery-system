@@ -37,4 +37,11 @@ public class FixedCostCustomRepository {
                                 rs.getBigDecimal("default_amount"), rs.getBigDecimal("percentage"), rs.getBoolean("active")))
                 .stream().collect(Collectors.toMap(Master::id, Function.identity()));
     }
+
+    /** Drops the rows soft-deleted recipes keep for {@code masterId} (quotes hold their own snapshot), so it can be deleted. */
+    public int detachFromDeletedRecipes(UUID masterId) {
+        return jdbc.update("""
+                DELETE FROM recipe_fixed_costs f USING recipes r
+                WHERE f.recipe_id = r.id AND r.deleted_at IS NOT NULL AND f.user_fixed_cost_id = :master""", Map.of("master", masterId));
+    }
 }

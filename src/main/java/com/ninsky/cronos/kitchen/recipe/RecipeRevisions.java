@@ -23,6 +23,10 @@ public class RecipeRevisions {
     private static final TypeReference<Map<String, Object>> MAP = new TypeReference<>() {
     };
 
+    /** Revisions of changes outside the editable aggregate (attachments and cover). */
+    static final java.util.Set<String> ATTACHMENT_KEYS = java.util.Set.of("kitchen.revision.fileUploaded", "kitchen.revision.fileDeleted",
+            "kitchen.revision.fileReplaced", "kitchen.revision.coverChanged", "kitchen.revision.coverCleared");
+
     private final RecipeRevisionCustomRepository repository;
     private final ObjectMapper objectMapper;
     private final KitchenMessages messages;
@@ -49,6 +53,14 @@ public class RecipeRevisions {
     public List<UUID> allergensChanged(UUID ingredientId, String ingredientName, UUID actor, Instant at) {
         return repository.bumpRecipesUsing(ingredientId, actor, at, "kitchen.revision.allergensChanged",
                 json(Map.of("args", List.of(ingredientName))), json(Map.of("allergens", Map.of("ingredient", ingredientName))));
+    }
+
+    /**
+     * True when the editor's {@code read} version is still a valid base for a save: nothing but attachment or cover
+     * changes happened since (those bump the version for the history but do not touch what the editor holds).
+     */
+    public boolean onlyAttachmentChangesSince(UUID recipeId, long read, long current) {
+        return read < current && repository.onlyKeysBetween(recipeId, read, current, ATTACHMENT_KEYS);
     }
 
     public CatalogPage<RecipeRevision> page(UUID recipeId, Integer page, Integer size) {

@@ -21,6 +21,10 @@ public class UserFixedCostMapper {
                 .percentage(entity.getPercentage())
                 .calculationMethod(entity.getCalculationMethod())
                 .isActive(entity.isActive())
+                .appliesByDefault(entity.isAppliesByDefault())
+                .monthlyAmount(entity.getMonthlyAmount())
+                .monthlyBasis(entity.getMonthlyBasis())
+                .seedCode(entity.getSeedCode())
                 .version(entity.getVersion())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
@@ -41,6 +45,10 @@ public class UserFixedCostMapper {
                 .percentage(domain.getPercentage())
                 .calculationMethod(domain.getCalculationMethod())
                 .isActive(domain.isActive())
+                .appliesByDefault(domain.isAppliesByDefault())
+                .monthlyAmount(domain.getMonthlyAmount())
+                .monthlyBasis(domain.getMonthlyBasis())
+                .seedCode(domain.getSeedCode())
                 .version(domain.getVersion())
                 .build();
         entity.setCreatedAt(domain.getCreatedAt());

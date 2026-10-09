@@ -31,6 +31,7 @@ import com.ninsky.cronos.infrastructure.exception.ApiException;
 import com.ninsky.cronos.infrastructure.exception.Violations;
 import com.ninsky.cronos.infrastructure.web.paging.CatalogPage;
 import com.ninsky.cronos.infrastructure.web.paging.PageQuery;
+import com.ninsky.cronos.iam.shared.AccountCreated;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -155,6 +156,7 @@ public class IamUserService {
         String temporaryPassword = temporary ? passwordPolicy.generateTemporary() : null;
         writes.insert(id, profile, temporary ? passwordEncoder.encode(temporaryPassword) : null, temporary,
                 actor.id(), actor.username(), now);
+        events.publishEvent(new AccountCreated(id));
         if (avatarKey != null) {
             writes.setAvatarKey(id, avatarKey.value());
         }

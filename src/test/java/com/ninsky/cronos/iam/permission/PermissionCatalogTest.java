@@ -12,16 +12,21 @@ class PermissionCatalogTest {
     void catalogIsAValidDagInCanonicalOrder() {
         PermissionCatalog.validate();
         assertThat(PermissionCatalog.all()).isSortedAccordingTo(PermissionDefinition.CANONICAL_ORDER);
-        assertThat(PermissionCatalog.codes()).hasSize(56);
+        assertThat(PermissionCatalog.codes()).hasSize(59);
     }
 
     @Test
-    void everyNonReadActionDependsOnItsOwnReadExceptStandaloneSettings() {
+    void everyNonReadActionDependsOnItsOwnReadExceptStandaloneOnes() {
+        java.util.Set<String> standalone = java.util.Set.of(Permissions.FINANCE_SETTINGS_UPDATE, Permissions.GUIDE_PAN_MANAGE,
+                Permissions.GUIDE_CONTENT_MANAGE);
         PermissionCatalog.all().stream()
-                .filter(d -> !d.isRead() && !d.code().equals(Permissions.FINANCE_SETTINGS_UPDATE))
+                .filter(d -> !d.isRead() && !standalone.contains(d.code()))
                 .forEach(d -> assertThat(d.dependsOn()).contains(d.module() + "." + d.resource() + ".READ"));
         assertThat(PermissionCatalog.find(Permissions.FINANCE_SETTINGS_UPDATE).orElseThrow().dependsOn())
                 .containsExactlyInAnyOrder(Permissions.FINANCE_CURRENCY_READ, Permissions.FINANCE_TAX_RATE_READ);
+        assertThat(PermissionCatalog.find(Permissions.GUIDE_PAN_MANAGE).orElseThrow().dependsOn()).containsExactly(Permissions.GUIDE_GUIDE_READ);
+        assertThat(PermissionCatalog.find(Permissions.GUIDE_CONTENT_MANAGE).orElseThrow().dependsOn())
+                .containsExactly(Permissions.GUIDE_GUIDE_READ);
     }
 
     @Test

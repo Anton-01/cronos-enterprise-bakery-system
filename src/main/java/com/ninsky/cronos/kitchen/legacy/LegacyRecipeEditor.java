@@ -63,7 +63,7 @@ public class LegacyRecipeEditor {
     public void addFixedCost(UUID recipeId, RecipeFixedCostRequest fixed) {
         edit(recipeId, UnaryOperator.identity(), costs -> Stream.concat(costs.stream()
                         .filter(c -> !c.userFixedCostId().equals(fixed.userFixedCostId())),
-                Stream.of(new RecipeRequest.FixedCostRequest(fixed.userFixedCostId(), fixed.timeInMinutes(), fixed.percentage()))).toList());
+                Stream.of(new RecipeRequest.FixedCostRequest(fixed.userFixedCostId(), fixed.timeInMinutes(), fixed.percentage(), null))).toList());
     }
 
     /** {@code fixedCostId} is the recipe fixed-cost row id. */
@@ -77,7 +77,7 @@ public class LegacyRecipeEditor {
 
     @Transactional(readOnly = true)
     public CostPreview cost(UUID recipeId, BigDecimal targetYield) {
-        return previews.preview(new CostPreviewRequest(recipeId, null, null, null, null, null,
+        return previews.preview(new CostPreviewRequest(recipeId, null, null, null, null, null, null,
                 new RecipeConfiguration(null, null, targetYield)));
     }
 
@@ -91,7 +91,8 @@ public class LegacyRecipeEditor {
         RecipeAggregate.Head h = recipe.head();
         recipes.update(recipe.id(), new RecipeRequest(null, h.name(), h.categoryId(), h.difficulty(), h.description(), h.storageInstructions(),
                 h.yieldQuantity(), h.yieldUnit(), h.prepMinutes(), h.bakeMinutes(), h.coolMinutes(), h.ovenTemperatureC(), h.shelfLifeDays(),
-                h.processHtml(), h.targetMarginPercent(), h.wastePercent(), lines.apply(lines(recipe)), fixed.apply(fixed(recipe)), h.version()));
+                h.processHtml(), h.targetMarginPercent(), h.pricingMethod(), h.wastePercent(), lines.apply(lines(recipe)), fixed.apply(fixed(recipe)),
+                h.version()));
     }
 
     private RecipeAggregate owned(UUID recipeId) {
@@ -107,7 +108,8 @@ public class LegacyRecipeEditor {
     }
 
     private static List<RecipeRequest.FixedCostRequest> fixed(RecipeAggregate recipe) {
-        return recipe.fixed().stream().map(f -> new RecipeRequest.FixedCostRequest(f.userFixedCostId(), f.minutes(), f.percentage())).toList();
+        return recipe.fixed().stream()
+                .map(f -> new RecipeRequest.FixedCostRequest(f.userFixedCostId(), f.minutes(), f.percentage(), f.quantity())).toList();
     }
 
     private static List<RecipeRequest.LineRequest> without(List<RecipeRequest.LineRequest> lines, UUID lineId) {

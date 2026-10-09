@@ -29,6 +29,11 @@ public final class Permissions {
     public static final String FIXED_COST_READ = "FIXED_COST.FIXED_COST.READ";
     public static final String FIXED_COST_MANAGE = "FIXED_COST.FIXED_COST.MANAGE";
 
+    /** Baker's guide (baking-studio §1): every user reads it and keeps their own pans; staff maintain SYSTEM content. */
+    public static final String GUIDE_GUIDE_READ = "GUIDE.GUIDE.READ";
+    public static final String GUIDE_PAN_MANAGE = "GUIDE.PAN.MANAGE";
+    public static final String GUIDE_CONTENT_MANAGE = "GUIDE.CONTENT.MANAGE";
+
     public static final String CATALOG_UNIT_TYPE_READ = "CATALOG.UNIT_TYPE.READ";
     public static final String CATALOG_UNIT_TYPE_MANAGE = "CATALOG.UNIT_TYPE.MANAGE";
     public static final String CATALOG_MEASUREMENT_UNIT_READ = "CATALOG.MEASUREMENT_UNIT.READ";

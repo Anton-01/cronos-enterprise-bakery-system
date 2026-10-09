@@ -15,6 +15,9 @@ public record UserFixedCostResponse(
         BigDecimal percentage,
         String calculationMethod,
         boolean isActive,
+        boolean appliesByDefault,
+        BigDecimal monthlyAmount,
+        BigDecimal monthlyBasis,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {}

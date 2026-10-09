@@ -19,6 +19,9 @@ public final class KitchenAccess {
     public static final String RECIPE_CREATE = "hasAuthority('" + Permissions.RECIPE_CREATE + "')";
     public static final String RECIPE_UPDATE = "hasAuthority('" + Permissions.RECIPE_UPDATE + "')";
     public static final String RECIPE_DELETE = "hasAuthority('" + Permissions.RECIPE_DELETE + "')";
+    public static final String GUIDE_READ = "hasAuthority('" + Permissions.GUIDE_GUIDE_READ + "')";
+    public static final String GUIDE_PAN_MANAGE = "hasAuthority('" + Permissions.GUIDE_PAN_MANAGE + "')";
+    public static final String GUIDE_CONTENT_MANAGE = "hasAuthority('" + Permissions.GUIDE_CONTENT_MANAGE + "')";
 
     private KitchenAccess() {
     }

@@ -22,6 +22,7 @@ import com.ninsky.cronos.infrastructure.exception.UserNotFoundException;
 import com.ninsky.cronos.infrastructure.security.blacklist.TokenBlacklistService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.ninsky.cronos.iam.shared.AccountCreated;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -90,6 +91,7 @@ public class AdminUserService {
                 .roleIds(roles.stream().map(Role::getId).collect(Collectors.toSet())).build();
 
         user = userRepository.save(user);
+        eventPublisher.publishEvent(new AccountCreated(user.getId()));
 
         UserProfile profile = UserProfile.builder().userId(user.getId()).firstName(request.firstName())
                 .lastName(request.lastName()).phoneNumber(request.phoneNumber()).build();

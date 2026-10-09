@@ -35,15 +35,14 @@ final class RecipeDiff {
                 .track("yieldQuantity", a.yieldQuantity(), b.yieldQuantity())
                 .track("yieldUnit", a.yieldUnit(), b.yieldUnit())
                 .track("targetMarginPercent", a.targetMarginPercent(), b.targetMarginPercent())
+                .track("pricingMethod", a.pricingMethod(), b.pricingMethod())
                 .track("wastePercent", a.wastePercent(), b.wastePercent())
                 .build());
         Map<String, Object> lines = lines(before.lines(), after.lines());
         if (!lines.isEmpty()) {
             changes.put("lines", lines);
         }
-        if (before.fixed().size() != after.fixed().size()
-                || !before.fixed().stream().map(RecipeAggregate.Fixed::userFixedCostId).collect(Collectors.toSet())
-                .equals(after.fixed().stream().map(RecipeAggregate.Fixed::userFixedCostId).collect(Collectors.toSet()))) {
+        if (!fixedRows(before).equals(fixedRows(after))) {
             changes.put("fixedCosts", Map.of("from", before.fixed().size(), "to", after.fixed().size()));
         }
         return changes;
@@ -83,6 +82,17 @@ final class RecipeDiff {
             result.put("changed", changed);
         }
         return result;
+    }
+
+    /** What a fixed-cost row contributes: master + its per-recipe inputs (row ids are regenerated on every save). */
+    private static Set<List<Object>> fixedRows(RecipeAggregate recipe) {
+        return recipe.fixed().stream()
+                .map(f -> java.util.Arrays.<Object>asList(f.userFixedCostId(), f.minutes(), strip(f.percentage()), strip(f.quantity())))
+                .collect(Collectors.toSet());
+    }
+
+    private static java.math.BigDecimal strip(java.math.BigDecimal value) {
+        return value == null ? null : value.stripTrailingZeros();
     }
 
     private static Set<Long> ids(RecipeAggregate.Line line) {

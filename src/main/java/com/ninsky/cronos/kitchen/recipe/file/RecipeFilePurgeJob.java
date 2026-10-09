@@ -28,7 +28,7 @@ public class RecipeFilePurgeJob {
         for (UUID recipeId : recipes.deletedBefore(clock.instant().minus(Duration.ofDays(properties.filePurgeAfterDays())))) {
             transactions.executeWithoutResult(status -> files.list(recipeId).forEach(file -> {
                 files.delete(file.id());
-                fileService.deleteBlobsAfterCommit(file.storageKey(), file.thumbnailKey());
+                fileService.deleteBlobsAfterCommit(file.blobKeys());
             }));
         }
     }

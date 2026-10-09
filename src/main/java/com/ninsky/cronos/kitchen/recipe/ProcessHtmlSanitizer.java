@@ -21,6 +21,8 @@ public final class ProcessHtmlSanitizer {
             .allowAttributes("target").matching(Pattern.compile("_blank")).onElements("a")
             .requireRelsOnLinks("noopener", "noreferrer")
             .allowAttributes("class").matching(Pattern.compile("ql-[a-z0-9-]+( ql-[a-z0-9-]+)*")).onElements("span")
+            // Quill 2 writes bullets and numbered steps as <ol><li data-list="bullet|ordered">; the book view numbers steps by it.
+            .allowAttributes("data-list").matching(Pattern.compile("ordered|bullet")).onElements("li")
             .allowWithoutAttributes("span")
             .toFactory();
 

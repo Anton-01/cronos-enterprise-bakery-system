@@ -24,18 +24,29 @@ import java.util.UUID;
 public class RecipeFileCustomRepository {
 
     private static final String SELECT = "SELECT f.id, f.recipe_id, f.storage_key, f.file_name, f.kind, f.mime_type, f.size_bytes, "
-            + "f.description, f.is_cover, f.thumbnail_key, f.uploaded_at, " + UserRefCustomRepository.columns("f.uploaded_by")
+            + "f.description, f.is_cover, f.thumbnail_key, f.card_storage_key, f.uploaded_at, " + UserRefCustomRepository.columns("f.uploaded_by")
             + " FROM recipe_files f" + UserRefCustomRepository.join("f.uploaded_by");
 
     private final NamedParameterJdbcTemplate jdbc;
     private final UserRefCustomRepository userRefs;
 
+    /** {@code cardKey}: 800 px variant of an image (null for other kinds and files stored before it existed). */
     public record Row(UUID id, UUID recipeId, String storageKey, String fileName, FileKind kind, String mimeType, long sizeBytes,
-                      String description, boolean cover, String thumbnailKey, Instant uploadedAt, UserRef uploadedBy) {
+                      String description, boolean cover, String thumbnailKey, String cardKey, Instant uploadedAt, UserRef uploadedBy) {
+
+        /** Best image for a cover: card, else thumbnail, else the original. */
+        public String coverKey() {
+            return cardKey != null ? cardKey : thumbnailKey != null ? thumbnailKey : storageKey;
+        }
+
+        public String[] blobKeys() {
+            return new String[]{storageKey, thumbnailKey, cardKey};
+        }
     }
 
     public record NewFile(UUID id, UUID recipeId, String storageKey, String fileName, FileKind kind, String mimeType, long sizeBytes,
-                          String sha256, String description, boolean cover, String thumbnailKey, UUID uploadedBy, Instant uploadedAt) {
+                          String sha256, String description, boolean cover, String thumbnailKey, String cardKey, UUID uploadedBy,
+                          Instant uploadedAt) {
     }
 
     public List<Row> list(UUID recipeId) {
@@ -48,13 +59,15 @@ public class RecipeFileCustomRepository {
                 Map.of("recipe", recipeId, "id", fileId), (rs, i) -> row(rs)).stream().findFirst();
     }
 
-    /** Cover object key per recipe (thumbnail preferred) for list rows. */
+    /** Cover object key per recipe (800 px card, else thumbnail, else original) for list rows and quote snapshots. */
     public Map<UUID, String> coverKeys(Collection<UUID> recipeIds) {
         Map<UUID, String> keys = new HashMap<>();
         if (recipeIds.isEmpty()) {
             return keys;
         }
-        jdbc.query("SELECT recipe_id, coalesce(thumbnail_key, storage_key) AS k FROM recipe_files WHERE is_cover AND recipe_id IN (:ids)",
+        jdbc.query("""
+                SELECT recipe_id, coalesce(card_storage_key, thumbnail_key, storage_key) AS k FROM recipe_files
+                WHERE is_cover AND recipe_id IN (:ids)""",
                 Map.of("ids", Set.copyOf(recipeIds)), rs -> {
                     keys.put(rs.getObject("recipe_id", UUID.class), rs.getString("k"));
                 });
@@ -64,6 +77,11 @@ public class RecipeFileCustomRepository {
     public int count(UUID recipeId) {
         Integer count = jdbc.queryForObject("SELECT count(*) FROM recipe_files WHERE recipe_id = :recipe", Map.of("recipe", recipeId), Integer.class);
         return count == null ? 0 : count;
+    }
+
+    public Optional<Row> cover(UUID recipeId) {
+        return jdbc.query(SELECT + " WHERE f.recipe_id = :recipe AND f.is_cover", Map.of("recipe", recipeId), (rs, i) -> row(rs))
+                .stream().findFirst();
     }
 
     public boolean hasCover(UUID recipeId) {
@@ -82,12 +100,12 @@ public class RecipeFileCustomRepository {
     public void insert(NewFile file) {
         jdbc.update("""
                 INSERT INTO recipe_files (id, recipe_id, storage_key, file_name, kind, mime_type, size_bytes, sha256, description, is_cover,
-                    thumbnail_key, uploaded_at, uploaded_by)
-                VALUES (:id, :recipe, :key, :name, :kind, :mime, :size, :sha, :description, :cover, :thumb, :at, :by)""",
+                    thumbnail_key, card_storage_key, uploaded_at, uploaded_by)
+                VALUES (:id, :recipe, :key, :name, :kind, :mime, :size, :sha, :description, :cover, :thumb, :card, :at, :by)""",
                 new MapSqlParameterSource().addValue("id", file.id()).addValue("recipe", file.recipeId()).addValue("key", file.storageKey())
                         .addValue("name", file.fileName()).addValue("kind", file.kind().name()).addValue("mime", file.mimeType())
                         .addValue("size", file.sizeBytes()).addValue("sha", file.sha256()).addValue("description", file.description())
-                        .addValue("cover", file.cover()).addValue("thumb", file.thumbnailKey())
+                        .addValue("cover", file.cover()).addValue("thumb", file.thumbnailKey()).addValue("card", file.cardKey())
                         .addValue("at", file.uploadedAt().atOffset(ZoneOffset.UTC)).addValue("by", file.uploadedBy()));
     }
 
@@ -95,12 +113,13 @@ public class RecipeFileCustomRepository {
     public void replaceContent(NewFile file) {
         jdbc.update("""
                 UPDATE recipe_files SET storage_key = :key, file_name = :name, kind = :kind, mime_type = :mime, size_bytes = :size,
-                    sha256 = :sha, description = :description, is_cover = :cover, thumbnail_key = :thumb, uploaded_at = :at, uploaded_by = :by
+                    sha256 = :sha, description = :description, is_cover = :cover, thumbnail_key = :thumb, card_storage_key = :card,
+                    uploaded_at = :at, uploaded_by = :by
                 WHERE id = :id AND recipe_id = :recipe""",
                 new MapSqlParameterSource().addValue("id", file.id()).addValue("recipe", file.recipeId()).addValue("key", file.storageKey())
                         .addValue("name", file.fileName()).addValue("kind", file.kind().name()).addValue("mime", file.mimeType())
                         .addValue("size", file.sizeBytes()).addValue("sha", file.sha256()).addValue("description", file.description())
-                        .addValue("cover", file.cover()).addValue("thumb", file.thumbnailKey())
+                        .addValue("cover", file.cover()).addValue("thumb", file.thumbnailKey()).addValue("card", file.cardKey())
                         .addValue("at", file.uploadedAt().atOffset(ZoneOffset.UTC)).addValue("by", file.uploadedBy()));
     }
 
@@ -135,7 +154,8 @@ public class RecipeFileCustomRepository {
     private Row row(java.sql.ResultSet rs) throws java.sql.SQLException {
         return new Row(rs.getObject("id", UUID.class), rs.getObject("recipe_id", UUID.class), rs.getString("storage_key"),
                 rs.getString("file_name"), FileKind.valueOf(rs.getString("kind")), rs.getString("mime_type"), rs.getLong("size_bytes"),
-                rs.getString("description"), rs.getBoolean("is_cover"), rs.getString("thumbnail_key"), Sql.instant(rs, "uploaded_at"),
+                rs.getString("description"), rs.getBoolean("is_cover"), rs.getString("thumbnail_key"), rs.getString("card_storage_key"),
+                Sql.instant(rs, "uploaded_at"),
                 userRefs.map(rs));
     }
 }

@@ -25,6 +25,7 @@ import com.ninsky.cronos.iam.access.UserAccessState;
 import com.ninsky.cronos.iam.policy.SecurityPolicy;
 import com.ninsky.cronos.iam.policy.SecurityPolicyProvider;
 import com.ninsky.cronos.iam.policy.TwoFactorRequirement;
+import com.ninsky.cronos.iam.shared.AccountCreated;
 import com.ninsky.cronos.iam.shared.TenantTime;
 import com.ninsky.cronos.iam.shared.UserDirectory;
 import com.ninsky.cronos.iam.shared.UserRef;
@@ -287,7 +288,9 @@ public class AuthenticationService {
                     .enabled(true).accountNonLocked(true)
                     .accountNonExpired(true).credentialsNonExpired(true)
                     .build();
-            return userRepository.save(newUser);
+            User created = userRepository.save(newUser);
+            eventPublisher.publishEvent(new AccountCreated(created.getId()));
+            return created;
         });
 
         accountStandings.find(user.getId()).ifPresent(standing -> rejectUnlessActive(standing, labelOf(user.getId(), user.getUsername())));

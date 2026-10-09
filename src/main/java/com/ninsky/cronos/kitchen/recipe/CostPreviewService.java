@@ -6,6 +6,7 @@ import com.ninsky.cronos.infrastructure.exception.Violations;
 import com.ninsky.cronos.kitchen.allergen.AllergenCatalog;
 import com.ninsky.cronos.kitchen.costing.CostContext;
 import com.ninsky.cronos.kitchen.costing.CostEngine;
+import com.ninsky.cronos.kitchen.costing.PricingMethod;
 import com.ninsky.cronos.kitchen.ingredient.IngredientQueryCustomRepository;
 import com.ninsky.cronos.kitchen.shared.CostPreviewRateLimiter;
 import com.ninsky.cronos.kitchen.shared.KitchenMessages;
@@ -14,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.util.List;
 import java.util.Map;
@@ -57,8 +59,13 @@ public class CostPreviewService {
         Violations violations = new Violations();
         RecipeValidator.Context context = new RecipeValidator.Context(tenant, language, view, current);
         List<RecipeAggregate.Line> lines = validator.lines(request.lines(), "lines", context, violations);
-        List<RecipeAggregate.Fixed> fixed = validator.fixed(Optional.ofNullable(request.fixedCosts()).orElse(List.of()), "fixedCosts", tenant, violations);
+        List<RecipeAggregate.Fixed> fixed = validator.fixed(Optional.ofNullable(request.fixedCosts()).orElse(List.of()), "fixedCosts", tenant,
+                RecipeValidator.keptFixedCosts(current), violations);
         violations.invalidIf(!Numbers.within(request.yieldQuantity(), "0.01", "100000", 2), "yieldQuantity", "api.validation.range", "0.01", "100,000");
+        PricingMethod pricing = Optional.ofNullable(request.pricingMethod())
+                .orElse(current == null ? PricingMethod.MARKUP : current.head().pricingMethod());
+        BigDecimal margin = Optional.ofNullable(request.targetMarginPercent()).orElse(RecipeValidator.DEFAULT_MARGIN);
+        RecipeValidator.margin(violations, "targetMarginPercent", margin, pricing);
         violations.throwIfAny();
 
         List<RecipeAggregate.Line> keyed = java.util.stream.IntStream.range(0, lines.size()).mapToObj(i -> {
@@ -67,25 +74,30 @@ public class CostPreviewService {
                     l.notes(), l.displayOrder(), null, l.extraAllergens());
         }).toList();
         RecipeAggregate draft = new RecipeAggregate(new RecipeAggregate.Head(null, null, tenant, null, null, Difficulty.EASY, null, null, null,
-                null, null, null, null, null, request.yieldQuantity(), null, RecipeStatus.DRAFT,
-                Optional.ofNullable(request.targetMarginPercent()).orElse(RecipeValidator.DEFAULT_MARGIN),
+                null, null, null, null, null, request.yieldQuantity(), null, RecipeStatus.DRAFT, margin, pricing,
                 Optional.ofNullable(request.wastePercent()).orElse(RecipeValidator.DEFAULT_WASTE), null, null, null, null, null, 0), keyed, fixed);
         CostEngine.Result result = costing.evaluate(draft);
         Map<UUID, Integer> orderById = keyed.stream().collect(Collectors.toMap(RecipeAggregate.Line::id, RecipeAggregate.Line::displayOrder,
                 (a, b) -> a));
         Map<UUID, List<Long>> declared = ingredients.allergenIds(keyed.stream().map(RecipeAggregate.Line::ingredientId).distinct().toList());
-        return response(result, keyed, l -> String.valueOf(orderById.get(l.id())), RecipeAggregate.Line::ingredientId,
+        return response(result, keyed, fixed, l -> String.valueOf(orderById.get(l.id())), RecipeAggregate.Line::ingredientId,
                 RecipeAllergens.contains(keyed, declared), view, language);
     }
 
     private CostPreview configurator(CostPreviewRequest request, UUID tenant, String language, AllergenCatalog.View view, RecipeAggregate recipe) {
+        Violations violations = new Violations();
+        PricingMethod pricing = Optional.ofNullable(request.pricingMethod()).orElse(recipe.head().pricingMethod());
+        RecipeValidator.margin(violations, "targetMarginPercent",
+                Optional.ofNullable(request.targetMarginPercent()).orElse(recipe.head().targetMarginPercent()), pricing);
+        violations.throwIfAny();
         RecipeConfigurator.Configured configured = configurator.price(tenant, recipe, request.configuration(), "configuration",
-                request.wastePercent(), request.targetMarginPercent(), new Violations());
-        return response(configured.result(), recipe.lines(), l -> l.id().toString(), l -> configured.ingredientByLine().get(l.id()),
+                request.wastePercent(), request.targetMarginPercent(), pricing, violations);
+        return response(configured.result(), recipe.lines(), recipe.fixed(), l -> l.id().toString(), l -> configured.ingredientByLine().get(l.id()),
                 configured.allergenIds(), view, language);
     }
 
-    private CostPreview response(CostEngine.Result result, List<RecipeAggregate.Line> lines, Function<RecipeAggregate.Line, String> keyOf,
+    private CostPreview response(CostEngine.Result result, List<RecipeAggregate.Line> lines, List<RecipeAggregate.Fixed> fixed,
+                                 Function<RecipeAggregate.Line, String> keyOf,
                                  Function<RecipeAggregate.Line, UUID> ingredientOf, java.util.Set<Long> allergenIds,
                                  AllergenCatalog.View view, String language) {
         Map<String, CostEngine.LineResult> byKey = result.lines().stream().collect(Collectors.toMap(CostEngine.LineResult::key, Function.identity()));
@@ -94,10 +106,12 @@ public class CostPreviewService {
             return new CostPreview.Line(keyOf.apply(l), ingredientOf.apply(l), line == null ? null : line.lineCost(),
                     line == null ? null : line.priceSource());
         }).toList();
+        List<CostPreview.FixedCostRow> fixedRows = fixed.stream()
+                .map(f -> new CostPreview.FixedCostRow(f.userFixedCostId(), result.fixedCost(f.id().toString()))).toList();
         RecipeDetail.Cost cost = new RecipeDetail.Cost(result.ingredientsCost(), result.wasteCost(), result.fixedCosts(), result.totalCost(),
-                result.costPerUnit(), result.suggestedUnitPrice(), costContext.current().currency(), result.status(), result.unpricedLines(),
-                clock.instant());
-        return new CostPreview(rows, cost, view.refs(allergenIds, language));
+                result.costPerUnit(), result.suggestedUnitPrice(), result.pricingMethod(), costContext.current().currency(), result.status(),
+                result.unpricedLines(), clock.instant());
+        return new CostPreview(rows, fixedRows, cost, view.refs(allergenIds, language));
     }
 
     /** Deterministic per-request id for a draft line (engine keys must be unique). */

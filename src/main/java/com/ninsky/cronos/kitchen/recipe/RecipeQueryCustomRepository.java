@@ -99,7 +99,9 @@ public class RecipeQueryCustomRepository {
                        count(*) FILTER (WHERE r.status = 'DRAFT') AS drafts,
                        count(*) FILTER (WHERE r.cost_status <> 'CURRENT') AS stale,
                        count(*) FILTER (WHERE r.cost_per_unit > 0 AND ref.price IS NOT NULL
-                           AND (ref.price - r.cost_per_unit) * 100 / r.cost_per_unit < r.target_margin_percent) AS below
+                           AND (ref.price - r.cost_per_unit) * 100
+                               / CASE WHEN r.pricing_method = 'MARGIN' THEN nullif(ref.price, 0) ELSE r.cost_per_unit END
+                               < r.target_margin_percent) AS below
                 FROM recipes r
                 LEFT JOIN LATERAL (SELECT qi.unit_price AS price FROM quote_items qi JOIN quotes q ON q.id = qi.quote_id
                     WHERE qi.recipe_id = r.id AND q.status = 'ACCEPTED' AND q.user_id = :tenant

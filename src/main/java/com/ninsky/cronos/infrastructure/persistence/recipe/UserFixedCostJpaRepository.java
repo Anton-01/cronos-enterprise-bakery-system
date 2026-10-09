@@ -12,6 +12,6 @@ import java.util.UUID;
 @Repository
 public interface UserFixedCostJpaRepository extends JpaRepository<UserFixedCostJpaEntity, UUID> {
     Optional<UserFixedCostJpaEntity> findByIdAndUserId(UUID id, UUID userId);
-    Page<UserFixedCostJpaEntity> findByUserIdAndIsActiveTrue(UUID userId, Pageable pageable);
-    Page<UserFixedCostJpaEntity> findByUserIdAndIsActiveTrueAndNameContainingIgnoreCase(UUID userId, String name, Pageable pageable);
+    Page<UserFixedCostJpaEntity> findByUserId(UUID userId, Pageable pageable);
+    Page<UserFixedCostJpaEntity> findByUserIdAndNameContainingIgnoreCase(UUID userId, String name, Pageable pageable);
 }
