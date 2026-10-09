@@ -89,8 +89,8 @@ public class SecurityConfig {
         configuration.setAllowedMethods(Arrays.asList(DEFAULT_ALLOWED_METHODS_HTTP));
         configuration.setAllowedHeaders(List.of("*"));
         // Readable by the SPA: ETag (If-Match on account-settings PUTs), Retry-After (429s), trace id,
-        // Content-Disposition (file name of downloaded .xlsx import templates).
-        configuration.setExposedHeaders(List.of("ETag", "Retry-After", "X-Trace-Id", "Content-Disposition"));
+        // Content-Disposition (file name of downloaded .xlsx import templates), Server-Timing (server time per request).
+        configuration.setExposedHeaders(List.of("ETag", "Retry-After", "X-Trace-Id", "Content-Disposition", "Server-Timing"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
 

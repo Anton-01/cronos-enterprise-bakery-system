@@ -64,10 +64,10 @@ public class RecipeViews {
                 l.unitId(), Optional.ofNullable(unitMap.get(l.unitId())).map(UnitInfo::code).orElse(null), l.optional(), l.quoteSelectable(),
                 l.notes(), RecipeAllergens.ofLine(l, declared, view, language), l.lineCost(), l.displayOrder())).toList();
         List<RecipeDetail.FixedCost> fixed = recipe.fixed().stream().map(f -> new RecipeDetail.FixedCost(f.id(), f.userFixedCostId(), f.name(),
-                f.method(), f.minutes(), f.percentage(), f.cost())).toList();
+                f.method(), f.minutes(), f.percentage(), f.quantity(), f.cost())).toList();
         List<RecipeFileCustomRepository.Row> fileRows = files.list(head.id());
         String cover = fileRows.stream().filter(RecipeFileCustomRepository.Row::cover).findFirst()
-                .map(f -> Optional.ofNullable(f.thumbnailKey()).orElse(f.storageKey())).orElse(null);
+                .map(RecipeFileCustomRepository.Row::coverKey).orElse(null);
         Map<Long, String> categoryNames = categories.names(head.categoryId() == null ? List.of() : List.of(head.categoryId()));
         RecipeAggregate.Cost cost = head.cost();
 
@@ -76,7 +76,8 @@ public class RecipeViews {
                 head.coolMinutes(), head.ovenTemperatureC(), head.wastePercent(), lines, fixed,
                 fileRows.stream().map(fileService::response).toList(),
                 new RecipeDetail.Cost(cost.ingredientsCost(), cost.wasteCost(), cost.fixedCosts(), cost.totalCost(), cost.costPerUnit(),
-                        cost.suggestedUnitPrice(), costContext.current().currency(), cost.status(), cost.unpricedLines(), cost.calculatedAt()),
+                        cost.suggestedUnitPrice(), head.pricingMethod(), costContext.current().currency(), cost.status(), cost.unpricedLines(),
+                        cost.calculatedAt()),
                 view.refs(RecipeAllergens.mayContain(recipe.lines(), declared), language), head.createdAt(),
                 userRefs.find(head.createdBy()).orElse(null), userRefs.find(head.updatedBy()).orElse(null), head.version());
     }
@@ -88,6 +89,6 @@ public class RecipeViews {
                 head.categoryId() == null ? null : categoryNames.get(head.categoryId()), head.difficulty(), head.yieldQuantity(),
                 head.yieldUnit(), head.status(), Scope.of(head.ownerId()), view.refs(contained, language),
                 fileService.signed(coverKey, properties.signedUrlMinutes()), cost.costPerUnit(), cost.suggestedUnitPrice(),
-                head.targetMarginPercent(), cost.status(), cost.calculatedAt(), head.totalMinutes(), head.updatedAt());
+                head.targetMarginPercent(), head.pricingMethod(), cost.status(), cost.calculatedAt(), head.totalMinutes(), head.updatedAt());
     }
 }

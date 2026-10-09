@@ -15,7 +15,9 @@ public record SystemRole(String code, String nameEs, String descriptionEs, Strin
 
     public static final String SUPER_ADMIN_CODE = "SUPER_ADMIN";
 
-    private static final Set<String> BUSINESS_MODULES = Set.of("DASHBOARD", "RECIPE", "QUOTE", "INGREDIENT", "FIXED_COST");
+    private static final Set<String> BUSINESS_MODULES = Set.of("DASHBOARD", "RECIPE", "QUOTE", "INGREDIENT", "FIXED_COST", "GUIDE");
+    /** Platform staff only (ADMIN, and SUPER_ADMIN implicitly), even though GUIDE is a business module. */
+    private static final Set<String> STAFF_ONLY = Set.of(GUIDE_CONTENT_MANAGE);
 
     public static final SystemRole SUPER_ADMIN = new SystemRole(SUPER_ADMIN_CODE, "Super administrador",
             "Administrador raíz: todos los permisos, no editable", "#0f172a", new TreeSet<>());
@@ -26,7 +28,8 @@ public record SystemRole(String code, String nameEs, String descriptionEs, Strin
             Set.of(IAM_ROLE_READ, IAM_PERMISSION_GROUP_READ, IAM_AUDIT_READ),
             PermissionCatalog.matching("CATALOG", null, null),
             financeReads(),
-            business()));
+            business(),
+            STAFF_ONLY));
 
     public static final SystemRole MANAGER = new SystemRole("MANAGER", "Gerente",
             "Operación del negocio, incluida la aprobación de cotizaciones", "#2563eb", union(
@@ -46,6 +49,7 @@ public record SystemRole(String code, String nameEs, String descriptionEs, Strin
         return PermissionCatalog.all().stream()
                 .filter(d -> BUSINESS_MODULES.contains(d.module()))
                 .map(d -> d.code())
+                .filter(code -> !STAFF_ONLY.contains(code))
                 .collect(TreeSet::new, TreeSet::add, TreeSet::addAll);
     }
 

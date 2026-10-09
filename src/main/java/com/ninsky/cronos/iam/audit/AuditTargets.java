@@ -14,6 +14,9 @@ public final class AuditTargets {
     public static final String INGREDIENT = "INGREDIENT";
     public static final String RECIPE = "RECIPE";
     public static final String QUOTE = "QUOTE";
+    public static final String GUIDE_ARTICLE = "GUIDE_ARTICLE";
+    public static final String GUIDE_PAN_SIZE = "GUIDE_PAN_SIZE";
+    public static final String GUIDE_CONVERSION = "GUIDE_CONVERSION";
     public static final String ENDPOINT = "ENDPOINT";
 
     private AuditTargets() {

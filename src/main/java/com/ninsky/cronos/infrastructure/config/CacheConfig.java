@@ -3,6 +3,7 @@ package com.ninsky.cronos.infrastructure.config;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.CacheManager;
+import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.cache.caffeine.CaffeineCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -10,7 +11,13 @@ import org.springframework.context.annotation.Configuration;
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Turns on Spring's cache abstraction. Without {@code @EnableCaching} every {@code @Cacheable} in the
+ * app was a plain method call: each authenticated request re-read the auth projection, the access
+ * version and the effective permissions (9 queries) and login resolved them twice.
+ */
 @Configuration
+@EnableCaching
 public class CacheConfig {
 
     @Value("${app.cache.unit-types.ttl:60}")

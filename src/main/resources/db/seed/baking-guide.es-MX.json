@@ -1,0 +1,1992 @@
+{
+  "articles": [
+    {
+      "id": "e9fdd1ff-29f1-5525-8e66-c3c7ea72a9b6",
+      "code": "FS_DANGER_ZONE",
+      "category": "FOOD_SAFETY",
+      "title": "Zona de peligro de temperatura",
+      "summary": "Entre 5 °C y 60 °C las bacterias se multiplican rápido. Reglas de tiempo y temperatura para cremas, rellenos y productos con lácteos o huevo.",
+      "icon": "pi pi-exclamation-triangle",
+      "tags": [
+        "temperatura",
+        "refrigeración",
+        "enfriamiento",
+        "inocuidad"
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "La «zona de peligro» es el rango de temperatura en el que los microorganismos patógenos crecen con mayor rapidez. En repostería afecta sobre todo a cremas pasteleras, rellenos con lácteos, merengues sin cocer, betunes de queso crema y pasteles bañados como el tres leches."
+        },
+        {
+          "type": "table",
+          "columns": [
+            "Situación",
+            "Regla"
+          ],
+          "rows": [
+            [
+              "Refrigeración",
+              "Mantener a 4 °C o menos (máximo 5 °C)."
+            ],
+            [
+              "Congelación",
+              "−18 °C o menos."
+            ],
+            [
+              "Mantenimiento en caliente",
+              "60 °C o más."
+            ],
+            [
+              "Fuera de refrigeración",
+              "Máximo 2 horas acumuladas; 1 hora si el ambiente supera 32 °C."
+            ],
+            [
+              "Enfriamiento de cremas y rellenos",
+              "De 60 °C a 21 °C en 2 horas, y de 21 °C a 5 °C en las 4 horas siguientes."
+            ]
+          ]
+        },
+        {
+          "type": "list",
+          "items": [
+            "Enfría cremas en capas delgadas, en recipientes poco profundos o en baño de hielo; nunca una olla llena directo al refrigerador.",
+            "Cubre la crema pastelera con plástico en contacto para evitar la piel y la contaminación.",
+            "Descongela en refrigeración, no a temperatura ambiente.",
+            "Usa termómetro de punzón calibrado; no confíes en «se siente frío»."
+          ],
+          "ordered": false
+        },
+        {
+          "type": "callout",
+          "tone": "warn",
+          "text": "Un producto que pasó más de 2 horas en la zona de peligro debe desecharse: recalentarlo no elimina todas las toxinas."
+        }
+      ],
+      "sources": [
+        "NOM-251-SSA1-2009, Prácticas de higiene para el proceso de alimentos",
+        "FDA Food Code 2022, §3-501"
+      ],
+      "displayOrder": 10
+    },
+    {
+      "id": "8d19a85a-e8fe-530d-b24b-57184daedc05",
+      "code": "FS_STORAGE",
+      "category": "FOOD_SAFETY",
+      "title": "Conservación y vida útil",
+      "summary": "Cuánto dura cada tipo de producto y cómo almacenarlo. Úsalo como referencia para la vida útil de tus recetas.",
+      "icon": "pi pi-calendar",
+      "tags": [
+        "vida útil",
+        "almacenamiento",
+        "refrigeración",
+        "congelación"
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Los tiempos son orientativos para productos bien elaborados, envasados y almacenados a la temperatura indicada. Tu receta, humedad, azúcar y empaque cambian el resultado: registra la vida útil real en cada receta."
+        },
+        {
+          "type": "table",
+          "columns": [
+            "Producto",
+            "Ambiente (≈ 20 °C)",
+            "Refrigeración (≤ 4 °C)",
+            "Congelación (−18 °C)"
+          ],
+          "rows": [
+            [
+              "Bizcocho sin relleno, bien envuelto",
+              "2–3 días",
+              "5–7 días",
+              "2–3 meses"
+            ],
+            [
+              "Pastel con betún de mantequilla",
+              "1–2 días",
+              "4–5 días",
+              "1–2 meses"
+            ],
+            [
+              "Pastel con crema batida o chantilly",
+              "No",
+              "2–3 días",
+              "No recomendado"
+            ],
+            [
+              "Pastel tres leches",
+              "No",
+              "3–4 días",
+              "No recomendado"
+            ],
+            [
+              "Cheesecake horneado",
+              "No",
+              "4–5 días",
+              "1–2 meses"
+            ],
+            [
+              "Crema pastelera / rellenos con huevo",
+              "No",
+              "2–3 días",
+              "No recomendado"
+            ],
+            [
+              "Ganache (sin crema extra)",
+              "1–2 días",
+              "1–2 semanas",
+              "2–3 meses"
+            ],
+            [
+              "Galletas secas",
+              "1–2 semanas",
+              "—",
+              "2–3 meses"
+            ],
+            [
+              "Pay de frutas",
+              "1–2 días",
+              "4–5 días",
+              "2–4 meses"
+            ],
+            [
+              "Pan dulce / brioche",
+              "1–2 días",
+              "No (se endurece)",
+              "1–2 meses"
+            ]
+          ]
+        },
+        {
+          "type": "list",
+          "items": [
+            "Etiqueta cada producto con nombre, fecha de elaboración y fecha de caducidad.",
+            "Primero en entrar, primero en salir (PEPS): acomoda lo más antiguo al frente.",
+            "Guarda lo que lleva crema o lácteos siempre en refrigeración, tapado y separado de crudos."
+          ],
+          "ordered": false
+        },
+        {
+          "type": "callout",
+          "tone": "tip",
+          "text": "Captura la vida útil en el campo «Vida útil» de la receta: Cronos la muestra en el modo libro y en las cotizaciones."
+        }
+      ],
+      "sources": [
+        "Referencias generales de la industria; valida siempre con tu propia producción"
+      ],
+      "displayOrder": 20
+    },
+    {
+      "id": "89a20cfb-56e4-5552-a0e9-6832209cb730",
+      "code": "FS_EGGS_DAIRY",
+      "category": "FOOD_SAFETY",
+      "title": "Huevo, lácteos y cremas: manejo seguro",
+      "summary": "Temperaturas de cocción y prácticas para trabajar con huevo crudo, cremas, leche y quesos.",
+      "icon": "pi pi-shield",
+      "tags": [
+        "huevo",
+        "salmonela",
+        "crema pastelera",
+        "merengue",
+        "lácteos"
+      ],
+      "blocks": [
+        {
+          "type": "table",
+          "columns": [
+            "Preparación",
+            "Punto seguro"
+          ],
+          "rows": [
+            [
+              "Mezclas con huevo (crema pastelera, flan, natillas)",
+              "Cocer hasta 71 °C o más."
+            ],
+            [
+              "Crema inglesa",
+              "82–84 °C (napa la cuchara). No hiervas: se corta."
+            ],
+            [
+              "Merengue suizo",
+              "Calentar claras con azúcar a baño maría hasta 71 °C antes de batir."
+            ],
+            [
+              "Merengue italiano",
+              "Almíbar a 118–121 °C vertido sobre las claras."
+            ],
+            [
+              "Mousse o tiramisú con huevo crudo",
+              "Usa huevo pasteurizado o técnica de pâte à bombe."
+            ]
+          ]
+        },
+        {
+          "type": "list",
+          "items": [
+            "Revisa que el cascarón esté limpio y sin grietas; no laves el huevo hasta el momento de usarlo.",
+            "Rompe los huevos en un recipiente aparte antes de agregarlos a la mezcla.",
+            "Lávate las manos después de manipular cascarones.",
+            "Usa leche y crema pasteurizadas; respeta la cadena de frío.",
+            "La crema para batir se monta mejor fría (4–7 °C) y con el tazón frío."
+          ],
+          "ordered": false
+        },
+        {
+          "type": "callout",
+          "tone": "warn",
+          "text": "Personas embarazadas, adultos mayores, niños pequeños e inmunocomprometidos no deben consumir preparaciones con huevo crudo no pasteurizado."
+        }
+      ],
+      "sources": [
+        "FDA Food Code 2022",
+        "NOM-251-SSA1-2009"
+      ],
+      "displayOrder": 30
+    },
+    {
+      "id": "af5cf359-c020-5739-b304-a642a9a3c392",
+      "code": "FS_ALLERGENS",
+      "category": "FOOD_SAFETY",
+      "title": "Manejo de alérgenos en el obrador",
+      "summary": "Cómo evitar el contacto cruzado y comunicar correctamente los alérgenos de cada producto.",
+      "icon": "pi pi-exclamation-circle",
+      "tags": [
+        "alérgenos",
+        "gluten",
+        "contaminación cruzada",
+        "etiquetado"
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "En México la NOM-051 obliga a declarar en la etiqueta los ingredientes que causan hipersensibilidad. En repostería los más frecuentes son cereales con gluten, huevo, leche, frutos secos, cacahuate y soya."
+        },
+        {
+          "type": "list",
+          "items": [
+            "Cereales que contienen gluten (trigo, centeno, cebada, avena, espelta) y sus derivados.",
+            "Huevo y productos de huevo.",
+            "Leche y productos lácteos (incluida la lactosa).",
+            "Cacahuate y sus productos.",
+            "Nueces de árbol (nuez, almendra, avellana, pistache, nuez de la India…).",
+            "Soya y sus derivados.",
+            "Pescados, crustáceos y moluscos.",
+            "Sulfitos en concentración de 10 mg/kg o más."
+          ],
+          "ordered": false
+        },
+        {
+          "type": "list",
+          "ordered": true,
+          "items": [
+            "Elabora primero los productos libres del alérgeno y después los que lo contienen.",
+            "Usa utensilios, tablas y mangas exclusivos o lávalos a fondo entre producciones.",
+            "Guarda los ingredientes alergénicos en recipientes cerrados y etiquetados, en la parte baja.",
+            "No reutilices aceite ni charolas de un producto con alérgeno para uno «libre de».",
+            "Declara «Puede contener» solo cuando el riesgo de contacto cruzado es real y no evitable."
+          ]
+        },
+        {
+          "type": "callout",
+          "tone": "tip",
+          "text": "Cronos detecta alérgenos a partir de los ingredientes de cada receta. Revisa las sugerencias en la pestaña Ingredientes antes de publicar."
+        }
+      ],
+      "sources": [
+        "NOM-051-SCFI/SSA1-2010 (modificación 2020)",
+        "Reglamento (UE) 1169/2011, anexo II"
+      ],
+      "displayOrder": 40
+    },
+    {
+      "id": "a28d7c21-0792-5896-a4dd-efae3762ee2f",
+      "code": "FS_HYGIENE",
+      "category": "FOOD_SAFETY",
+      "title": "Higiene y buenas prácticas",
+      "summary": "Lista básica de buenas prácticas de manufactura para un taller de repostería.",
+      "icon": "pi pi-check-square",
+      "tags": [
+        "higiene",
+        "BPM",
+        "limpieza",
+        "NOM-251"
+      ],
+      "blocks": [
+        {
+          "type": "list",
+          "items": [
+            "Lavado de manos con agua y jabón por al menos 20 segundos al iniciar, al cambiar de tarea y después de ir al baño, tocar basura, dinero o el celular.",
+            "Cabello recogido y cubierto; uñas cortas, sin esmalte ni joyería.",
+            "Ropa de trabajo limpia y exclusiva para el área de producción.",
+            "Superficies lavadas y desinfectadas antes y después de cada producción.",
+            "Termómetros de refrigerador visibles y registro diario de temperaturas.",
+            "Control de plagas y almacenamiento separado de químicos de limpieza.",
+            "No trabajar con alimentos si tienes diarrea, vómito, fiebre o heridas sin cubrir."
+          ],
+          "ordered": false
+        },
+        {
+          "type": "callout",
+          "tone": "info",
+          "text": "Si vendes al público, verifica con tu autoridad sanitaria local (COFEPRIS o secretaría de salud estatal) los avisos y registros que te aplican."
+        }
+      ],
+      "sources": [
+        "NOM-251-SSA1-2009"
+      ],
+      "displayOrder": 50
+    },
+    {
+      "id": "dccb8675-ea36-5f57-94b4-19ba661d1c6d",
+      "code": "FS_LABELING",
+      "category": "FOOD_SAFETY",
+      "title": "Etiquetado de productos",
+      "summary": "Información mínima que debe llevar la etiqueta de un producto de repostería envasado.",
+      "icon": "pi pi-tag",
+      "tags": [
+        "etiqueta",
+        "NOM-051",
+        "sellos",
+        "caducidad"
+      ],
+      "blocks": [
+        {
+          "type": "list",
+          "items": [
+            "Nombre o denominación del producto.",
+            "Lista de ingredientes en orden decreciente de cantidad, con los alérgenos resaltados.",
+            "Contenido neto.",
+            "Nombre y domicilio del fabricante.",
+            "Lote y fecha de caducidad o de consumo preferente.",
+            "Instrucciones de conservación (p. ej. «Consérvese en refrigeración»).",
+            "Información nutrimental y sellos de advertencia cuando aplique."
+          ],
+          "ordered": false
+        },
+        {
+          "type": "callout",
+          "tone": "warn",
+          "text": "Los productos a granel o elaborados en el punto de venta pueden tener reglas distintas. Confirma con la norma vigente o un asesor antes de imprimir etiquetas."
+        }
+      ],
+      "sources": [
+        "NOM-051-SCFI/SSA1-2010 (modificación 2020)"
+      ],
+      "displayOrder": 60
+    },
+    {
+      "id": "1d4b84a8-5fd5-5a78-8e15-4522b0616ba3",
+      "code": "TQ_MIXING_METHODS",
+      "category": "TECHNIQUES",
+      "title": "Métodos de mezclado",
+      "summary": "Cremado, espumado, mezcla en dos tiempos y cremado inverso: qué textura da cada uno y cuándo usarlo.",
+      "icon": "pi pi-sync",
+      "tags": [
+        "cremado",
+        "batido",
+        "técnica",
+        "bizcocho"
+      ],
+      "blocks": [
+        {
+          "type": "table",
+          "columns": [
+            "Método",
+            "Cómo se hace",
+            "Resultado / uso"
+          ],
+          "rows": [
+            [
+              "Cremado",
+              "Batir grasa suave con azúcar hasta blanquear; agregar huevos uno a uno y luego secos y líquidos alternados.",
+              "Miga fina y esponjosa. Panqués, pasteles de mantequilla, galletas."
+            ],
+            [
+              "Espumado",
+              "Batir huevos (enteros o separados) con azúcar hasta triplicar volumen; incorporar secos con movimientos envolventes.",
+              "Miga ligera, aireada. Genovesa, bizcocho, roulade, soletas."
+            ],
+            [
+              "Dos tiempos (líquidos + secos)",
+              "Mezclar secos por un lado y líquidos por otro; unir sin batir de más.",
+              "Rápido y húmedo. Muffins, pasteles con aceite, pan de plátano."
+            ],
+            [
+              "Cremado inverso",
+              "Mezclar secos con la mantequilla hasta textura de arena; luego agregar los líquidos.",
+              "Miga cerrada y aterciopelada, menos domo. Pasteles para decorar y apilar."
+            ],
+            [
+              "Todo en uno",
+              "Todos los ingredientes juntos y batir 1–2 minutos.",
+              "Práctico para bizcochos sencillos; requiere polvo de hornear."
+            ]
+          ]
+        },
+        {
+          "type": "callout",
+          "tone": "tip",
+          "text": "Ingredientes a temperatura ambiente (18–21 °C) emulsionan mejor en el cremado; huevos fríos cortan la mezcla."
+        }
+      ],
+      "sources": [],
+      "displayOrder": 10
+    },
+    {
+      "id": "02609980-26b4-502f-bffd-4137781ef23e",
+      "code": "TQ_CAKE_TYPES",
+      "category": "TECHNIQUES",
+      "title": "Tipos de bizcochos y pasteles",
+      "summary": "Las familias de pasteles más comunes, su estructura y su uso típico en repostería.",
+      "icon": "pi pi-th-large",
+      "tags": [
+        "bizcocho",
+        "genovesa",
+        "chiffon",
+        "cheesecake",
+        "tres leches"
+      ],
+      "blocks": [
+        {
+          "type": "table",
+          "columns": [
+            "Tipo",
+            "Base",
+            "Características",
+            "Usos"
+          ],
+          "rows": [
+            [
+              "Pastel de mantequilla",
+              "Grasa + azúcar cremadas",
+              "Miga húmeda y firme; soporta peso",
+              "Pasteles de cumpleaños, fondant, pisos"
+            ],
+            [
+              "Genovesa / bizcocho",
+              "Huevo batido, sin o con poca grasa",
+              "Ligero, absorbe almíbar",
+              "Tres leches, pasteles de crema, roulades"
+            ],
+            [
+              "Chiffon",
+              "Aceite + claras montadas",
+              "Muy esponjoso y húmedo, se mantiene suave en frío",
+              "Pasteles refrigerados, rollos"
+            ],
+            [
+              "Angel food",
+              "Solo claras, sin grasa",
+              "Muy ligero y blanco; molde sin engrasar",
+              "Postres ligeros con fruta"
+            ],
+            [
+              "Chocolate con aceite",
+              "Aceite + cocoa + líquido caliente",
+              "Húmedo y oscuro; dura más días",
+              "Pasteles de chocolate, cupcakes"
+            ],
+            [
+              "Cheesecake",
+              "Queso crema + huevo",
+              "Denso y cremoso; se hornea a baja temperatura (150–160 °C), idealmente a baño maría",
+              "Cheesecakes horneados"
+            ],
+            [
+              "Sin harina",
+              "Chocolate + huevo / almendra",
+              "Denso tipo trufa; naturalmente sin gluten",
+              "Opciones libres de gluten"
+            ]
+          ]
+        }
+      ],
+      "sources": [],
+      "displayOrder": 20
+    },
+    {
+      "id": "fd30d150-89c4-5c0b-95ea-af64ce124039",
+      "code": "TQ_MERINGUES",
+      "category": "TECHNIQUES",
+      "title": "Merengues: francés, suizo e italiano",
+      "summary": "Diferencias de técnica, estabilidad e inocuidad entre los tres merengues clásicos.",
+      "icon": "pi pi-cloud",
+      "tags": [
+        "merengue",
+        "claras",
+        "almíbar",
+        "inocuidad"
+      ],
+      "blocks": [
+        {
+          "type": "table",
+          "columns": [
+            "Merengue",
+            "Técnica",
+            "Estabilidad",
+            "Usos"
+          ],
+          "rows": [
+            [
+              "Francés",
+              "Claras crudas batidas agregando azúcar en forma de lluvia",
+              "Baja; debe hornearse",
+              "Merengues secos, pavlova, macarons franceses"
+            ],
+            [
+              "Suizo",
+              "Claras y azúcar a baño maría hasta 71 °C, luego batir hasta enfriar",
+              "Media-alta; brillante y denso",
+              "Buttercream suizo, decoración, coberturas"
+            ],
+            [
+              "Italiano",
+              "Almíbar a 118–121 °C vertido en hilo sobre claras batidas",
+              "La más alta",
+              "Buttercream italiano, mousse, lemon pie, macarons italianos"
+            ]
+          ]
+        },
+        {
+          "type": "list",
+          "items": [
+            "Proporción habitual: 1 parte de claras por 2 de azúcar, en peso.",
+            "Tazón y batidor sin grasa ni restos de yema.",
+            "Unas gotas de jugo de limón o cremor tártaro estabilizan las claras.",
+            "Las claras a temperatura ambiente montan más rápido y con más volumen."
+          ],
+          "ordered": false
+        }
+      ],
+      "sources": [],
+      "displayOrder": 30
+    },
+    {
+      "id": "5bdfb33c-d930-53c2-b8f3-83402a3c44aa",
+      "code": "TQ_FROSTINGS",
+      "category": "TECHNIQUES",
+      "title": "Cremas para cubrir y rellenar",
+      "summary": "Buttercreams, chantilly, queso crema y crema pastelera: estabilidad, temperatura y vida útil.",
+      "icon": "pi pi-palette",
+      "tags": [
+        "buttercream",
+        "betún",
+        "chantilly",
+        "queso crema",
+        "crema pastelera"
+      ],
+      "blocks": [
+        {
+          "type": "table",
+          "columns": [
+            "Crema",
+            "Base",
+            "Estabilidad a temperatura ambiente",
+            "Notas"
+          ],
+          "rows": [
+            [
+              "Buttercream americano",
+              "Mantequilla + azúcar glass",
+              "Buena (horas)",
+              "Muy dulce; forma costra; fácil"
+            ],
+            [
+              "Buttercream de merengue suizo",
+              "Merengue suizo + mantequilla",
+              "Buena",
+              "Sedoso, menos dulce; ideal para decorar"
+            ],
+            [
+              "Buttercream de merengue italiano",
+              "Merengue italiano + mantequilla",
+              "Muy buena",
+              "El más estable de los de mantequilla"
+            ],
+            [
+              "Buttercream francés",
+              "Yemas + almíbar + mantequilla",
+              "Media",
+              "Muy rico; color amarillo"
+            ],
+            [
+              "Crema chantilly",
+              "Crema para batir 30–35 % grasa + azúcar",
+              "Baja: refrigerar",
+              "Estabiliza con grenetina, queso mascarpone o crema estabilizada"
+            ],
+            [
+              "Betún de queso crema",
+              "Queso crema + mantequilla + azúcar glass",
+              "Baja: refrigerar",
+              "Ideal para red velvet y zanahoria"
+            ],
+            [
+              "Crema pastelera",
+              "Leche + yemas + azúcar + fécula",
+              "Ninguna: refrigerar",
+              "Relleno clásico; cocer hasta que hierva 1 minuto para activar la fécula"
+            ]
+          ]
+        }
+      ],
+      "sources": [],
+      "displayOrder": 40
+    },
+    {
+      "id": "755be929-e7fc-56e0-ad29-c616ab791d32",
+      "code": "TQ_GANACHE",
+      "category": "TECHNIQUES",
+      "title": "Ganache: proporciones",
+      "summary": "Relación chocolate : crema según el uso y el tipo de chocolate.",
+      "icon": "pi pi-percentage",
+      "tags": [
+        "ganache",
+        "chocolate",
+        "drip",
+        "trufas"
+      ],
+      "blocks": [
+        {
+          "type": "table",
+          "columns": [
+            "Uso",
+            "Chocolate amargo",
+            "Chocolate de leche",
+            "Chocolate blanco"
+          ],
+          "rows": [
+            [
+              "Glaseado / drip",
+              "1 : 1 a 1 : 1.5",
+              "2 : 1",
+              "3 : 1"
+            ],
+            [
+              "Relleno y cubierta para pastel",
+              "1 : 1 a 2 : 1",
+              "2.5 : 1",
+              "3 : 1"
+            ],
+            [
+              "Trufas (firme)",
+              "2 : 1",
+              "3 : 1",
+              "3.5 : 1"
+            ],
+            [
+              "Ganache montada",
+              "1 : 2 (crema fría, reposo)",
+              "1 : 1.5",
+              "1 : 1"
+            ]
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "Proporción expresada como chocolate : crema, en peso. Calienta la crema hasta que apenas hierva, viértela sobre el chocolate picado, espera 1–2 minutos y emulsiona desde el centro."
+        },
+        {
+          "type": "callout",
+          "tone": "tip",
+          "text": "El porcentaje de cacao cambia el resultado: un chocolate de 70 % necesita más crema que uno de 55 % para la misma textura."
+        }
+      ],
+      "sources": [],
+      "displayOrder": 50
+    },
+    {
+      "id": "3a964ded-3d39-5282-af9f-b9e60eb0bc65",
+      "code": "TQ_SUGAR_STAGES",
+      "category": "TECHNIQUES",
+      "title": "Puntos del almíbar",
+      "summary": "Temperatura y prueba en agua fría de cada punto del azúcar, de hebra a caramelo.",
+      "icon": "pi pi-gauge",
+      "tags": [
+        "almíbar",
+        "caramelo",
+        "termómetro",
+        "azúcar"
+      ],
+      "blocks": [
+        {
+          "type": "table",
+          "columns": [
+            "Punto",
+            "Temperatura",
+            "Prueba en agua fría",
+            "Usos"
+          ],
+          "rows": [
+            [
+              "Hebra",
+              "106–112 °C",
+              "Forma un hilo que no se sostiene",
+              "Almíbares, glaseados"
+            ],
+            [
+              "Bola suave",
+              "112–116 °C",
+              "Bola blanda que se aplana fuera del agua",
+              "Fudge, fondant, crema de mantequilla"
+            ],
+            [
+              "Bola firme",
+              "118–120 °C",
+              "Bola firme pero maleable",
+              "Caramelos suaves, merengue italiano"
+            ],
+            [
+              "Bola dura",
+              "121–130 °C",
+              "Bola dura que conserva su forma",
+              "Turrón, malvaviscos"
+            ],
+            [
+              "Quebrado suave",
+              "132–143 °C",
+              "Hilos duros pero flexibles",
+              "Caramelo de mantequilla"
+            ],
+            [
+              "Quebrado duro",
+              "146–154 °C",
+              "Hilos quebradizos",
+              "Caramelo duro, azúcar soplada o hilada"
+            ],
+            [
+              "Caramelo",
+              "160–177 °C",
+              "Color ámbar",
+              "Salsa de caramelo, flan, praliné"
+            ]
+          ]
+        },
+        {
+          "type": "callout",
+          "tone": "warn",
+          "text": "El almíbar caliente causa quemaduras graves. Ten un recipiente con agua fría a la mano y no toques la mezcla."
+        }
+      ],
+      "sources": [],
+      "displayOrder": 60
+    },
+    {
+      "id": "419a8e29-67da-501f-82f9-b94278a6e17f",
+      "code": "TQ_TEMPERING",
+      "category": "TECHNIQUES",
+      "title": "Templado de chocolate",
+      "summary": "Curva de temperaturas para que el chocolate quede brillante, cruja y no forme vetas.",
+      "icon": "pi pi-chart-line",
+      "tags": [
+        "chocolate",
+        "templado",
+        "bombones"
+      ],
+      "blocks": [
+        {
+          "type": "table",
+          "columns": [
+            "Chocolate",
+            "Fundir",
+            "Enfriar a",
+            "Trabajar a"
+          ],
+          "rows": [
+            [
+              "Amargo / semiamargo",
+              "45–50 °C",
+              "27–28 °C",
+              "31–32 °C"
+            ],
+            [
+              "De leche",
+              "40–45 °C",
+              "26–27 °C",
+              "29–30 °C"
+            ],
+            [
+              "Blanco",
+              "40–45 °C",
+              "25–26 °C",
+              "28–29 °C"
+            ]
+          ]
+        },
+        {
+          "type": "list",
+          "items": [
+            "Método de siembra: funde 2/3 del chocolate y agrega 1/3 picado (o callets) para bajar la temperatura.",
+            "Prueba: unta un poco en papel o en la punta de un cuchillo; debe endurecer brillante en 3–5 minutos a 20 °C.",
+            "Revisa siempre la curva del fabricante: puede variar ±1–2 °C."
+          ],
+          "ordered": false
+        }
+      ],
+      "sources": [],
+      "displayOrder": 70
+    },
+    {
+      "id": "5c0538b2-2dba-5009-918d-0d7007d71da8",
+      "code": "TQ_DOUGHS",
+      "category": "TECHNIQUES",
+      "title": "Masas básicas de repostería",
+      "summary": "Brisa, sablée, sucrée, hojaldre, choux y masas de levadura: proporciones y uso.",
+      "icon": "pi pi-circle",
+      "tags": [
+        "masa",
+        "pay",
+        "tarta",
+        "choux",
+        "hojaldre"
+      ],
+      "blocks": [
+        {
+          "type": "table",
+          "columns": [
+            "Masa",
+            "Características",
+            "Usos"
+          ],
+          "rows": [
+            [
+              "Brisa (pâte brisée)",
+              "Poca azúcar, quebradiza, firme",
+              "Pays y quiches"
+            ],
+            [
+              "Sablée",
+              "Arenosa, se desmorona; alta proporción de mantequilla",
+              "Galletas, bases de tarta"
+            ],
+            [
+              "Sucrée",
+              "Dulce y firme, más crujiente",
+              "Tartas de fruta, tartaletas"
+            ],
+            [
+              "Hojaldre",
+              "Capas de masa y mantequilla laminadas",
+              "Milhojas, palmeras, vol-au-vent"
+            ],
+            [
+              "Choux",
+              "Cocida en el fuego antes de hornear; hueca por dentro",
+              "Profiteroles, éclairs, churros"
+            ],
+            [
+              "Brioche y masas enriquecidas",
+              "Levadura + huevo + mantequilla",
+              "Pan dulce, conchas, roles"
+            ]
+          ]
+        },
+        {
+          "type": "callout",
+          "tone": "tip",
+          "text": "Las masas quebradas mejoran con reposo en frío (mínimo 30 minutos): se relaja el gluten y encogen menos al hornear."
+        }
+      ],
+      "sources": [],
+      "displayOrder": 80
+    },
+    {
+      "id": "dec88ff4-704d-5964-aa7e-768d099167cd",
+      "code": "TQ_OVEN",
+      "category": "TECHNIQUES",
+      "title": "Horno: temperaturas y diagnóstico",
+      "summary": "Temperaturas típicas por producto y cómo corregir los problemas de horneado más comunes.",
+      "icon": "pi pi-sun",
+      "tags": [
+        "horno",
+        "temperatura",
+        "convección",
+        "problemas"
+      ],
+      "blocks": [
+        {
+          "type": "table",
+          "columns": [
+            "Producto",
+            "Temperatura convencional"
+          ],
+          "rows": [
+            [
+              "Merengues secos",
+              "90–110 °C"
+            ],
+            [
+              "Cheesecake",
+              "150–160 °C"
+            ],
+            [
+              "Pasteles de mantequilla",
+              "170–180 °C"
+            ],
+            [
+              "Bizcocho / genovesa",
+              "175–180 °C"
+            ],
+            [
+              "Galletas",
+              "175–190 °C"
+            ],
+            [
+              "Choux",
+              "200 °C, luego 180 °C"
+            ],
+            [
+              "Hojaldre",
+              "200–220 °C"
+            ],
+            [
+              "Pan dulce",
+              "180–190 °C"
+            ]
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "Con horno de convección (ventilador) baja alrededor de 20 °C o reduce el tiempo de 10 a 15 %."
+        },
+        {
+          "type": "table",
+          "columns": [
+            "Problema",
+            "Causas probables"
+          ],
+          "rows": [
+            [
+              "Se hunde al centro",
+              "Horno abierto antes de tiempo, exceso de polvo de hornear o de azúcar, falta de horneado"
+            ],
+            [
+              "Domo y grietas",
+              "Temperatura muy alta, molde pequeño, exceso de batido"
+            ],
+            [
+              "Seco",
+              "Horneado de más, poca grasa o líquido, temperatura alta"
+            ],
+            [
+              "Pesado / denso",
+              "Mezcla poco aireada, ingredientes fríos, harina de más, leudante vencido"
+            ],
+            [
+              "Dorado irregular",
+              "Horno sin calibrar o molde muy cerca de la resistencia"
+            ]
+          ]
+        },
+        {
+          "type": "callout",
+          "tone": "tip",
+          "text": "Un termómetro de horno independiente revela diferencias de hasta 20–30 °C con lo que marca la perilla."
+        }
+      ],
+      "sources": [],
+      "displayOrder": 90
+    },
+    {
+      "id": "8a0590e2-d296-5525-af62-d5531e51d1c2",
+      "code": "TQ_PAN_PREP",
+      "category": "TECHNIQUES",
+      "title": "Preparación de moldes y llenado",
+      "summary": "Cómo engrasar, enharinar y llenar cada tipo de molde para un horneado parejo.",
+      "icon": "pi pi-stop",
+      "tags": [
+        "moldes",
+        "engrasar",
+        "llenado"
+      ],
+      "blocks": [
+        {
+          "type": "list",
+          "items": [
+            "Moldes de pastel: engrasa, coloca papel encerado en la base y enharina (o usa cocoa para pasteles oscuros).",
+            "Molde bundt: engrasa con brocha cada pliegue y enharina; desmolda tibio, a los 10 minutos.",
+            "Angel food y chiffon: no engrases; la masa necesita sujetarse a las paredes. Enfría boca abajo.",
+            "Llena los moldes de pastel a la mitad o dos tercios; los de panqué, bundt y cupcake, a dos tercios.",
+            "Para moldes de más de 25 cm usa un clavo de horneado o tiras húmedas para que el centro se cueza parejo."
+          ],
+          "ordered": false
+        },
+        {
+          "type": "callout",
+          "tone": "tip",
+          "text": "Usa la calculadora de moldes para adaptar una receta a otro tamaño: Cronos te dice el factor y abre la receta escalada en modo libro."
+        }
+      ],
+      "sources": [],
+      "displayOrder": 100
+    },
+    {
+      "id": "a5f21cf6-35df-549c-a199-3e82bb624d04",
+      "code": "CR_COST_STRUCTURE",
+      "category": "COSTING",
+      "title": "Cómo se arma el costo de una receta",
+      "summary": "Ingredientes, merma, costos fijos y precio: la misma fórmula que usa Cronos en el costeo en vivo.",
+      "icon": "pi pi-sitemap",
+      "tags": [
+        "costeo",
+        "fórmula",
+        "costo unitario"
+      ],
+      "blocks": [
+        {
+          "type": "formula",
+          "expression": "Costo ingredientes = Σ (cantidad usada × costo por unidad base ÷ rendimiento %)",
+          "description": "El rendimiento del ingrediente descuenta lo que se pierde al limpiarlo, pelarlo o tamizarlo."
+        },
+        {
+          "type": "formula",
+          "expression": "Merma = Costo ingredientes × % merma del proceso",
+          "description": "Lo que se queda en el tazón, la manga, los recortes y las pruebas."
+        },
+        {
+          "type": "formula",
+          "expression": "Costo total = Ingredientes + Merma + Costos fijos",
+          "description": "Costos fijos: mano de obra, gas, luz, empaque, renta prorrateada."
+        },
+        {
+          "type": "formula",
+          "expression": "Costo unitario = Costo total ÷ Rendimiento de la receta",
+          "description": "Por porción, pieza o rebanada, según la unidad de rendimiento."
+        },
+        {
+          "type": "callout",
+          "tone": "info",
+          "text": "El servidor de Cronos es la única autoridad del costo: lo que ves en el panel «Costeo en vivo» es lo mismo que se guarda y se cotiza."
+        }
+      ],
+      "sources": [],
+      "displayOrder": 10
+    },
+    {
+      "id": "8bfe7448-f19a-5c8a-837e-e262a74c0795",
+      "code": "CR_MARKUP_MARGIN",
+      "category": "COSTING",
+      "title": "Margen vs. markup",
+      "summary": "No es lo mismo ganar 60 % sobre el costo que 60 % del precio. Fórmulas y tabla de equivalencias.",
+      "icon": "pi pi-percentage",
+      "tags": [
+        "margen",
+        "markup",
+        "utilidad",
+        "precio"
+      ],
+      "blocks": [
+        {
+          "type": "formula",
+          "expression": "Precio con markup = Costo × (1 + markup %)",
+          "description": "La utilidad se calcula sobre el costo. Markup de 100 % = el doble del costo."
+        },
+        {
+          "type": "formula",
+          "expression": "Precio con margen = Costo ÷ (1 − margen %)",
+          "description": "La utilidad es un porcentaje del precio de venta. Un margen nunca llega a 100 %."
+        },
+        {
+          "type": "formula",
+          "expression": "Margen = Markup ÷ (1 + Markup)    ·    Markup = Margen ÷ (1 − Margen)",
+          "description": "Para convertir de uno a otro."
+        },
+        {
+          "type": "table",
+          "columns": [
+            "Markup sobre costo",
+            "Margen sobre precio",
+            "Precio si el costo es $10"
+          ],
+          "rows": [
+            [
+              "25 %",
+              "20 %",
+              "$12.50"
+            ],
+            [
+              "50 %",
+              "33.3 %",
+              "$15.00"
+            ],
+            [
+              "65 %",
+              "39.4 %",
+              "$16.50"
+            ],
+            [
+              "100 %",
+              "50 %",
+              "$20.00"
+            ],
+            [
+              "150 %",
+              "60 %",
+              "$25.00"
+            ],
+            [
+              "185.7 %",
+              "65 %",
+              "$28.57"
+            ],
+            [
+              "200 %",
+              "66.7 %",
+              "$30.00"
+            ],
+            [
+              "300 %",
+              "75 %",
+              "$40.00"
+            ]
+          ]
+        },
+        {
+          "type": "callout",
+          "tone": "warn",
+          "text": "Si tu meta es «65 % de margen» y calculas Costo × 1.65, en realidad ganas 39.4 % del precio. En Cronos elige el método de precio en la pestaña Costeo de cada receta."
+        }
+      ],
+      "sources": [],
+      "displayOrder": 20
+    },
+    {
+      "id": "0d55161e-3efc-54c9-8928-87c9543ca43c",
+      "code": "CR_FOOD_COST",
+      "category": "COSTING",
+      "title": "Food cost: el porcentaje de materia prima",
+      "summary": "Qué parte del precio se va en ingredientes y qué rangos se usan como referencia en repostería.",
+      "icon": "pi pi-chart-pie",
+      "tags": [
+        "food cost",
+        "materia prima",
+        "rentabilidad"
+      ],
+      "blocks": [
+        {
+          "type": "formula",
+          "expression": "Food cost % = Costo de ingredientes ÷ Precio de venta sin IVA × 100",
+          "description": "Mide cuánto de cada peso vendido se va en materia prima."
+        },
+        {
+          "type": "paragraph",
+          "text": "Una referencia común en repostería es mantener el food cost entre 25 % y 35 %. Productos con mucha mano de obra (decoración, fondant, pisos) suelen necesitar un food cost más bajo para cubrir horas de trabajo; productos sencillos de alta rotación toleran uno más alto."
+        },
+        {
+          "type": "list",
+          "items": [
+            "Food cost > 40 %: revisa precio, porción o ingredientes más caros.",
+            "Calcúlalo con el precio sin IVA; el impuesto no es tuyo.",
+            "Recalcula cuando cambie el precio de un ingrediente principal (mantequilla, chocolate, nuez, vainilla)."
+          ],
+          "ordered": false
+        }
+      ],
+      "sources": [],
+      "displayOrder": 30
+    },
+    {
+      "id": "6debc4b5-9be1-5250-b58c-6496957e07b9",
+      "code": "CR_WASTE",
+      "category": "COSTING",
+      "title": "Merma y rendimiento",
+      "summary": "Diferencia entre el rendimiento de cada ingrediente y la merma del proceso, con valores de referencia.",
+      "icon": "pi pi-filter",
+      "tags": [
+        "merma",
+        "rendimiento",
+        "desperdicio"
+      ],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "El rendimiento es por ingrediente (cuánto de lo comprado se aprovecha). La merma es del proceso completo (lo que se pierde al elaborar la receta). Cronos aplica los dos: el rendimiento en cada ingrediente y la merma como porcentaje en la pestaña Costeo."
+        },
+        {
+          "type": "table",
+          "columns": [
+            "Ingrediente",
+            "Rendimiento típico"
+          ],
+          "rows": [
+            [
+              "Huevo (sin cascarón)",
+              "≈ 88 %"
+            ],
+            [
+              "Fresas (sin hojas ni tallo)",
+              "≈ 90 %"
+            ],
+            [
+              "Plátano (sin cáscara)",
+              "≈ 65 %"
+            ],
+            [
+              "Naranja (jugo)",
+              "≈ 45–50 %"
+            ],
+            [
+              "Limón (jugo)",
+              "≈ 35–45 %"
+            ],
+            [
+              "Piña (pulpa)",
+              "≈ 50–55 %"
+            ],
+            [
+              "Mango (pulpa)",
+              "≈ 65–70 %"
+            ]
+          ]
+        },
+        {
+          "type": "list",
+          "items": [
+            "Merma del proceso típica: 3 % a 8 % (restos en tazón y manga, recortes de nivelado, pruebas).",
+            "Pesa una vez lo que realmente sale de una receta y ajusta el porcentaje con ese dato."
+          ],
+          "ordered": false
+        }
+      ],
+      "sources": [],
+      "displayOrder": 40
+    },
+    {
+      "id": "eecfb751-5344-5736-86b9-18baec101434",
+      "code": "CR_FIXED_COSTS",
+      "category": "COSTING",
+      "title": "Mano de obra y costos fijos prorrateados",
+      "summary": "Cómo convertir sueldos, renta, gas y luz mensuales en un costo por hora, por lote o por pieza.",
+      "icon": "pi pi-wallet",
+      "tags": [
+        "costos fijos",
+        "mano de obra",
+        "renta",
+        "gas",
+        "prorrateo"
+      ],
+      "blocks": [
+        {
+          "type": "formula",
+          "expression": "Tarifa por hora = Costo mensual ÷ Horas productivas al mes",
+          "description": "Para mano de obra y servicios que dependen del tiempo (gas del horno, luz de batidora)."
+        },
+        {
+          "type": "formula",
+          "expression": "Costo por lote = Costo mensual ÷ Lotes producidos al mes",
+          "description": "Para renta, depreciación de equipo o gastos administrativos."
+        },
+        {
+          "type": "formula",
+          "expression": "Costo por pieza = Costo del empaque o insumo × piezas por lote",
+          "description": "Cajas, domos, bases, etiquetas, listones."
+        },
+        {
+          "type": "table",
+          "columns": [
+            "Ejemplo",
+            "Cálculo",
+            "Resultado"
+          ],
+          "rows": [
+            [
+              "Sueldo repostero $12,000/mes, 160 h",
+              "12,000 ÷ 160",
+              "$75 por hora"
+            ],
+            [
+              "Renta $8,000/mes, 200 lotes",
+              "8,000 ÷ 200",
+              "$40 por lote"
+            ],
+            [
+              "Gas $900/mes, 60 h de horno",
+              "900 ÷ 60",
+              "$15 por hora de horno"
+            ]
+          ]
+        },
+        {
+          "type": "callout",
+          "tone": "tip",
+          "text": "En Costos fijos usa «Lo conozco por mes» para que Cronos haga la división, y marca «Aplicar a recetas nuevas» en los que usas siempre."
+        }
+      ],
+      "sources": [],
+      "displayOrder": 50
+    },
+    {
+      "id": "54b52d4b-0959-5a5b-a9e8-e9a98f9b5068",
+      "code": "CR_PRICING_RULES",
+      "category": "COSTING",
+      "title": "Reglas para fijar el precio de venta",
+      "summary": "Lista práctica para no vender por debajo del costo y redondear precios con criterio.",
+      "icon": "pi pi-dollar",
+      "tags": [
+        "precio",
+        "redondeo",
+        "IVA",
+        "mínimo"
+      ],
+      "blocks": [
+        {
+          "type": "list",
+          "ordered": true,
+          "items": [
+            "Nunca cotices por debajo del costo total (ingredientes + merma + costos fijos).",
+            "Define tu método (markup o margen) y úsalo igual en todas tus recetas.",
+            "Redondea hacia arriba a un múltiplo cómodo ($5 o $10); nunca hacia abajo del precio calculado.",
+            "Agrega el IVA al final, sobre el precio de venta; consulta con tu contador la tasa que te aplica.",
+            "Cobra aparte decoración especial, entrega, toppers, bases y pisos adicionales.",
+            "Ten un pedido mínimo que cubra tu tiempo de preparación y limpieza.",
+            "Revisa precios cuando un ingrediente principal suba más de 5 % o cada trimestre."
+          ]
+        },
+        {
+          "type": "callout",
+          "tone": "info",
+          "text": "Las cotizaciones de Cronos avisan si un precio queda por debajo del margen objetivo de la receta."
+        }
+      ],
+      "sources": [],
+      "displayOrder": 60
+    }
+  ],
+  "panSizes": [
+    {
+      "id": "70d20f6b-c8e8-59c1-9f9b-2fbcb9a36a96",
+      "code": "ROUND_10",
+      "scope": "SYSTEM",
+      "shape": "ROUND",
+      "name": "Redondo 10 cm",
+      "diameterCm": 10,
+      "lengthCm": null,
+      "widthCm": null,
+      "heightCm": 7.5,
+      "volumeMl": null,
+      "servings": null,
+      "notes": null
+    },
+    {
+      "id": "7415ecc6-55bb-5e20-8e7f-64fd03829380",
+      "code": "ROUND_12",
+      "scope": "SYSTEM",
+      "shape": "ROUND",
+      "name": "Redondo 12 cm",
+      "diameterCm": 12,
+      "lengthCm": null,
+      "widthCm": null,
+      "heightCm": 7.5,
+      "volumeMl": null,
+      "servings": null,
+      "notes": null
+    },
+    {
+      "id": "8f56d56f-cd6e-5201-b495-a569d02e4b88",
+      "code": "ROUND_15",
+      "scope": "SYSTEM",
+      "shape": "ROUND",
+      "name": "Redondo 15 cm",
+      "diameterCm": 15,
+      "lengthCm": null,
+      "widthCm": null,
+      "heightCm": 7.5,
+      "volumeMl": null,
+      "servings": null,
+      "notes": null
+    },
+    {
+      "id": "18c712c2-f96e-5b7f-adf6-e863a41a0b3f",
+      "code": "ROUND_18",
+      "scope": "SYSTEM",
+      "shape": "ROUND",
+      "name": "Redondo 18 cm",
+      "diameterCm": 18,
+      "lengthCm": null,
+      "widthCm": null,
+      "heightCm": 7.5,
+      "volumeMl": null,
+      "servings": null,
+      "notes": null
+    },
+    {
+      "id": "f2dd628b-a343-5164-9edc-4d0b5d781e4b",
+      "code": "ROUND_20",
+      "scope": "SYSTEM",
+      "shape": "ROUND",
+      "name": "Redondo 20 cm",
+      "diameterCm": 20,
+      "lengthCm": null,
+      "widthCm": null,
+      "heightCm": 7.5,
+      "volumeMl": null,
+      "servings": null,
+      "notes": null
+    },
+    {
+      "id": "6604bde3-4c03-5135-9c8c-0ed482beb6e4",
+      "code": "ROUND_22",
+      "scope": "SYSTEM",
+      "shape": "ROUND",
+      "name": "Redondo 22 cm",
+      "diameterCm": 22,
+      "lengthCm": null,
+      "widthCm": null,
+      "heightCm": 7.5,
+      "volumeMl": null,
+      "servings": null,
+      "notes": null
+    },
+    {
+      "id": "63a45d33-129d-56b8-baac-29b1d5151959",
+      "code": "ROUND_24",
+      "scope": "SYSTEM",
+      "shape": "ROUND",
+      "name": "Redondo 24 cm",
+      "diameterCm": 24,
+      "lengthCm": null,
+      "widthCm": null,
+      "heightCm": 7.5,
+      "volumeMl": null,
+      "servings": null,
+      "notes": null
+    },
+    {
+      "id": "b09e627d-d0de-53f1-ab6c-00620b2f013a",
+      "code": "ROUND_25",
+      "scope": "SYSTEM",
+      "shape": "ROUND",
+      "name": "Redondo 25 cm",
+      "diameterCm": 25,
+      "lengthCm": null,
+      "widthCm": null,
+      "heightCm": 7.5,
+      "volumeMl": null,
+      "servings": null,
+      "notes": null
+    },
+    {
+      "id": "25a28988-31c9-58d0-81be-74a7f1b103eb",
+      "code": "ROUND_28",
+      "scope": "SYSTEM",
+      "shape": "ROUND",
+      "name": "Redondo 28 cm",
+      "diameterCm": 28,
+      "lengthCm": null,
+      "widthCm": null,
+      "heightCm": 7.5,
+      "volumeMl": null,
+      "servings": null,
+      "notes": null
+    },
+    {
+      "id": "a8008b00-5080-5e64-968f-4a95879b553b",
+      "code": "ROUND_30",
+      "scope": "SYSTEM",
+      "shape": "ROUND",
+      "name": "Redondo 30 cm",
+      "diameterCm": 30,
+      "lengthCm": null,
+      "widthCm": null,
+      "heightCm": 7.5,
+      "volumeMl": null,
+      "servings": null,
+      "notes": null
+    },
+    {
+      "id": "499582de-6933-511b-93a6-889ddf765ee2",
+      "code": "SPRINGFORM_18",
+      "scope": "SYSTEM",
+      "shape": "SPRINGFORM",
+      "name": "Desmontable 18 cm",
+      "diameterCm": 18,
+      "lengthCm": null,
+      "widthCm": null,
+      "heightCm": 7,
+      "volumeMl": null,
+      "servings": null,
+      "notes": "Ideal para cheesecake y pasteles fríos."
+    },
+    {
+      "id": "14d9c630-a868-5dff-b9fe-5c15154004e6",
+      "code": "SPRINGFORM_22",
+      "scope": "SYSTEM",
+      "shape": "SPRINGFORM",
+      "name": "Desmontable 22 cm",
+      "diameterCm": 22,
+      "lengthCm": null,
+      "widthCm": null,
+      "heightCm": 7,
+      "volumeMl": null,
+      "servings": null,
+      "notes": "Ideal para cheesecake y pasteles fríos."
+    },
+    {
+      "id": "1986d427-795d-5d7d-8cc9-8969dd8083cf",
+      "code": "SPRINGFORM_24",
+      "scope": "SYSTEM",
+      "shape": "SPRINGFORM",
+      "name": "Desmontable 24 cm",
+      "diameterCm": 24,
+      "lengthCm": null,
+      "widthCm": null,
+      "heightCm": 7,
+      "volumeMl": null,
+      "servings": null,
+      "notes": "Ideal para cheesecake y pasteles fríos."
+    },
+    {
+      "id": "ff2b9ee2-60aa-5090-bab4-0f23601010bc",
+      "code": "SPRINGFORM_26",
+      "scope": "SYSTEM",
+      "shape": "SPRINGFORM",
+      "name": "Desmontable 26 cm",
+      "diameterCm": 26,
+      "lengthCm": null,
+      "widthCm": null,
+      "heightCm": 7,
+      "volumeMl": null,
+      "servings": null,
+      "notes": "Ideal para cheesecake y pasteles fríos."
+    },
+    {
+      "id": "55cb6275-fe16-5ab8-be19-09eeee867a32",
+      "code": "SQUARE_15",
+      "scope": "SYSTEM",
+      "shape": "SQUARE",
+      "name": "Cuadrado 15 × 15 cm",
+      "diameterCm": null,
+      "lengthCm": 15,
+      "widthCm": 15,
+      "heightCm": 7.5,
+      "volumeMl": null,
+      "servings": null,
+      "notes": null
+    },
+    {
+      "id": "7e871357-6daf-5f57-9099-05fb54e288f9",
+      "code": "SQUARE_20",
+      "scope": "SYSTEM",
+      "shape": "SQUARE",
+      "name": "Cuadrado 20 × 20 cm",
+      "diameterCm": null,
+      "lengthCm": 20,
+      "widthCm": 20,
+      "heightCm": 5,
+      "volumeMl": null,
+      "servings": null,
+      "notes": "Tamaño típico para brownies."
+    },
+    {
+      "id": "e79c1453-ceaa-5783-97c8-86b79f6f383a",
+      "code": "SQUARE_23",
+      "scope": "SYSTEM",
+      "shape": "SQUARE",
+      "name": "Cuadrado 23 × 23 cm",
+      "diameterCm": null,
+      "lengthCm": 23,
+      "widthCm": 23,
+      "heightCm": 5,
+      "volumeMl": null,
+      "servings": null,
+      "notes": null
+    },
+    {
+      "id": "a052d16f-c223-5c18-8ac1-cbbdf006c487",
+      "code": "SQUARE_25",
+      "scope": "SYSTEM",
+      "shape": "SQUARE",
+      "name": "Cuadrado 25 × 25 cm",
+      "diameterCm": null,
+      "lengthCm": 25,
+      "widthCm": 25,
+      "heightCm": 7.5,
+      "volumeMl": null,
+      "servings": null,
+      "notes": null
+    },
+    {
+      "id": "5ab4cefc-0843-5986-9688-9607316ae9ba",
+      "code": "RECT_20x30",
+      "scope": "SYSTEM",
+      "shape": "RECTANGULAR",
+      "name": "Rectangular 20 × 30 cm",
+      "diameterCm": null,
+      "lengthCm": 30,
+      "widthCm": 20,
+      "heightCm": 5,
+      "volumeMl": null,
+      "servings": null,
+      "notes": null
+    },
+    {
+      "id": "10a8066a-9122-5cb1-bbcb-cb69b0e8588e",
+      "code": "RECT_23x33",
+      "scope": "SYSTEM",
+      "shape": "RECTANGULAR",
+      "name": "Rectangular 23 × 33 cm",
+      "diameterCm": null,
+      "lengthCm": 33,
+      "widthCm": 23,
+      "heightCm": 5,
+      "volumeMl": null,
+      "servings": null,
+      "notes": "El clásico molde de 9 × 13 in; tres leches y pasteles de hoja."
+    },
+    {
+      "id": "788104b7-6d53-5e8c-9add-9a1b95250f60",
+      "code": "SHEET_25x38",
+      "scope": "SYSTEM",
+      "shape": "SHEET",
+      "name": "Charola 25 × 38 cm (roulade)",
+      "diameterCm": null,
+      "lengthCm": 38,
+      "widthCm": 25,
+      "heightCm": 2.5,
+      "volumeMl": null,
+      "servings": null,
+      "notes": "Para bizcocho de rollo."
+    },
+    {
+      "id": "d81ceb74-c348-5263-9170-f86d27c89989",
+      "code": "SHEET_33x46",
+      "scope": "SYSTEM",
+      "shape": "SHEET",
+      "name": "Media charola 33 × 46 cm",
+      "diameterCm": null,
+      "lengthCm": 46,
+      "widthCm": 33,
+      "heightCm": 2.5,
+      "volumeMl": null,
+      "servings": null,
+      "notes": null
+    },
+    {
+      "id": "129f97fb-2bbe-5a3a-af07-cd95381f6231",
+      "code": "LOAF_21x11",
+      "scope": "SYSTEM",
+      "shape": "LOAF",
+      "name": "Panqué 21 × 11 cm",
+      "diameterCm": null,
+      "lengthCm": 21,
+      "widthCm": 11,
+      "heightCm": 6,
+      "volumeMl": null,
+      "servings": 10,
+      "notes": null
+    },
+    {
+      "id": "ed17beb6-a652-5576-b994-060efec740a4",
+      "code": "LOAF_23x13",
+      "scope": "SYSTEM",
+      "shape": "LOAF",
+      "name": "Panqué 23 × 13 cm",
+      "diameterCm": null,
+      "lengthCm": 23,
+      "widthCm": 13,
+      "heightCm": 7,
+      "volumeMl": null,
+      "servings": 12,
+      "notes": null
+    },
+    {
+      "id": "e28cae00-80ea-51d4-ab9f-7ce4c2bc1f9b",
+      "code": "LOAF_30x11",
+      "scope": "SYSTEM",
+      "shape": "LOAF",
+      "name": "Panqué largo 30 × 11 cm",
+      "diameterCm": null,
+      "lengthCm": 30,
+      "widthCm": 11,
+      "heightCm": 7.5,
+      "volumeMl": null,
+      "servings": 15,
+      "notes": null
+    },
+    {
+      "id": "55a95aeb-7a18-5c0a-9ddd-ae28650e0b24",
+      "code": "BUNDT_22",
+      "scope": "SYSTEM",
+      "shape": "BUNDT",
+      "name": "Bundt 22 cm (10 tazas)",
+      "diameterCm": 22,
+      "lengthCm": null,
+      "widthCm": null,
+      "heightCm": 9,
+      "volumeMl": 2370,
+      "servings": 12,
+      "notes": "Capacidad declarada por fabricantes; varía según el diseño."
+    },
+    {
+      "id": "46cb5019-f7a2-5af8-a14e-48f6f447a17a",
+      "code": "BUNDT_25",
+      "scope": "SYSTEM",
+      "shape": "BUNDT",
+      "name": "Bundt 25 cm (12 tazas)",
+      "diameterCm": 25,
+      "lengthCm": null,
+      "widthCm": null,
+      "heightCm": 10,
+      "volumeMl": 2840,
+      "servings": 16,
+      "notes": "Capacidad declarada por fabricantes; varía según el diseño."
+    },
+    {
+      "id": "c769a7d9-e6fb-5766-993a-b35203340093",
+      "code": "MUFFIN_MINI",
+      "scope": "SYSTEM",
+      "shape": "MUFFIN",
+      "name": "Cavidad mini cupcake",
+      "diameterCm": 5,
+      "lengthCm": null,
+      "widthCm": null,
+      "heightCm": 2,
+      "volumeMl": 30,
+      "servings": 1,
+      "notes": null
+    },
+    {
+      "id": "324516bb-8a5e-50f5-90d9-7f777b65e79e",
+      "code": "MUFFIN_STD",
+      "scope": "SYSTEM",
+      "shape": "MUFFIN",
+      "name": "Cavidad cupcake estándar",
+      "diameterCm": 7,
+      "lengthCm": null,
+      "widthCm": null,
+      "heightCm": 3,
+      "volumeMl": 120,
+      "servings": 1,
+      "notes": null
+    },
+    {
+      "id": "5a99865f-ac31-5cf0-8369-81ff1f29fbb7",
+      "code": "MUFFIN_JUMBO",
+      "scope": "SYSTEM",
+      "shape": "MUFFIN",
+      "name": "Cavidad cupcake jumbo",
+      "diameterCm": 9,
+      "lengthCm": null,
+      "widthCm": null,
+      "heightCm": 4.5,
+      "volumeMl": 240,
+      "servings": 1,
+      "notes": null
+    }
+  ],
+  "conversions": [
+    {
+      "code": "FLOUR_AP",
+      "name": "Harina de trigo (todo uso)",
+      "gramsPerCup": 125,
+      "gramsPerTablespoon": null,
+      "gramsPerTeaspoon": null
+    },
+    {
+      "code": "FLOUR_CAKE",
+      "name": "Harina para pastel",
+      "gramsPerCup": 115,
+      "gramsPerTablespoon": null,
+      "gramsPerTeaspoon": null
+    },
+    {
+      "code": "FLOUR_WHOLE",
+      "name": "Harina integral",
+      "gramsPerCup": 120,
+      "gramsPerTablespoon": null,
+      "gramsPerTeaspoon": null
+    },
+    {
+      "code": "ALMOND_FLOUR",
+      "name": "Harina de almendra",
+      "gramsPerCup": 96,
+      "gramsPerTablespoon": null,
+      "gramsPerTeaspoon": null
+    },
+    {
+      "code": "CORNSTARCH",
+      "name": "Fécula de maíz",
+      "gramsPerCup": 128,
+      "gramsPerTablespoon": null,
+      "gramsPerTeaspoon": null
+    },
+    {
+      "code": "COCOA",
+      "name": "Cocoa en polvo sin azúcar",
+      "gramsPerCup": 85,
+      "gramsPerTablespoon": null,
+      "gramsPerTeaspoon": null
+    },
+    {
+      "code": "SUGAR",
+      "name": "Azúcar refinada",
+      "gramsPerCup": 200,
+      "gramsPerTablespoon": null,
+      "gramsPerTeaspoon": null
+    },
+    {
+      "code": "BROWN_SUGAR",
+      "name": "Azúcar mascabado (compactada)",
+      "gramsPerCup": 213,
+      "gramsPerTablespoon": null,
+      "gramsPerTeaspoon": null
+    },
+    {
+      "code": "POWDERED_SUGAR",
+      "name": "Azúcar glass",
+      "gramsPerCup": 120,
+      "gramsPerTablespoon": null,
+      "gramsPerTeaspoon": null
+    },
+    {
+      "code": "BUTTER",
+      "name": "Mantequilla",
+      "gramsPerCup": 227,
+      "gramsPerTablespoon": null,
+      "gramsPerTeaspoon": null
+    },
+    {
+      "code": "OIL",
+      "name": "Aceite vegetal",
+      "gramsPerCup": 218,
+      "gramsPerTablespoon": null,
+      "gramsPerTeaspoon": null
+    },
+    {
+      "code": "MILK",
+      "name": "Leche",
+      "gramsPerCup": 242,
+      "gramsPerTablespoon": null,
+      "gramsPerTeaspoon": null
+    },
+    {
+      "code": "WATER",
+      "name": "Agua",
+      "gramsPerCup": 237,
+      "gramsPerTablespoon": null,
+      "gramsPerTeaspoon": null
+    },
+    {
+      "code": "CREAM",
+      "name": "Crema para batir",
+      "gramsPerCup": 238,
+      "gramsPerTablespoon": null,
+      "gramsPerTeaspoon": null
+    },
+    {
+      "code": "CONDENSED_MILK",
+      "name": "Leche condensada",
+      "gramsPerCup": 306,
+      "gramsPerTablespoon": null,
+      "gramsPerTeaspoon": null
+    },
+    {
+      "code": "EVAPORATED_MILK",
+      "name": "Leche evaporada",
+      "gramsPerCup": 252,
+      "gramsPerTablespoon": null,
+      "gramsPerTeaspoon": null
+    },
+    {
+      "code": "CREAM_CHEESE",
+      "name": "Queso crema",
+      "gramsPerCup": 232,
+      "gramsPerTablespoon": null,
+      "gramsPerTeaspoon": null
+    },
+    {
+      "code": "YOGURT",
+      "name": "Yogur natural",
+      "gramsPerCup": 245,
+      "gramsPerTablespoon": null,
+      "gramsPerTeaspoon": null
+    },
+    {
+      "code": "HONEY",
+      "name": "Miel",
+      "gramsPerCup": 340,
+      "gramsPerTablespoon": null,
+      "gramsPerTeaspoon": null
+    },
+    {
+      "code": "EGG_BEATEN",
+      "name": "Huevo batido",
+      "gramsPerCup": 243,
+      "gramsPerTablespoon": null,
+      "gramsPerTeaspoon": null
+    },
+    {
+      "code": "OATS",
+      "name": "Avena en hojuelas",
+      "gramsPerCup": 90,
+      "gramsPerTablespoon": null,
+      "gramsPerTeaspoon": null
+    },
+    {
+      "code": "WALNUTS",
+      "name": "Nuez picada",
+      "gramsPerCup": 115,
+      "gramsPerTablespoon": null,
+      "gramsPerTeaspoon": null
+    },
+    {
+      "code": "CHOC_CHIPS",
+      "name": "Chispas de chocolate",
+      "gramsPerCup": 170,
+      "gramsPerTablespoon": null,
+      "gramsPerTeaspoon": null
+    },
+    {
+      "code": "COCONUT",
+      "name": "Coco rallado",
+      "gramsPerCup": 85,
+      "gramsPerTablespoon": null,
+      "gramsPerTeaspoon": null
+    },
+    {
+      "code": "BAKING_POWDER",
+      "name": "Polvo para hornear",
+      "gramsPerCup": 192,
+      "gramsPerTablespoon": 12,
+      "gramsPerTeaspoon": 4
+    },
+    {
+      "code": "BAKING_SODA",
+      "name": "Bicarbonato de sodio",
+      "gramsPerCup": 240,
+      "gramsPerTablespoon": 15,
+      "gramsPerTeaspoon": 5
+    },
+    {
+      "code": "SALT",
+      "name": "Sal fina",
+      "gramsPerCup": 288,
+      "gramsPerTablespoon": 18,
+      "gramsPerTeaspoon": 6
+    },
+    {
+      "code": "YEAST",
+      "name": "Levadura instantánea",
+      "gramsPerCup": 144,
+      "gramsPerTablespoon": 9,
+      "gramsPerTeaspoon": 3
+    },
+    {
+      "code": "GELATIN",
+      "name": "Grenetina en polvo",
+      "gramsPerCup": 112,
+      "gramsPerTablespoon": 7,
+      "gramsPerTeaspoon": 2.3
+    },
+    {
+      "code": "VANILLA",
+      "name": "Extracto de vainilla",
+      "gramsPerCup": 208,
+      "gramsPerTablespoon": 13,
+      "gramsPerTeaspoon": 4.3
+    }
+  ],
+  "revision": "2026-10-08"
+}

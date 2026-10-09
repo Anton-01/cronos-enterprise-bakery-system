@@ -10,10 +10,13 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 @Component
 public class RequestContextUtil {
 
-    // Inicializamos el analizador una sola vez (es una operación pesada).
-    // Ocultamos las estadísticas de carga y agregamos caché para máximo rendimiento.
+    // Built once at startup (immediateInitialization): Yauaa otherwise loads its rule set on the first
+    // parse, which made the first sign-in after every restart ~1.5 s slower. Only the fields read below
+    // are computed, which keeps both start-up and each parse cheaper.
     private static final UserAgentAnalyzer uaa = UserAgentAnalyzer.newBuilder()
             .hideMatcherLoadStats()
+            .withFields("AgentNameVersion", "AgentNameVersionMajor", "OperatingSystemName", "OperatingSystemNameVersion", "DeviceClass")
+            .immediateInitialization()
             .withCache(10000)
             .build();
 

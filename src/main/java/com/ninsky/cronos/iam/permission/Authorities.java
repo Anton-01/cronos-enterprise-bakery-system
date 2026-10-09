@@ -21,6 +21,9 @@ public final class Authorities {
     public static final String INGREDIENT_DELETE = "hasAuthority('INGREDIENT.INGREDIENT.DELETE')";
     public static final String FIXED_COST_READ = "hasAuthority('FIXED_COST.FIXED_COST.READ')";
     public static final String FIXED_COST_MANAGE = "hasAuthority('FIXED_COST.FIXED_COST.MANAGE')";
+    public static final String GUIDE_GUIDE_READ = "hasAuthority('GUIDE.GUIDE.READ')";
+    public static final String GUIDE_PAN_MANAGE = "hasAuthority('GUIDE.PAN.MANAGE')";
+    public static final String GUIDE_CONTENT_MANAGE = "hasAuthority('GUIDE.CONTENT.MANAGE')";
     public static final String CATALOG_UNIT_TYPE_READ = "hasAuthority('CATALOG.UNIT_TYPE.READ')";
     public static final String CATALOG_UNIT_TYPE_MANAGE = "hasAuthority('CATALOG.UNIT_TYPE.MANAGE')";
     public static final String CATALOG_MEASUREMENT_UNIT_READ = "hasAuthority('CATALOG.MEASUREMENT_UNIT.READ')";

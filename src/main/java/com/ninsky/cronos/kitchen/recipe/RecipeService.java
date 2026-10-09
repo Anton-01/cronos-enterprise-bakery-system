@@ -14,6 +14,7 @@ import com.ninsky.cronos.infrastructure.web.paging.CatalogPage;
 import com.ninsky.cronos.infrastructure.web.paging.PageQuery;
 import com.ninsky.cronos.kitchen.allergen.AllergenCatalog;
 import com.ninsky.cronos.kitchen.costing.CostEngine;
+import com.ninsky.cronos.kitchen.recipe.file.RecipeFileService;
 import com.ninsky.cronos.kitchen.shared.ApiWarningCode;
 import com.ninsky.cronos.kitchen.shared.KitchenCaches;
 import com.ninsky.cronos.kitchen.shared.KitchenMessages;
@@ -42,6 +43,7 @@ public class RecipeService {
     private final RecipeViews views;
     private final RecipeCosting costing;
     private final RecipeRevisions revisions;
+    private final RecipeFileService files;
     private final AllergenCatalog allergens;
     private final KitchenCaches caches;
     private final KitchenMessages messages;
@@ -105,7 +107,7 @@ public class RecipeService {
         UUID tenant = tenant();
         String language = KitchenMessages.language();
         RecipeAggregate current = owned(id, tenant);
-        requireVersion(request.version(), current.head().version());
+        requireVersion(id, request.version(), current.head().version());
         RecipeValidator.Draft draft = validator.validate(request, new RecipeValidator.Context(tenant, language, allergens.view(tenant), current));
 
         Instant now = clock.instant();
@@ -131,7 +133,7 @@ public class RecipeService {
     public Warned<RecipeDetail> changeStatus(UUID id, RecipeStatusRequest request) {
         UUID tenant = tenant();
         RecipeAggregate current = owned(id, tenant);
-        requireVersion(request.version(), current.head().version());
+        requireVersion(id, request.version(), current.head().version());
         RecipeStatus from = current.head().status();
         List<ApiWarning> warnings = new ArrayList<>();
         if (from != request.status()) {
@@ -151,7 +153,7 @@ public class RecipeService {
                 }
             }
             Instant now = clock.instant();
-            if (!store.changeStatus(id, request.version(), request.status(), tenant, now)) {
+            if (!store.changeStatus(id, current.head().version(), request.status(), tenant, now)) {
                 throw ApiException.concurrentModification();
             }
             Map<String, Object> changes = Changes.start().track("status", from, request.status()).build();
@@ -164,7 +166,7 @@ public class RecipeService {
         return new Warned<>(views.detail(store.findVisible(id, tenant).orElseThrow(), tenant, KitchenMessages.language()), warnings);
     }
 
-    /** New DRAFT copy of an own or SYSTEM recipe (lines, fixed costs, process; never files, history or shares). */
+    /** New DRAFT copy of an own or SYSTEM recipe (lines, fixed costs, process and the cover image; no other files, history or shares). */
     @Transactional
     public RecipeDetail duplicate(UUID id, DuplicateRequest request) {
         UUID tenant = tenant();
@@ -181,13 +183,14 @@ public class RecipeService {
         RecipeAggregate.Head s = source.head();
         RecipeValidator.Draft draft = new RecipeValidator.Draft(name, s.categoryId(), s.difficulty(), s.description(),
                 s.storageInstructions(), s.yieldQuantity(), s.yieldUnit(), s.prepMinutes(), s.bakeMinutes(), s.coolMinutes(), s.ovenTemperatureC(),
-                s.shelfLifeDays(), s.processHtml(), s.targetMarginPercent(), s.wastePercent(),
+                s.shelfLifeDays(), s.processHtml(), s.targetMarginPercent(), s.pricingMethod(), s.wastePercent(),
                 source.lines().stream().map(l -> new RecipeAggregate.Line(UUID.randomUUID(), l.ingredientId(), l.section(), l.quantity(),
                         l.unitId(), l.optional(), l.quoteSelectable(), l.notes(), l.displayOrder(), null, l.extraAllergens())).toList(),
                 s.system() ? List.of() : source.fixed().stream().map(f -> new RecipeAggregate.Fixed(UUID.randomUUID(), f.userFixedCostId(),
-                        f.name(), f.method(), f.defaultAmount(), f.masterPercentage(), f.minutes(), f.percentage(), null)).toList());
+                        f.name(), f.method(), f.defaultAmount(), f.masterPercentage(), f.minutes(), f.percentage(), f.quantity(), null)).toList());
         Instant now = clock.instant();
         RecipeAggregate copy = insert(UUID.randomUUID(), copyCode(tenant, s.code()), tenant, draft, now);
+        files.copyCover(source.id(), copy.id(), tenant, now);
         costing.persistAt(copy, null, costing.evaluate(copy), 1, tenant, now,
                 RecipeRevisions.Reason.of(s.system() ? "kitchen.revision.fromLibrary" : "kitchen.revision.duplicated", s.name()), Map.of());
         evictStats(tenant);
@@ -232,7 +235,8 @@ public class RecipeService {
                 : new RecipeAggregate.Cost(null, null, null, null, null, null, 0, com.ninsky.cronos.kitchen.costing.CostStatus.INCOMPLETE, null);
         return new RecipeAggregate.Head(id, code, owner, d.name(), d.categoryId(), d.difficulty(), d.description(), d.processHtml(),
                 d.storageInstructions(), d.shelfLifeDays(), d.prepMinutes(), d.bakeMinutes(), d.coolMinutes(), d.ovenTemperatureC(),
-                d.yieldQuantity(), d.yieldUnit(), status, d.targetMarginPercent(), d.wastePercent(), effective, createdAt, createdBy, now,
+                d.yieldQuantity(), d.yieldUnit(), status, d.targetMarginPercent(), d.pricingMethod(), d.wastePercent(), effective, createdAt,
+                createdBy, now,
                 owner, version);
     }
 
@@ -264,8 +268,12 @@ public class RecipeService {
         caches.evict(KitchenCaches.STATS, KitchenCaches.statsKey("recipes", tenant));
     }
 
-    private static void requireVersion(Long requested, long current) {
-        if (requested == null || requested != current) {
+    /**
+     * Optimistic lock of the editable aggregate (row already locked by {@link #owned}): the client's version must be
+     * current, or older only by attachment/cover changes, which the studio does not track and which a save cannot lose.
+     */
+    private void requireVersion(UUID id, Long requested, long current) {
+        if (requested == null || (requested != current && !revisions.onlyAttachmentChangesSince(id, requested, current))) {
             throw ApiException.concurrentModification();
         }
     }

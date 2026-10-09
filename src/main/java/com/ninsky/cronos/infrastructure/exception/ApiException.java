@@ -1,6 +1,7 @@
 package com.ninsky.cronos.infrastructure.exception;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -24,6 +25,11 @@ public class ApiException extends RuntimeException {
 
     public static ApiException of(ApiErrorCode code, String field, String messageKey, Object... args) {
         return new ApiException(List.of(new Violation(code, field, messageKey, List.of(args))), null);
+    }
+
+    /** One violation carrying structured {@code details} for the client (envelope {@code errors[0].details}). */
+    public static ApiException withDetails(ApiErrorCode code, String field, Map<String, Object> details, String messageKey, Object... args) {
+        return new ApiException(List.of(new Violation(code, field, messageKey, List.of(args), details)), null);
     }
 
     public static ApiException notFound(String messageKey, Object... args) {
@@ -55,12 +61,17 @@ public class ApiException extends RuntimeException {
         return retryAfterSeconds;
     }
 
-    /** One error entry of the envelope. */
-    public record Violation(ApiErrorCode code, String field, String messageKey, List<Object> args) {
+    /** One error entry of the envelope; {@code details} is optional structured context. */
+    public record Violation(ApiErrorCode code, String field, String messageKey, List<Object> args, Map<String, Object> details) {
         public Violation {
             Objects.requireNonNull(code, "code");
             Objects.requireNonNull(messageKey, "messageKey");
             args = args == null ? List.of() : List.copyOf(args.stream().map(a -> a == null ? "" : a).toList());
+            details = details == null || details.isEmpty() ? null : Map.copyOf(details);
+        }
+
+        public Violation(ApiErrorCode code, String field, String messageKey, List<Object> args) {
+            this(code, field, messageKey, args, null);
         }
     }
 }

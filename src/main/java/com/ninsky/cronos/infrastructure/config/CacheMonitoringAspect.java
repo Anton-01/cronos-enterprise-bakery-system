@@ -15,7 +15,7 @@ public class CacheMonitoringAspect {
     public Object monitorCache(ProceedingJoinPoint joinPoint) throws Throwable {
         String methodName = joinPoint.getSignature().getName();
 
-        log.info("🔍 Cache Check | Method: {}", methodName);
+        log.debug("Cache check | method: {}", methodName);
 
         StopWatch stopWatch = new StopWatch();
         stopWatch.start();
@@ -30,9 +30,9 @@ public class CacheMonitoringAspect {
         long executionTime = stopWatch.getTotalTimeMillis();
 
         if (executionTime > 5) { // Si tarda más de 5ms, probablemente fue a la DB (MISS)
-            log.warn("❌ Cache MISS | The method '{}' went to DB. Time: {}ms", methodName, executionTime);
+            log.debug("Cache miss (probably) | method '{}' took {} ms", methodName, executionTime);
         } else {
-            log.info("✅ Cache HIT/Fast Access | Method '{}' completed on {}ms", methodName, executionTime);
+            log.debug("Cache hit (probably) | method '{}' took {} ms", methodName, executionTime);
         }
         return result;
     }

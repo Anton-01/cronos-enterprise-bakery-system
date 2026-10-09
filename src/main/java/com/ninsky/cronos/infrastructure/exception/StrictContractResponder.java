@@ -37,7 +37,7 @@ public class StrictContractResponder {
     public ResponseEntity<ApiResponseEnvelope<Void>> respond(ApiException ex, HttpServletRequest request) {
         Locale locale = RequestLocaleResolver.resolve(request);
         List<ApiError> errors = ex.violations().stream()
-                .map(v -> new ApiError(v.code().name(), message(v.messageKey(), v.args().toArray(), locale), v.field()))
+                .map(v -> new ApiError(v.code().name(), message(v.messageKey(), v.args().toArray(), locale), v.field(), null, v.details()))
                 .toList();
         ResponseEntity.BodyBuilder builder = ResponseEntity.status(ex.primaryCode().status());
         if (ex.retryAfterSeconds() != null) {

@@ -17,6 +17,18 @@ class ProcessHtmlSanitizerTest {
     }
 
     @Test
+    void keepsQuillListMarkersForTheBookView() {
+        String html = "<ol><li data-list=\"ordered\">Batir</li><li data-list=\"bullet\">Opcional</li></ol>";
+
+        assertThat(ProcessHtmlSanitizer.sanitize(html)).isEqualTo(html);
+    }
+
+    @Test
+    void dropsUnknownListMarkers() {
+        assertThat(ProcessHtmlSanitizer.sanitize("<ol><li data-list=\"javascript:x\">Batir</li></ol>")).isEqualTo("<ol><li>Batir</li></ol>");
+    }
+
+    @Test
     void stripsScriptsAndStyles() {
         String clean = ProcessHtmlSanitizer.sanitize("<p>Batir<script>alert(1)</script><style>p{color:red}</style></p>");
 

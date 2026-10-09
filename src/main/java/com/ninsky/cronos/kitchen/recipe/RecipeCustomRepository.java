@@ -3,6 +3,7 @@ package com.ninsky.cronos.kitchen.recipe;
 import com.ninsky.cronos.kitchen.costing.CostEngine;
 import com.ninsky.cronos.kitchen.costing.CostStatus;
 import com.ninsky.cronos.kitchen.costing.FixedCostMethod;
+import com.ninsky.cronos.kitchen.costing.PricingMethod;
 import com.ninsky.cronos.kitchen.shared.Sql;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.RowMapper;
@@ -34,7 +35,7 @@ public class RecipeCustomRepository {
     private static final String HEAD = """
             SELECT r.id, r.code, r.owner_id, r.name, r.category_id, r.difficulty, r.description, r.process_html, r.storage_instructions,
                    r.shelf_life_days, r.prep_minutes, r.bake_minutes, r.cool_minutes, r.oven_temperature_c, r.yield_quantity, r.yield_unit,
-                   r.status, r.target_margin_percent, r.waste_percent, r.ingredients_cost, r.waste_cost, r.fixed_costs, r.total_cost,
+                   r.status, r.target_margin_percent, r.pricing_method, r.waste_percent, r.ingredients_cost, r.waste_cost, r.fixed_costs, r.total_cost,
                    r.cost_per_unit, r.suggested_unit_price, r.unpriced_lines, r.cost_status, r.cost_calculated_at, r.created_at,
                    r.created_by_id, r.updated_at, r.updated_by_id, r.version
             FROM recipes r""";
@@ -112,10 +113,11 @@ public class RecipeCustomRepository {
         jdbc.update("""
                 INSERT INTO recipes (id, code, owner_id, name, category_id, difficulty, description, process_html, storage_instructions,
                     shelf_life_days, prep_minutes, bake_minutes, cool_minutes, oven_temperature_c, yield_quantity, yield_unit, status,
-                    target_margin_percent, waste_percent, unpriced_lines, cost_status, created_at, created_by_id, updated_at, updated_by_id,
-                    version)
+                    target_margin_percent, pricing_method, waste_percent, unpriced_lines, cost_status, created_at, created_by_id, updated_at,
+                    updated_by_id, version)
                 VALUES (:id, :code, :owner, :name, :category, :difficulty, :description, :process, :storage, :shelfLife, :prep, :bake,
-                    :cool, :oven, :yield, :yieldUnit, :status, :margin, :waste, 0, 'INCOMPLETE', :now, :actor, :now, :actor, :version)""",
+                    :cool, :oven, :yield, :yieldUnit, :status, :margin, :pricing, :waste, 0, 'INCOMPLETE', :now, :actor, :now, :actor,
+                    :version)""",
                 headParams(head).addValue("code", head.code()).addValue("owner", head.ownerId()).addValue("status", head.status().name())
                         .addValue("now", at(head.createdAt())).addValue("actor", head.createdBy()));
     }
@@ -126,7 +128,7 @@ public class RecipeCustomRepository {
                 UPDATE recipes SET name = :name, category_id = :category, difficulty = :difficulty, description = :description,
                     process_html = :process, storage_instructions = :storage, shelf_life_days = :shelfLife, prep_minutes = :prep,
                     bake_minutes = :bake, cool_minutes = :cool, oven_temperature_c = :oven, yield_quantity = :yield,
-                    yield_unit = :yieldUnit, target_margin_percent = :margin, waste_percent = :waste, updated_at = :now,
+                    yield_unit = :yieldUnit, target_margin_percent = :margin, pricing_method = :pricing, waste_percent = :waste, updated_at = :now,
                     updated_by_id = :actor, version = :version
                 WHERE id = :id AND version = :expected AND deleted_at IS NULL""",
                 headParams(head).addValue("now", at(head.updatedAt())).addValue("actor", head.updatedBy())
@@ -184,11 +186,32 @@ public class RecipeCustomRepository {
     public void replaceFixed(UUID recipeId, List<RecipeAggregate.Fixed> fixed) {
         jdbc.update("DELETE FROM recipe_fixed_costs WHERE recipe_id = :recipe", Map.of("recipe", recipeId));
         jdbc.batchUpdate("""
-                INSERT INTO recipe_fixed_costs (id, recipe_id, user_fixed_cost_id, minutes, percentage, cost)
-                VALUES (:id, :recipe, :master, :minutes, :percentage, :cost)""",
+                INSERT INTO recipe_fixed_costs (id, recipe_id, user_fixed_cost_id, minutes, percentage, quantity, cost)
+                VALUES (:id, :recipe, :master, :minutes, :percentage, :quantity, :cost)""",
                 fixed.stream().map(f -> new MapSqlParameterSource().addValue("id", f.id()).addValue("recipe", recipeId)
                         .addValue("master", f.userFixedCostId()).addValue("minutes", f.minutes()).addValue("percentage", f.percentage())
-                        .addValue("cost", f.cost())).toArray(SqlParameterSource[]::new));
+                        .addValue("quantity", f.quantity()).addValue("cost", f.cost())).toArray(SqlParameterSource[]::new));
+    }
+
+    /** Live recipes (any status) whose fixed costs include {@code userFixedCostId}. */
+    public List<UUID> idsUsingFixedCost(UUID userFixedCostId) {
+        return jdbc.queryForList("""
+                SELECT DISTINCT r.id FROM recipe_fixed_costs f JOIN recipes r ON r.id = f.recipe_id
+                WHERE f.user_fixed_cost_id = :master AND r.deleted_at IS NULL""", Map.of("master", userFixedCostId), UUID.class);
+    }
+
+    /** {@code (id, name)} of the live recipes using a fixed cost, for the 409 RESOURCE_IN_USE details. */
+    public List<Map<String, Object>> namesUsingFixedCost(UUID userFixedCostId) {
+        return jdbc.query("""
+                SELECT DISTINCT r.id, r.name FROM recipe_fixed_costs f JOIN recipes r ON r.id = f.recipe_id
+                WHERE f.user_fixed_cost_id = :master AND r.deleted_at IS NULL ORDER BY r.name""", Map.of("master", userFixedCostId),
+                (rs, i) -> Map.<String, Object>of("id", rs.getObject("id", UUID.class), "name", rs.getString("name")));
+    }
+
+    /** Whether any recipe row (deleted recipes included: quotes keep their snapshot) references the fixed cost. */
+    public boolean fixedCostReferenced(UUID userFixedCostId) {
+        return Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS (SELECT 1 FROM recipe_fixed_costs WHERE user_fixed_cost_id = :master)",
+                Map.of("master", userFixedCostId), Boolean.class));
     }
 
     /** Stores a cost result (header, lines, fixed costs) and sets the version. */
@@ -251,14 +274,14 @@ public class RecipeCustomRepository {
         Map<UUID, List<RecipeAggregate.Fixed>> fixed = new HashMap<>();
         jdbc.query("""
                 SELECT f.id, f.recipe_id, f.user_fixed_cost_id, m.name, m.calculation_method, m.default_amount, m.percentage AS master_percentage,
-                       f.minutes, f.percentage, f.cost
+                       f.minutes, f.percentage, f.quantity, f.cost
                 FROM recipe_fixed_costs f JOIN user_fixed_costs m ON m.id = f.user_fixed_cost_id
                 WHERE f.recipe_id IN (:ids) ORDER BY m.name, f.id""", params, rs -> {
             fixed.computeIfAbsent(rs.getObject("recipe_id", UUID.class), k -> new ArrayList<>()).add(new RecipeAggregate.Fixed(
                     rs.getObject("id", UUID.class), rs.getObject("user_fixed_cost_id", UUID.class), rs.getString("name"),
                     FixedCostMethod.parse(rs.getString("calculation_method")).orElse(FixedCostMethod.FIXED_PER_BATCH),
                     rs.getBigDecimal("default_amount"), rs.getBigDecimal("master_percentage"), Sql.integer(rs, "minutes"),
-                    rs.getBigDecimal("percentage"), rs.getBigDecimal("cost")));
+                    rs.getBigDecimal("percentage"), rs.getBigDecimal("quantity"), rs.getBigDecimal("cost")));
         });
         return heads.stream()
                 .map(h -> new RecipeAggregate(h, lines.getOrDefault(h.id(), List.of()), fixed.getOrDefault(h.id(), List.of())))
@@ -271,7 +294,8 @@ public class RecipeCustomRepository {
                 .addValue("process", head.processHtml()).addValue("storage", head.storageInstructions())
                 .addValue("shelfLife", head.shelfLifeDays()).addValue("prep", head.prepMinutes()).addValue("bake", head.bakeMinutes())
                 .addValue("cool", head.coolMinutes()).addValue("oven", head.ovenTemperatureC()).addValue("yield", head.yieldQuantity())
-                .addValue("yieldUnit", head.yieldUnit()).addValue("margin", head.targetMarginPercent()).addValue("waste", head.wastePercent())
+                .addValue("yieldUnit", head.yieldUnit()).addValue("margin", head.targetMarginPercent())
+                .addValue("pricing", PricingMethod.orDefault(head.pricingMethod()).name()).addValue("waste", head.wastePercent())
                 .addValue("version", head.version());
     }
 
@@ -287,7 +311,8 @@ public class RecipeCustomRepository {
                 rs.getString("process_html"), rs.getString("storage_instructions"), Sql.integer(rs, "shelf_life_days"),
                 Sql.integer(rs, "prep_minutes"), Sql.integer(rs, "bake_minutes"), Sql.integer(rs, "cool_minutes"),
                 Sql.integer(rs, "oven_temperature_c"), rs.getBigDecimal("yield_quantity"), rs.getString("yield_unit"),
-                RecipeStatus.valueOf(rs.getString("status")), rs.getBigDecimal("target_margin_percent"), rs.getBigDecimal("waste_percent"),
+                RecipeStatus.valueOf(rs.getString("status")), rs.getBigDecimal("target_margin_percent"),
+                PricingMethod.valueOf(rs.getString("pricing_method")), rs.getBigDecimal("waste_percent"),
                 cost, Sql.instant(rs, "created_at"), Sql.uuid(rs, "created_by_id"), Sql.instant(rs, "updated_at"),
                 Sql.uuid(rs, "updated_by_id"), rs.getLong("version"));
     }

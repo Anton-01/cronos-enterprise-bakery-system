@@ -33,12 +33,17 @@ public class UserFixedCostRepositoryAdapter implements UserFixedCostRepositoryPo
     }
 
     @Override
-    public Page<UserFixedCost> findByUserIdAndIsActiveTrue(UUID userId, Pageable pageable) {
-        return jpaRepository.findByUserIdAndIsActiveTrue(userId, pageable).map(mapper::toDomain);
+    public Page<UserFixedCost> findByUserId(UUID userId, Pageable pageable) {
+        return jpaRepository.findByUserId(userId, pageable).map(mapper::toDomain);
     }
 
     @Override
-    public Page<UserFixedCost> findByUserIdAndIsActiveTrueAndNameContainingIgnoreCase(UUID userId, String name, Pageable pageable) {
-        return jpaRepository.findByUserIdAndIsActiveTrueAndNameContainingIgnoreCase(userId, name, pageable).map(mapper::toDomain);
+    public Page<UserFixedCost> findByUserIdAndNameContainingIgnoreCase(UUID userId, String name, Pageable pageable) {
+        return jpaRepository.findByUserIdAndNameContainingIgnoreCase(userId, name, pageable).map(mapper::toDomain);
+    }
+
+    @Override
+    public void delete(UUID id) {
+        jpaRepository.deleteById(id);
     }
 }

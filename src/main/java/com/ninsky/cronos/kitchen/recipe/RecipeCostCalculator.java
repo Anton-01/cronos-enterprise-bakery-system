@@ -23,7 +23,7 @@ final class RecipeCostCalculator {
         return new CostEngine.Request(
                 recipe.lines().stream().map(l -> line(l, ingredients, units)).flatMap(Optional::stream).toList(),
                 recipe.fixed().stream().map(RecipeCostCalculator::fixed).toList(),
-                head.yieldQuantity(), null, head.wastePercent(), head.targetMarginPercent(), null, rules);
+                head.yieldQuantity(), null, head.wastePercent(), head.targetMarginPercent(), head.pricingMethod(), null, rules);
     }
 
     static Optional<CostEngine.Line> line(RecipeAggregate.Line line, Map<UUID, CostIngredient> ingredients, Map<Long, UnitInfo> units) {
@@ -41,7 +41,7 @@ final class RecipeCostCalculator {
 
     static CostEngine.Fixed fixed(RecipeAggregate.Fixed fixed) {
         return new CostEngine.Fixed(fixed.id().toString(), fixed.method(), fixed.defaultAmount(), fixed.masterPercentage(),
-                fixed.percentage(), fixed.minutes());
+                fixed.percentage(), fixed.minutes(), fixed.quantity());
     }
 
     /** An ingredient whose unit no longer converts (density removed) is costed as unpriced instead of failing. */

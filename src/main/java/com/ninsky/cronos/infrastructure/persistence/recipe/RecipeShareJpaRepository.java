@@ -10,5 +10,5 @@ import java.util.UUID;
 @Repository
 public interface RecipeShareJpaRepository extends JpaRepository<RecipeShareJpaEntity, UUID> {
     Optional<RecipeShareJpaEntity> findByShareToken(String shareToken);
-    List<RecipeShareJpaEntity> findByRecipeIdOrderByCreatedAtDesc(UUID recipeId);
+    List<RecipeShareJpaEntity> findByRecipeIdAndUserIdOrderByCreatedAtDesc(UUID recipeId, UUID userId);
 }

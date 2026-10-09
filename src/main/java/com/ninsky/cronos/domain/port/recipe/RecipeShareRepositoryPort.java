@@ -10,5 +10,6 @@ public interface RecipeShareRepositoryPort {
     RecipeShare save(RecipeShare share);
     Optional<RecipeShare> findById(UUID id);
     Optional<RecipeShare> findByShareToken(String shareToken);
-    List<RecipeShare> findByRecipeIdOrderByCreatedAtDesc(UUID recipeId);
+    /** Links one user generated for a recipe (SYSTEM library recipes are shared by many tenants). */
+    List<RecipeShare> findByRecipeIdAndUserIdOrderByCreatedAtDesc(UUID recipeId, UUID userId);
 }

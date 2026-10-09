@@ -80,8 +80,9 @@ public class UserAuthCustomRepository implements UserAuthLookupPort {
         this.blindIndexService = blindIndexService;
     }
 
+    /** Misses are not cached: a lookup that precedes sign-up or seeding must not hide the new account. */
     @Override
-    @Cacheable(value = "userAuth", key = "#loginId")
+    @Cacheable(value = "userAuth", key = "#loginId", unless = "#result == null")
     public Optional<AuthUserProjection> findByUsernameOrEmail(String loginId) {
         String emailBlindIndex = blindIndexService.hmac(EMAIL_FIELD_CONTEXT, loginId);
         return toProjection(jdbcTemplate.queryForList(SELECT_USER, loginId, emailBlindIndex));
@@ -93,7 +94,7 @@ public class UserAuthCustomRepository implements UserAuthLookupPort {
      * {@code AuthCacheEvictionListener}.
      */
     @Override
-    @Cacheable(value = "userAuth", key = "'id:' + #userId")
+    @Cacheable(value = "userAuth", key = "'id:' + #userId", unless = "#result == null")
     public Optional<AuthUserProjection> findById(UUID userId) {
         return toProjection(jdbcTemplate.queryForList(SELECT_USER_BY_ID, userId));
     }

@@ -5,6 +5,7 @@ import com.ninsky.cronos.infrastructure.exception.Violations;
 import com.ninsky.cronos.kitchen.allergen.AllergenCatalog;
 import com.ninsky.cronos.kitchen.costing.BaseQuantity;
 import com.ninsky.cronos.kitchen.costing.FixedCostMethod;
+import com.ninsky.cronos.kitchen.costing.PricingMethod;
 import com.ninsky.cronos.kitchen.ingredient.IngredientQueryCustomRepository;
 import com.ninsky.cronos.kitchen.shared.KitchenCategoryCustomRepository;
 import com.ninsky.cronos.kitchen.shared.KitchenStatus;
@@ -52,7 +53,8 @@ public class RecipeValidator {
     public record Draft(String name, Long categoryId, Difficulty difficulty, String description, String storageInstructions,
                         BigDecimal yieldQuantity, String yieldUnit, Integer prepMinutes, Integer bakeMinutes, Integer coolMinutes,
                         Integer ovenTemperatureC, Integer shelfLifeDays, String processHtml, BigDecimal targetMarginPercent,
-                        BigDecimal wastePercent, List<RecipeAggregate.Line> lines, List<RecipeAggregate.Fixed> fixed) {
+                        PricingMethod pricingMethod, BigDecimal wastePercent, List<RecipeAggregate.Line> lines,
+                        List<RecipeAggregate.Fixed> fixed) {
     }
 
     public Draft validate(RecipeRequest request, Context context) {
@@ -90,17 +92,20 @@ public class RecipeValidator {
                 ProcessHtmlSanitizer.MAX_LENGTH);
         BigDecimal margin = Optional.ofNullable(request.targetMarginPercent()).orElse(DEFAULT_MARGIN);
         BigDecimal waste = Optional.ofNullable(request.wastePercent()).orElse(DEFAULT_WASTE);
-        violations.invalidIf(!Numbers.within(margin, "0", "1000", 2), "targetMarginPercent", "api.validation.range", 0, 1000);
+        // Absent on the wire = keep the stored method (B1/B2); MARKUP for new recipes.
+        PricingMethod pricing = Optional.ofNullable(request.pricingMethod())
+                .orElse(current == null ? PricingMethod.MARKUP : current.head().pricingMethod());
+        margin(violations, "targetMarginPercent", margin, pricing);
         violations.invalidIf(!Numbers.within(waste, "0", "50", 2), "wastePercent", "api.validation.range", 0, 50);
 
         violations.invalidIf(request.lines().isEmpty() || request.lines().size() > MAX_LINES, "lines", "api.validation.listSize", 1, MAX_LINES);
         List<RecipeAggregate.Line> lines = lines(request.lines(), "lines", context, violations);
-        List<RecipeAggregate.Fixed> fixed = fixed(request.fixedCosts(), "fixedCosts", context.tenant(), violations);
+        List<RecipeAggregate.Fixed> fixed = fixed(request.fixedCosts(), "fixedCosts", context.tenant(), keptFixedCosts(current), violations);
         violations.throwIfAny();
 
         return new Draft(name, request.categoryId(), Optional.ofNullable(request.difficulty()).orElse(Difficulty.EASY),
                 strip(request.description()), strip(request.storageInstructions()), request.yieldQuantity(), yieldUnit, request.prepMinutes(),
-                request.bakeMinutes(), request.coolMinutes(), request.ovenTemperatureC(), request.shelfLifeDays(), process, margin, waste,
+                request.bakeMinutes(), request.coolMinutes(), request.ovenTemperatureC(), request.shelfLifeDays(), process, margin, pricing, waste,
                 lines, fixed);
     }
 
@@ -171,8 +176,30 @@ public class RecipeValidator {
         return List.copyOf(extras.values());
     }
 
-    /** Fixed-cost rules; also used by the editor-mode cost preview. */
-    public List<RecipeAggregate.Fixed> fixed(List<RecipeRequest.FixedCostRequest> requests, String path, UUID tenant, Violations violations) {
+    /**
+     * Target margin under {@code method} (§5.3): MARKUP 0–1000, MARGIN 0 ≤ p &lt; 100; two decimals. Also used by the
+     * cost preview.
+     */
+    public static void margin(Violations violations, String field, BigDecimal margin, PricingMethod method) {
+        if (method == PricingMethod.MARGIN) {
+            violations.invalidIf(!Numbers.within(margin, "0", "99.99", 2), field, "kitchen.recipe.marginBelow100");
+        } else {
+            violations.invalidIf(!Numbers.within(margin, "0", "1000", 2), field, "api.validation.range", 0, 1000);
+        }
+    }
+
+    /** Masters already on the stored recipe: kept rows may point to a cost deactivated since (§4.2). */
+    static Set<UUID> keptFixedCosts(RecipeAggregate current) {
+        return current == null ? Set.of()
+                : current.fixed().stream().map(RecipeAggregate.Fixed::userFixedCostId).collect(java.util.stream.Collectors.toSet());
+    }
+
+    /**
+     * Fixed-cost rules; also used by the editor-mode cost preview. An inactive master is accepted only when the
+     * stored recipe already uses it ({@code kept}); adding one is a 400.
+     */
+    public List<RecipeAggregate.Fixed> fixed(List<RecipeRequest.FixedCostRequest> requests, String path, UUID tenant, Set<UUID> kept,
+                                             Violations violations) {
         violations.invalidIf(requests.size() > MAX_FIXED, path, "api.validation.listSize", 0, MAX_FIXED);
         Map<UUID, FixedCostCustomRepository.Master> masters = fixedCosts.find(tenant,
                 requests.stream().map(RecipeRequest.FixedCostRequest::userFixedCostId).filter(Objects::nonNull).toList());
@@ -182,8 +209,12 @@ public class RecipeValidator {
             RecipeRequest.FixedCostRequest request = requests.get(i);
             String prefix = path + "[" + i + "].";
             FixedCostCustomRepository.Master master = request.userFixedCostId() == null ? null : masters.get(request.userFixedCostId());
-            if (master == null || !master.active()) {
+            if (master == null) {
                 violations.invalid(prefix + "userFixedCostId", "kitchen.fixedCost.invalid");
+                continue;
+            }
+            if (!master.active() && !kept.contains(master.id())) {
+                violations.invalid(prefix + "userFixedCostId", "kitchen.fixedCost.inactive", master.name());
                 continue;
             }
             if (!seen.add(master.id())) {
@@ -193,16 +224,24 @@ public class RecipeValidator {
                 violations.invalidIf(request.minutes() == null || request.minutes() < 1 || request.minutes() > 10_080, prefix + "minutes",
                         "api.validation.range", 1, 10_080);
                 violations.invalidIf(request.percentage() != null, prefix + "percentage", "kitchen.fixedCost.notApplicable");
+                violations.invalidIf(request.quantity() != null, prefix + "quantity", "kitchen.fixedCost.notApplicable");
             } else if (master.method() == FixedCostMethod.PERCENTAGE) {
                 violations.invalidIf(request.percentage() != null && !Numbers.within(request.percentage(), "0", "100", 2), prefix + "percentage",
                         "api.validation.range", 0, 100);
                 violations.invalidIf(request.minutes() != null, prefix + "minutes", "kitchen.fixedCost.notApplicable");
+                violations.invalidIf(request.quantity() != null, prefix + "quantity", "kitchen.fixedCost.notApplicable");
             } else {
                 violations.invalidIf(request.minutes() != null, prefix + "minutes", "kitchen.fixedCost.notApplicable");
                 violations.invalidIf(request.percentage() != null, prefix + "percentage", "kitchen.fixedCost.notApplicable");
+                if (master.method() == FixedCostMethod.PER_UNIT) {
+                    violations.invalidIf(request.quantity() != null && !Numbers.within(request.quantity(), "0.01", "100000", 4),
+                            prefix + "quantity", "api.validation.range", "0.01", "100,000");
+                } else {
+                    violations.invalidIf(request.quantity() != null, prefix + "quantity", "kitchen.fixedCost.notApplicable");
+                }
             }
             fixed.add(new RecipeAggregate.Fixed(UUID.randomUUID(), master.id(), master.name(), master.method(), master.defaultAmount(),
-                    master.percentage(), request.minutes(), request.percentage(), null));
+                    master.percentage(), request.minutes(), request.percentage(), request.quantity(), null));
         }
         return fixed;
     }

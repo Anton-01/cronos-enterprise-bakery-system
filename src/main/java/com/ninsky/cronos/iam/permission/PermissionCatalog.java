@@ -52,6 +52,10 @@ public final class PermissionCatalog {
             PermissionDefinition.of(FIXED_COST_READ, LOW),
             PermissionDefinition.of(FIXED_COST_MANAGE, MEDIUM),
 
+            PermissionDefinition.of(GUIDE_GUIDE_READ, LOW),
+            PermissionDefinition.standalone(GUIDE_PAN_MANAGE, LOW, GUIDE_GUIDE_READ),
+            PermissionDefinition.standalone(GUIDE_CONTENT_MANAGE, MEDIUM, GUIDE_GUIDE_READ),
+
             PermissionDefinition.of(CATALOG_UNIT_TYPE_READ, LOW),
             PermissionDefinition.of(CATALOG_UNIT_TYPE_MANAGE, MEDIUM),
             PermissionDefinition.of(CATALOG_MEASUREMENT_UNIT_READ, LOW),

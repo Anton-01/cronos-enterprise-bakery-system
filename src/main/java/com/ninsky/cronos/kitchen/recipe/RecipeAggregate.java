@@ -2,6 +2,7 @@ package com.ninsky.cronos.kitchen.recipe;
 
 import com.ninsky.cronos.kitchen.costing.CostStatus;
 import com.ninsky.cronos.kitchen.costing.FixedCostMethod;
+import com.ninsky.cronos.kitchen.costing.PricingMethod;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -29,7 +30,7 @@ public record RecipeAggregate(Head head, List<Line> lines, List<Fixed> fixed) {
     public record Head(UUID id, String code, UUID ownerId, String name, Long categoryId, Difficulty difficulty, String description,
                        String processHtml, String storageInstructions, Integer shelfLifeDays, Integer prepMinutes, Integer bakeMinutes,
                        Integer coolMinutes, Integer ovenTemperatureC, BigDecimal yieldQuantity, String yieldUnit, RecipeStatus status,
-                       BigDecimal targetMarginPercent, BigDecimal wastePercent, Cost cost, Instant createdAt, UUID createdBy,
+                       BigDecimal targetMarginPercent, PricingMethod pricingMethod, BigDecimal wastePercent, Cost cost, Instant createdAt, UUID createdBy,
                        Instant updatedAt, UUID updatedBy, long version) {
 
         public boolean system() {
@@ -58,8 +59,8 @@ public record RecipeAggregate(Head head, List<Line> lines, List<Fixed> fixed) {
     public record ExtraAllergen(long allergenId, AllergenSource source) {
     }
 
-    /** A recipe fixed cost joined with its master {@code user_fixed_costs} row. */
+    /** A recipe fixed cost joined with its master {@code user_fixed_costs} row; {@code quantity} = PER_UNIT units per batch. */
     public record Fixed(UUID id, UUID userFixedCostId, String name, FixedCostMethod method, BigDecimal defaultAmount,
-                        BigDecimal masterPercentage, Integer minutes, BigDecimal percentage, BigDecimal cost) {
+                        BigDecimal masterPercentage, Integer minutes, BigDecimal percentage, BigDecimal quantity, BigDecimal cost) {
     }
 }

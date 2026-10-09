@@ -5,12 +5,12 @@ import com.ninsky.cronos.kitchen.costing.CostContext;
 import com.ninsky.cronos.kitchen.costing.CostEngine;
 import com.ninsky.cronos.kitchen.costing.CostIngredient;
 import com.ninsky.cronos.kitchen.costing.EffectivePrices;
+import com.ninsky.cronos.kitchen.costing.PricingMethod;
 import com.ninsky.cronos.kitchen.unit.UnitCatalog;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
@@ -28,8 +28,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class RecipeCosting {
 
-    private static final BigDecimal HUNDRED = BigDecimal.valueOf(100);
-
     private final RecipeCustomRepository store;
     private final RecipeRevisions revisions;
     private final EffectivePrices prices;
@@ -39,15 +37,18 @@ public class RecipeCosting {
 
     /** A recipe after recalculation, with what is needed for the below-margin report. */
     public record Outcome(UUID recipeId, UUID ownerId, String name, BigDecimal previousSuggestedPrice, BigDecimal targetMarginPercent,
-                          CostEngine.Result result, long version) {
+                          PricingMethod pricingMethod, CostEngine.Result result, long version) {
 
-        /** (reference − cost) / cost × 100, 1 decimal; null when the cost is unknown or zero. */
+        /**
+         * Achieved percentage at {@code referencePrice} in the recipe's own terms (§5.3): MARKUP (price − cost) / cost,
+         * MARGIN (price − cost) / price; 1 decimal; null when undefined (unknown or zero cost).
+         */
         public BigDecimal marginAt(BigDecimal referencePrice) {
             BigDecimal cost = result.costPerUnit();
-            if (referencePrice == null || cost == null || cost.signum() == 0) {
+            if (cost == null || cost.signum() == 0) {
                 return null;
             }
-            return referencePrice.subtract(cost).multiply(HUNDRED).divide(cost, 1, RoundingMode.HALF_EVEN);
+            return PricingMethod.orDefault(pricingMethod).achieved(referencePrice, cost);
         }
     }
 
@@ -100,7 +101,7 @@ public class RecipeCosting {
                 .build());
         revisions.write(head.id(), version, actor, now, reason, all, result.costPerUnit());
         return new Outcome(head.id(), head.ownerId(), head.name(), previous == null ? null : previous.suggestedUnitPrice(),
-                head.targetMarginPercent(), result, version);
+                head.targetMarginPercent(), head.pricingMethod(), result, version);
     }
 
     private static List<UUID> ingredientIds(List<RecipeAggregate> recipes) {

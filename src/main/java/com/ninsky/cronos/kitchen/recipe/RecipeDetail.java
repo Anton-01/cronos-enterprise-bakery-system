@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonUnwrapped;
 import com.ninsky.cronos.finance.shared.UserRef;
 import com.ninsky.cronos.kitchen.costing.CostStatus;
 import com.ninsky.cronos.kitchen.costing.FixedCostMethod;
+import com.ninsky.cronos.kitchen.costing.PricingMethod;
 import com.ninsky.cronos.kitchen.recipe.file.RecipeFileResponse;
 import com.ninsky.cronos.kitchen.shared.AllergenRef;
 
@@ -27,11 +28,12 @@ public record RecipeDetail(@JsonUnwrapped RecipeSummary summary, String descript
     }
 
     public record FixedCost(UUID id, UUID userFixedCostId, String name, FixedCostMethod method, Integer minutes, BigDecimal percentage,
-                            BigDecimal cost) {
+                            BigDecimal quantity, BigDecimal cost) {
     }
 
-    /** {@code RecipeCost}. */
+    /** {@code RecipeCost}; {@code pricingMethod} = the method applied to {@code suggestedUnitPrice}. */
     public record Cost(BigDecimal ingredientsCost, BigDecimal wasteCost, BigDecimal fixedCosts, BigDecimal totalCost, BigDecimal costPerUnit,
-                       BigDecimal suggestedUnitPrice, String currency, CostStatus status, int unpricedLines, Instant calculatedAt) {
+                       BigDecimal suggestedUnitPrice, PricingMethod pricingMethod, String currency, CostStatus status, int unpricedLines,
+                       Instant calculatedAt) {
     }
 }

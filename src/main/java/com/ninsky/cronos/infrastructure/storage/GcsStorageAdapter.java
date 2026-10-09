@@ -66,6 +66,12 @@ public class GcsStorageAdapter implements StoragePort {
     }
 
     @Override
+    public void copy(String sourceKey, String targetKey) {
+        storage.copy(Storage.CopyRequest.of(bucketName, sourceKey, BlobId.of(bucketName, targetKey))).getResult();
+        log.info("File copied in GCP: {} -> {}", sourceKey, targetKey);
+    }
+
+    @Override
     public boolean deleteFile(String filePath) {
         BlobId blobId = BlobId.of(bucketName, filePath);
         boolean deleted = storage.delete(blobId);

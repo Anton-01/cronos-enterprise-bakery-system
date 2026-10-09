@@ -55,6 +55,18 @@ public class RecipeRevisionCustomRepository {
                 UUID.class);
     }
 
+    /**
+     * Whether every version in {@code (since, until]} has a revision whose key is in {@code keys} (a missing revision
+     * row counts as "something else").
+     */
+    public boolean onlyKeysBetween(UUID recipeId, long since, long until, java.util.Collection<String> keys) {
+        return Boolean.TRUE.equals(jdbc.queryForObject("""
+                SELECT count(*) FILTER (WHERE summary_key IN (:keys)) = :span FROM recipe_revisions
+                WHERE recipe_id = :recipe AND version > :since AND version <= :until""",
+                new MapSqlParameterSource().addValue("recipe", recipeId).addValue("since", since).addValue("until", until)
+                        .addValue("span", until - since).addValue("keys", keys), Boolean.class));
+    }
+
     public long count(UUID recipeId) {
         Long total = jdbc.queryForObject("SELECT count(*) FROM recipe_revisions WHERE recipe_id = :recipe",
                 new MapSqlParameterSource("recipe", recipeId), Long.class);

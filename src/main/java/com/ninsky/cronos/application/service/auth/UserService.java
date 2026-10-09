@@ -2,6 +2,7 @@ package com.ninsky.cronos.application.service.auth;
 
 import java.util.Map;
 import com.ninsky.cronos.iam.user.UserStatus;
+import com.ninsky.cronos.iam.shared.AccountCreated;
 import com.ninsky.cronos.iam.shared.Changes;
 import com.ninsky.cronos.account.avatar.application.port.AvatarStorage;
 import com.ninsky.cronos.account.avatar.domain.AvatarKey;
@@ -35,6 +36,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -61,6 +63,7 @@ public class UserService {
     private final UserDirectory userDirectory;
     private final AuditRecorder auditRecorder;
     private final AvatarStorage avatarStorage;
+    private final ApplicationEventPublisher events;
 
     @Transactional
     @CacheEvict(value = "users", allEntries = true)
@@ -91,6 +94,7 @@ public class UserService {
                 .roleIds(roles.stream().map(Role::getId).collect(Collectors.toSet())).build();
 
         user = userRepository.save(user);
+        events.publishEvent(new AccountCreated(user.getId()));
 
         UserProfile profile = UserProfile.builder().userId(user.getId()).firstName(request.firstName())
                 .lastName(request.lastName()).phoneNumber(request.phoneNumber())

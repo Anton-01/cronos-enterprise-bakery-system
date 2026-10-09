@@ -8,9 +8,11 @@ import com.ninsky.cronos.domain.port.auth.UserProfileRepositoryPort;
 import com.ninsky.cronos.domain.port.auth.UserRepositoryPort;
 import com.ninsky.cronos.iam.access.UserAccessCustomRepository;
 import com.ninsky.cronos.iam.role.SystemRole;
+import com.ninsky.cronos.iam.shared.AccountCreated;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +28,7 @@ public class DataSeeder implements CommandLineRunner {
     private final UserRepositoryPort userRepository;
     private final UserProfileRepositoryPort userProfileRepository;
     private final PasswordEncoder passwordEncoder;
+    private final ApplicationEventPublisher events;
 
     @Override
     @Transactional
@@ -52,6 +55,7 @@ public class DataSeeder implements CommandLineRunner {
                 .twoFactorEnabled(false).roleIds(Set.of(superAdminRole.getId())).build();
 
         adminUser = userRepository.save(adminUser);
+        events.publishEvent(new AccountCreated(adminUser.getId()));
 
         // 4. Create an Admin Administrator
         UserProfile adminProfile = UserProfile.builder().userId(adminUser.getId()).firstName("Antón")

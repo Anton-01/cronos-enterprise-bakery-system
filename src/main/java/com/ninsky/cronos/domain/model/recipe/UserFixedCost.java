@@ -27,6 +27,10 @@ public class UserFixedCost {
     private String calculationMethod;
     @Builder.Default
     private boolean isActive = true;
+    private boolean appliesByDefault;
+    private BigDecimal monthlyAmount;
+    private BigDecimal monthlyBasis;
+    private String seedCode;
     @Builder.Default
     private Long version = 0L;
     private LocalDateTime createdAt;
