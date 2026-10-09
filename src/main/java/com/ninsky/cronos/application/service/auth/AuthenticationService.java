@@ -41,6 +41,7 @@ import com.ninsky.cronos.infrastructure.security.blacklist.TokenBlacklistService
 import com.ninsky.cronos.infrastructure.security.crypto.FieldEncryptionService;
 import com.ninsky.cronos.infrastructure.security.dpop.DpopProofValidator;
 import com.ninsky.cronos.infrastructure.util.auth.RequestContextUtil;
+import com.ninsky.cronos.infrastructure.web.ServerTiming;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -111,7 +112,8 @@ public class AuthenticationService {
 
         // Lean lookup (see UserAuthLookupPort/AuthUserProjection): never decrypts email/2FA secret
         // until the password is confirmed correct.
-        AuthUserProjection authUser = userAuthLookupPort.findByUsernameOrEmail(request.username()).orElse(null);
+        AuthUserProjection authUser = ServerTiming.measure("lookup",
+                () -> userAuthLookupPort.findByUsernameOrEmail(request.username()).orElse(null));
         if (authUser == null) {
             signInJournal.failed(null, null, SignInJournal.Outcome.FAILURE, SignInJournal.Failure.UNKNOWN_ACCOUNT);
             throw new BadCredentialsException("Invalid credentials");
@@ -124,7 +126,8 @@ public class AuthenticationService {
 
         try {
             // Password check through Spring Security (CustomUserDetailsService, same lean lookup).
-            authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.username(), request.password()));
+            ServerTiming.measure("password",
+                    () -> authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.username(), request.password())));
         } catch (AuthenticationException e) {
             boolean locked = lockoutService.registerFailure(authUser.id(), standing.status(), label);
             signInJournal.failed(authUser.id(), label, SignInJournal.Outcome.FAILURE, SignInJournal.Failure.INVALID_CREDENTIALS);
@@ -133,7 +136,7 @@ public class AuthenticationService {
 
         // Password confirmed: only now load the full aggregate (decrypts email/2FA secret). It is never
         // saved back here; login bookkeeping is JDBC so it cannot clash with UserStatusWriter's version bumps.
-        User user = userRepository.findById(authUser.id())
+        User user = ServerTiming.measure("user", () -> userRepository.findById(authUser.id()))
                 .orElseThrow(() -> new UserNotFoundException("User not found: " + authUser.id()));
 
         // A corrupted/undecryptable column degrades to a sentinel instead of throwing: reject explicitly.
@@ -160,6 +163,7 @@ public class AuthenticationService {
         LocalDateTime now = TenantTime.nowLocal(clock);
 
         // Fingerprinting and Security Alerts
+        long sessionStart = System.nanoTime();
         String deviceFingerprint = handleDeviceFingerprinting(user);
 
         // DPoP binding is opt-in: a client that wants a bound token sends a DPoP proof on the login
@@ -169,20 +173,21 @@ public class AuthenticationService {
 
         UserSession session = createUserSession(user, deviceFingerprint, dpopJkt, policy, now);
         sessionManagementService.enforceConcurrencyLimit(user.getId(), policy.maxConcurrentSessions(), now);
+        ServerTiming.record("session", System.nanoTime() - sessionStart);
 
-        RoleAndPermissionNames grants = resolveRoleAndPermissionNames(user.getId());
+        RoleAndPermissionNames grants = ServerTiming.measure("access", () -> resolveRoleAndPermissionNames(user.getId()));
         String accessToken = jwtService.generateAccessToken(user, session.getId(), grants.roleNames(), grants.permissionNames(), dpopJkt, grants.accessVersion());
         String opaqueRefreshToken = UUID.randomUUID().toString();
 
         saveRefreshToken(user, session, opaqueRefreshToken, now);
-        signInJournal.succeeded(user.getId(), label, user.isTwoFactorEnabled());
+        ServerTiming.measure("journal", () -> signInJournal.succeeded(user.getId(), label, user.isTwoFactorEnabled()));
 
         return LoginResponse.builder().accessToken(accessToken).refreshToken(opaqueRefreshToken)
                 .tokenType("Bearer").expiresIn(accessTokenSeconds())
                 .username(user.getUsername()).email(user.getEmail())
                 .roles(grants.roleNames())
                 .policies(grants.policies())
-                .navigation(buildNavigation(grants.permissionNames()))
+                .navigation(ServerTiming.measure("navigation", () -> buildNavigation(grants.permissionNames())))
                 .mustChangePassword(standing.mustChangePassword(policy, TenantTime.now(clock)))
                 .requiresTwoFactorEnrollment(twoFactorRequirement.mustEnrol(user.getId()))
                 .requiresTwoFactor(false).message("Login successful").build();
