@@ -230,3 +230,50 @@ append-only `data_import_batches` ledger (SHA-256, actor, traceId, full report) 
 
 **Consequence.** See `docs/unit-catalog.md` — includes the breaking API changes for the Angular client
 and the V8 deployment notes (it aborts with an explicit list if existing rows violate a new constraint).
+
+## Performance & Observability
+
+### ADR: Turn on Spring caching (it was never enabled)
+
+**Context.** Login was slow and every authenticated request did more database work than expected. The code
+relied on `@Cacheable` in many places (`userAuth`, `accessVersion`, `effectiveAccess`, `securityPolicy`, menu,
+units…) and `CacheConfig` registered those caches, but no class carried `@EnableCaching`, so every annotation was
+a plain method call. Measured locally: 41 SQL statements per login (the auth projection and the 7-query permission
+resolution ran twice) and 9 extra statements on every authenticated request (`JwtAuthenticationFilter` reloads the
+principal). Against Neon each statement pays a network round trip.
+
+**Decision.** `@EnableCaching` on `CacheConfig`. `userAuth` lookups no longer cache misses (`unless = "#result ==
+null"`): a lookup that runs before sign-up or seeding would otherwise hide the new account for 30 s. The cache
+TTLs and eviction listeners already existed and are unchanged.
+
+**Consequence.** Login 41 → 21 statements; an authenticated request 9 → 0 auth statements while the entries live.
+Status changes of a user converge within the existing 30 s `userAuth` TTL (spec §1.4.5).
+
+### ADR: `Server-Timing` on every response
+
+`ServerTimingFilter` adds `Server-Timing: <phase>;dur=…, app;dur=…` (and `Timing-Allow-Origin` for the SPA origins),
+written before the response commits, and logs requests slower than 1 s with their phases. Code marks phases with
+`ServerTiming.measure(...)`; login reports `lookup, password, user, session, access, journal, navigation`. In browser
+DevTools (Network → Timing) `app` is the server's share of the request; the rest is network, Neon or the client.
+Measured on a local database: `password` (BCrypt cost 12) ≈ 290–340 ms dominates; everything else is < 60 ms.
+
+The user-agent parser (Yauaa) now initialises at startup with only the fields we read: lazily loaded, it added
+~1.5 s to the first sign-in after every restart.
+
+## Baking Studio
+
+See `docs/baking-studio.md`. Two decisions worth knowing outside the kitchen module:
+
+- **Optimistic lock of recipes ignores attachment-only changes.** File/cover changes write a revision and bump
+  `recipes.version`, but the studio never refreshes it, so a save after any upload failed with 409. A save (or
+  status change) whose `version` is stale only by attachment/cover revisions is accepted; anything else is a 409.
+- **`ApiError.details`** (optional, omitted when empty) carries structured context, first used by the fixed-cost
+  `409 RESOURCE_IN_USE` (`details.recipes`).
+
+### Recipe shares of library recipes
+
+`GET/POST /recipes/{id}/shares` required the caller to own the recipe, so SYSTEM library recipes (ids derived from
+`md5('cronos-recipe:' || code)`) always answered 404 although the public view already supports them. Any recipe the
+caller can see may now be shared; listings only return the caller's own links (library recipes are shared by many
+tenants), revoke/analytics check both the owner and the recipe in the path, and a missing link is a 404 instead
+of a 500. The service resolves the caller from the token instead of loading the JPA user (which decrypted the email).
