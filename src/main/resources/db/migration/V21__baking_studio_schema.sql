@@ -34,9 +34,11 @@ ALTER TABLE recipe_fixed_costs
 -- ─── §3 recipe sections ─────────────────────────────────────────────────────────────────
 -- Section key (§3.2): lower case, accents removed, whitespace collapsed. The only definition of the
 -- key: labels store it on write and usageCount groups recipe lines by it.
+-- Schema-qualified: PostgreSQL 17+ evaluates index expressions with search_path = pg_catalog, so an
+-- unqualified kitchen_fold() is not found when the index below is built over existing rows.
 CREATE OR REPLACE FUNCTION kitchen_section_key(value TEXT) RETURNS TEXT
     LANGUAGE sql IMMUTABLE PARALLEL SAFE STRICT
-AS $$ SELECT regexp_replace(btrim(kitchen_fold(value)), '\s+', ' ', 'g') $$;
+AS $$ SELECT regexp_replace(btrim(public.kitchen_fold(value)), '\s+', ' ', 'g') $$;
 
 CREATE TABLE recipe_sections (
     id            UUID PRIMARY KEY,
