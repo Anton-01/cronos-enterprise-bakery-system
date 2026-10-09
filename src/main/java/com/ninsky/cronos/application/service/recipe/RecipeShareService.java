@@ -3,14 +3,14 @@ package com.ninsky.cronos.application.service.recipe;
 import com.ninsky.cronos.application.event.RecipeSharedEvent;
 import com.ninsky.cronos.application.request.recipe.CreateRecipeShareRequest;
 import com.ninsky.cronos.application.response.recipe.*;
-import com.ninsky.cronos.domain.model.auth.User;
 import com.ninsky.cronos.domain.model.auth.UserProfile;
 import com.ninsky.cronos.domain.model.recipe.RecipeShare;
 import com.ninsky.cronos.domain.model.recipe.RecipeShareAccessLog;
 import com.ninsky.cronos.domain.port.auth.UserProfileRepositoryPort;
-import com.ninsky.cronos.domain.port.auth.UserRepositoryPort;
 import com.ninsky.cronos.domain.port.recipe.RecipeShareAccessLogRepositoryPort;
 import com.ninsky.cronos.domain.port.recipe.RecipeShareRepositoryPort;
+import com.ninsky.cronos.iam.shared.ActorProvider;
+import com.ninsky.cronos.infrastructure.exception.ApiException;
 import com.ninsky.cronos.infrastructure.exception.BusinessException;
 import com.ninsky.cronos.kitchen.ingredient.IngredientQueryCustomRepository;
 import com.ninsky.cronos.kitchen.recipe.RecipeAggregate;
@@ -45,7 +45,7 @@ public class RecipeShareService {
     private final RecipeCustomRepository recipeStore;
     private final RecipeFileCustomRepository recipeFileStore;
     private final RecipeFileService recipeFileService;
-    private final UserRepositoryPort userRepository;
+    private final ActorProvider actors;
     private final UserProfileRepositoryPort userProfileRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final IngredientQueryCustomRepository ingredientQueries;
@@ -54,54 +54,43 @@ public class RecipeShareService {
     @Value("${app.frontend.urlSharePublicRecipe}")
     private String frontendUrlSharePublicRecipe;
 
+    /**
+     * The caller's links for a recipe they can see: their own recipes and the SYSTEM library (the public
+     * view already shows the sharer for library recipes). Other tenants' links are never listed.
+     */
     @Transactional(readOnly = true)
-    public List<RecipeShareResponse> getSharesByRecipeId(String username, UUID recipeId) {
-        log.info("Retrieving the history of shared links for the recipe {} for the user {}", recipeId, username);
-
-        User user = userRepository.findByUsername(username).orElseThrow();
-
-        owned(recipeId, user.getId()).orElseThrow(() -> new ResourceNotFoundException("Receta no encontrada o sin acceso"));
-
-        return shareRepository.findByRecipeIdOrderByCreatedAtDesc(recipeId).stream()
+    public List<RecipeShareResponse> getSharesByRecipeId(UUID recipeId) {
+        UUID userId = actors.require().id();
+        visible(recipeId, userId);
+        return shareRepository.findByRecipeIdAndUserIdOrderByCreatedAtDesc(recipeId, userId).stream()
                 .map(this::mapToResponse).toList();
     }
 
     @Transactional
-    public RecipeShareResponse generateShareLink(String username, UUID recipeId, CreateRecipeShareRequest request) {
-        User user = userRepository.findByUsername(username).orElseThrow();
-        RecipeAggregate recipe = owned(recipeId, user.getId())
-                .orElseThrow(() -> new ResourceNotFoundException("Receta no encontrada"));
+    public RecipeShareResponse generateShareLink(UUID recipeId, CreateRecipeShareRequest request) {
+        UUID userId = actors.require().id();
+        RecipeAggregate recipe = visible(recipeId, userId);
 
         String token = UUID.randomUUID().toString().replace("-", "");
         LocalDateTime expiresAt = LocalDateTime.now().plusDays(request.expirationDays());
 
-        RecipeShare share = RecipeShare.builder().recipeId(recipe.id()).userId(user.getId()).shareToken(token)
+        RecipeShare share = RecipeShare.builder().recipeId(recipe.id()).userId(userId).shareToken(token)
                 .recipientEmail(request.recipientEmail()).expiresAt(expiresAt).isRevoked(false).viewsCount(0).build();
 
         share = shareRepository.save(share);
-        String shareUrl = frontendUrlSharePublicRecipe + token;
 
         if (request.recipientEmail() != null && !request.recipientEmail().isBlank()) {
             eventPublisher.publishEvent(RecipeSharedEvent.builder().shareId(share.getId()).build());
         }
-
-        return RecipeShareResponse.builder().id(share.getId()).shareUrl(shareUrl)
-                .expiresAt(share.getExpiresAt()).viewsCount(share.getViewsCount())
-                .isRevoked(share.isRevoked()).createdAt(share.getCreatedAt()).build();
+        return mapToResponse(share);
     }
 
     @Transactional
-    public void revokeShareLink(String username, UUID shareId) {
-        User user = userRepository.findByUsername(username).orElseThrow();
-        RecipeShare share = shareRepository.findById(shareId).orElseThrow(() -> new ResourceNotFoundException("Enlace no encontrado"));
-
-        if (!share.getUserId().equals(user.getId())) {
-            throw new ResourceNotFoundException("No tienes permisos para revocar este enlace");
-        }
-
+    public void revokeShareLink(UUID recipeId, UUID shareId) {
+        RecipeShare share = ownShare(recipeId, shareId);
         share.setRevoked(true);
         shareRepository.save(share);
-        log.info("Ephemeral link {} successfully revoked by {}", shareId, username);
+        log.info("Ephemeral link {} successfully revoked by {}", shareId, share.getUserId());
     }
 
     // Public method - captures IP and Agent
@@ -153,25 +142,27 @@ public class RecipeShareService {
                 .expiresAt(share.getExpiresAt()).ingredients(lines).files(files).build();
     }
 
-    // Analytics for the owner of the shared recipe
+    /** Access log of one of the caller's links. */
     @Transactional(readOnly = true)
-    public List<RecipeShareAccessLogResponse> getShareAnalytics(String username, UUID shareId) {
-        User user = userRepository.findByUsername(username).orElseThrow();
-        RecipeShare share = shareRepository.findById(shareId).orElseThrow();
-
-        if (!share.getUserId().equals(user.getId())) {
-            throw new ResourceNotFoundException("Sin permisos");
-        }
-
-        return accessLogRepository.findByRecipeShareIdOrderByAccessedAtDesc(shareId).stream()
+    public List<RecipeShareAccessLogResponse> getShareAnalytics(UUID recipeId, UUID shareId) {
+        RecipeShare share = ownShare(recipeId, shareId);
+        return accessLogRepository.findByRecipeShareIdOrderByAccessedAtDesc(share.getId()).stream()
                 .map(log -> RecipeShareAccessLogResponse.builder().id(log.getId()).accessedAt(log.getAccessedAt())
                         .ipAddress(log.getIpAddress()).userAgent(log.getUserAgent()).build())
-                .collect(Collectors.toList());
+                .toList();
     }
 
+    /** A live recipe the user may share: own or SYSTEM library; anything else is 404 (K8). */
+    private RecipeAggregate visible(UUID recipeId, UUID userId) {
+        return recipeStore.findVisible(recipeId, userId).orElseThrow(() -> ApiException.notFound("kitchen.recipe.notFound"));
+    }
 
-    private Optional<RecipeAggregate> owned(UUID recipeId, UUID userId) {
-        return recipeStore.findVisible(recipeId, userId).filter(r -> userId.equals(r.head().ownerId()));
+    /** One of the caller's links of {@code recipeId}; a foreign or mismatched link is 404, never 403. */
+    private RecipeShare ownShare(UUID recipeId, UUID shareId) {
+        UUID userId = actors.require().id();
+        return shareRepository.findById(shareId)
+                .filter(share -> share.getUserId().equals(userId) && share.getRecipeId().equals(recipeId))
+                .orElseThrow(() -> ApiException.notFound("kitchen.share.notFound"));
     }
 
     private RecipeShareResponse mapToResponse(RecipeShare share) {

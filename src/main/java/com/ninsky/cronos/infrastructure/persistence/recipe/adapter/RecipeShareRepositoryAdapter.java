@@ -38,7 +38,7 @@ public class RecipeShareRepositoryAdapter implements RecipeShareRepositoryPort {
     }
 
     @Override
-    public List<RecipeShare> findByRecipeIdOrderByCreatedAtDesc(UUID recipeId) {
-        return jpaRepository.findByRecipeIdOrderByCreatedAtDesc(recipeId).stream().map(mapper::toDomain).collect(Collectors.toList());
+    public List<RecipeShare> findByRecipeIdAndUserIdOrderByCreatedAtDesc(UUID recipeId, UUID userId) {
+        return jpaRepository.findByRecipeIdAndUserIdOrderByCreatedAtDesc(recipeId, userId).stream().map(mapper::toDomain).collect(Collectors.toList());
     }
 }
