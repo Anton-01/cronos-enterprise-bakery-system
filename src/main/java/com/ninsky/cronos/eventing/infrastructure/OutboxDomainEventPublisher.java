@@ -12,6 +12,7 @@ import com.ninsky.cronos.iam.shared.Actor;
 import com.ninsky.cronos.iam.shared.ActorProvider;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.IllegalTransactionStateException;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -57,6 +58,10 @@ public class OutboxDomainEventPublisher implements DomainEventPublisher {
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
     public boolean publish(DomainEvent event, PublishOptions options) {
+        // Checked explicitly too: the interface's default publish(event) reaches this method without the proxy.
+        if (!TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new IllegalTransactionStateException("Domain events can only be published inside a transaction");
+        }
         EventTypeRegistry.Registration registration = types.registrationOf(event);
         TraceContext trace = TraceContexts.currentOrNew(clock);
         UUID actorId = trace.actorId() != null ? trace.actorId() : actors.current().map(Actor::id).orElse(null);

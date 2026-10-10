@@ -1,6 +1,13 @@
 package com.ninsky.cronos.application.service.admin;
 
-import com.ninsky.cronos.application.event.PasswordResetRequestedEvent;
+import com.ninsky.cronos.iam.shared.UserDirectory;
+import com.ninsky.cronos.iam.shared.UserRef;
+import com.ninsky.cronos.iam.signin.AccountStanding;
+import com.ninsky.cronos.iam.signin.AccountStandingCustomRepository;
+import com.ninsky.cronos.iam.token.CredentialDelivery;
+import com.ninsky.cronos.iam.token.IssuedToken;
+import com.ninsky.cronos.iam.token.TokenPurpose;
+import com.ninsky.cronos.iam.token.UserTokens;
 import com.ninsky.cronos.application.request.core.auth.CreateUserRequest;
 import com.ninsky.cronos.application.request.core.auth.UpdateUserRequest;
 import com.ninsky.cronos.application.request.user.AdminUserCreateRequest;
@@ -9,7 +16,6 @@ import com.ninsky.cronos.application.service.audit.AuditLogService;
 import com.ninsky.cronos.iam.twofactor.TwoFactorAccountService;
 import com.ninsky.cronos.infrastructure.storage.StoragePort;
 import com.ninsky.cronos.domain.model.audit.AuditAction;
-import com.ninsky.cronos.domain.model.auth.PasswordResetToken;
 import com.ninsky.cronos.domain.model.auth.Role;
 import com.ninsky.cronos.domain.model.auth.User;
 import com.ninsky.cronos.domain.model.auth.UserProfile;
@@ -43,6 +49,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class AdminUserService {
 
     private static final String TARGET_USER = "USER";
+    private static final Duration ADMIN_RESET_TTL = Duration.ofHours(1);
 
     private final UserRepositoryPort userRepository;
     private final UserProfileRepositoryPort userProfileRepository;
@@ -50,7 +57,9 @@ public class AdminUserService {
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenRepositoryPort refreshTokenRepository;
     private final UserSessionRepositoryPort userSessionRepository;
-    private final PasswordResetTokenRepositoryPort passwordResetTokenRepository;
+    private final UserTokens userTokens;
+    private final AccountStandingCustomRepository accountStandings;
+    private final UserDirectory userDirectory;
     private final ApplicationEventPublisher eventPublisher;
     private final StoragePort fileStorageService;
     private final TokenBlacklistService tokenBlacklistService;
@@ -236,22 +245,21 @@ public class AdminUserService {
         auditLogService.record(actingAdminUsername, AuditAction.USER_TWO_FACTOR_DISABLED, TARGET_USER, user.getId().toString(), null);
     }
 
+    /**
+     * Issues a single-use reset link (hashed {@code user_tokens} row) and queues the email in the same transaction.
+     *
+     * @throws UserNotFoundException when the user does not exist
+     */
     @Transactional
     public void initiatePasswordReset(String actingAdminUsername, UUID id) {
         log.info("Admin initiated password reset flow for user {}", id);
         User user = userRepository.findById(id).orElseThrow(() -> new UserNotFoundException("User not found"));
 
-        String resetToken = UUID.randomUUID().toString();
-
-        PasswordResetToken entity = PasswordResetToken.builder()
-                .token(resetToken).userId(user.getId())
-                .expiresAt(LocalDateTime.now().plusHours(1))
-                .used(false).createdAt(LocalDateTime.now())
-                .build();
-        passwordResetTokenRepository.save(entity);
-
-        eventPublisher.publishEvent(PasswordResetRequestedEvent.builder()
-                .userId(user.getId()).resetToken(resetToken).requestedByAdmin(true).build());
+        IssuedToken token = userTokens.issue(user.getId(), TokenPurpose.PASSWORD_RESET, ADMIN_RESET_TTL);
+        String locale = accountStandings.find(user.getId()).map(AccountStanding::locale).orElse(null);
+        String displayName = userDirectory.ref(user.getId()).map(UserRef::displayName).orElse(user.getUsername());
+        eventPublisher.publishEvent(new CredentialDelivery.PasswordResetLink(user.getId(), user.getEmail(), displayName, locale,
+                token.rawToken(), token.expiresAt()));
 
         auditLogService.record(actingAdminUsername, AuditAction.USER_PASSWORD_RESET_INITIATED, TARGET_USER, user.getId().toString(), null);
     }

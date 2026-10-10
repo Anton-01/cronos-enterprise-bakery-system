@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html th:lang="${lang}" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="x-apple-disable-message-reformatting"/>
+  <title th:text="${email.subject()}">Cronos</title>
+</head>
+<!--/* Catalog email layout (§7.2): table layout, inline styles, 600 px. Every value is escaped (th:text). */-->
+<body style="margin:0;padding:0;background-color:#F7EFF4;">
+<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:#F7EFF4;"
+     th:text="${email.preheader()}">Preheader</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F7EFF4;">
+  <tr>
+    <td align="center" style="padding:32px 12px;">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0"
+             style="width:100%;max-width:600px;background-color:#FEFAF7;border-radius:8px;overflow:hidden;border:1px solid #EEC5D0;">
+        <tr>
+          <td style="height:5px;background-color:#C8889A;line-height:5px;font-size:5px;">&nbsp;</td>
+        </tr>
+        <tr>
+          <td align="center" style="padding:28px 40px 20px;background-color:#F9EEF5;border-bottom:1px solid #EEC5D0;">
+            <p style="margin:0;font-family:Georgia,'Times New Roman',serif;font-size:22px;letter-spacing:3px;text-transform:uppercase;color:#3D2B35;"
+               th:text="${brandName}">Cronos</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:32px 40px 24px;font-family:Arial,Helvetica,sans-serif;color:#5C4452;">
+            <th:block th:each="block : ${email.blocks()}" th:switch="${block.type().name()}">
+              <h1 th:case="'HEADING'"
+                  style="margin:0 0 20px;font-family:Georgia,'Times New Roman',serif;font-size:24px;font-weight:normal;line-height:1.35;color:#3D2B35;"
+                  th:text="${block.text()}">Heading</h1>
+              <p th:case="'PARAGRAPH'" style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#5C4452;"
+                 th:text="${block.text()}">Paragraph</p>
+              <table th:case="'BUTTON'" role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:24px auto;">
+                <tr>
+                  <td align="center" style="border-radius:28px;background-color:#C8889A;">
+                    <a th:href="${block.url()}" href="#" target="_blank" rel="noopener noreferrer"
+                       style="display:inline-block;padding:14px 36px;font-size:13px;letter-spacing:2px;text-transform:uppercase;color:#FEFAF7;text-decoration:none;border-radius:28px;"
+                       th:text="${block.label()}">Button</a>
+                  </td>
+                </tr>
+              </table>
+              <p th:case="'CODE'"
+                 style="margin:0 0 20px;padding:14px 18px;background-color:#EAE3F3;border:1px solid #C7B8DC;border-radius:4px;text-align:center;font-family:'Courier New',Courier,monospace;font-size:18px;letter-spacing:2px;color:#3D2B35;"
+                 th:text="${block.text()}">CODE</p>
+              <table th:case="'DETAILS'" role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+                     style="margin:0 0 20px;border:1px solid #EEC5D0;border-radius:4px;">
+                <tr th:each="row : ${block.rows()}" th:if="${row.value() != null and !#strings.isEmpty(row.value())}">
+                  <td style="padding:10px 14px;font-size:13px;color:#A08898;width:40%;border-bottom:1px solid #F5E8F0;"
+                      th:text="${row.label()}">Label</td>
+                  <td style="padding:10px 14px;font-size:14px;color:#3D2B35;border-bottom:1px solid #F5E8F0;"
+                      th:text="${row.value()}">Value</td>
+                </tr>
+              </table>
+              <p th:case="'CALLOUT'"
+                 th:style="${calloutStyles.getOrDefault(block.tone(), calloutStyles.get('info'))}"
+                 th:text="${block.text()}">Callout</p>
+              <ul th:case="'LIST'" style="margin:0 0 20px;padding-left:20px;font-size:15px;line-height:1.7;color:#5C4452;">
+                <li th:each="item : ${block.items()}" th:text="${item}">Item</li>
+              </ul>
+              <hr th:case="'DIVIDER'" style="border:none;border-top:1px solid #EEC5D0;margin:24px 0;"/>
+              <p th:case="'SIGNATURE'" style="margin:24px 0 0;font-size:14px;font-style:italic;color:#7A5E6A;"
+                 th:text="${block.text()}">Signature</p>
+            </th:block>
+          </td>
+        </tr>
+        <tr>
+          <td align="center"
+              style="padding:20px 40px 24px;background-color:#F0E5F2;border-top:1px solid #EEC5D0;font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:1.6;color:#A08898;">
+            <span th:text="${brandName}">Cronos</span> ·
+            <a th:href="'mailto:' + ${supportEmail}" href="#" style="color:#C8889A;" th:text="${supportEmail}">soporte@cronos.mx</a>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>

@@ -15,7 +15,7 @@ public record SystemRole(String code, String nameEs, String descriptionEs, Strin
 
     public static final String SUPER_ADMIN_CODE = "SUPER_ADMIN";
 
-    private static final Set<String> BUSINESS_MODULES = Set.of("DASHBOARD", "RECIPE", "QUOTE", "INGREDIENT", "FIXED_COST", "GUIDE");
+    private static final Set<String> BUSINESS_MODULES = Set.of("DASHBOARD", "RECIPE", "QUOTE", "INGREDIENT", "FIXED_COST", "GUIDE", "CALENDAR");
     /** Platform staff only (ADMIN, and SUPER_ADMIN implicitly), even though GUIDE is a business module. */
     private static final Set<String> STAFF_ONLY = Set.of(GUIDE_CONTENT_MANAGE);
 
@@ -25,7 +25,9 @@ public record SystemRole(String code, String nameEs, String descriptionEs, Strin
     public static final SystemRole ADMIN = new SystemRole("ADMIN", "Administrador",
             "Administración de usuarios, catálogos y operación del negocio", "#dc2626", union(
             PermissionCatalog.matching("IAM", "USER", null),
+            PermissionCatalog.matching("IAM", "REGISTRATION", null),
             Set.of(IAM_ROLE_READ, IAM_PERMISSION_GROUP_READ, IAM_AUDIT_READ),
+            Set.of(NOTIFICATION_EMAIL_TEMPLATE_READ, NOTIFICATION_EMAIL_TEMPLATE_TEST_SEND),
             PermissionCatalog.matching("CATALOG", null, null),
             financeReads(),
             business(),

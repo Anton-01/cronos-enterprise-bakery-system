@@ -99,7 +99,17 @@ public final class PermissionCatalog {
             PermissionDefinition.of(IAM_AUDIT_EXPORT, MEDIUM),
 
             PermissionDefinition.of(IAM_SECURITY_POLICY_READ, MEDIUM),
-            PermissionDefinition.of(IAM_SECURITY_POLICY_UPDATE, CRITICAL)
+            PermissionDefinition.of(IAM_SECURITY_POLICY_UPDATE, CRITICAL),
+
+            PermissionDefinition.of(IAM_REGISTRATION_READ, LOW),
+            PermissionDefinition.of(IAM_REGISTRATION_DECIDE, HIGH),
+
+            PermissionDefinition.of(CALENDAR_EVENT_READ, LOW),
+            PermissionDefinition.of(CALENDAR_EVENT_MANAGE, LOW),
+
+            PermissionDefinition.of(NOTIFICATION_EMAIL_TEMPLATE_READ, LOW),
+            PermissionDefinition.of(NOTIFICATION_EMAIL_TEMPLATE_TEST_SEND, MEDIUM),
+            PermissionDefinition.standalone(NOTIFICATION_BROADCAST_SEND, HIGH)
     ).sorted(PermissionDefinition.CANONICAL_ORDER).toList();
 
     private static final Map<String, PermissionDefinition> BY_CODE = DEFINITIONS.stream()
