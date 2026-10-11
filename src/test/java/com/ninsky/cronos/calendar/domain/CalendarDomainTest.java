@@ -47,7 +47,8 @@ class CalendarDomainTest {
 
     @Test
     void dropsRemindersAlreadyPast() {
-        assertThat(ReminderPlan.plan(CalendarEventStatus.CONFIRMED, START, List.of(2880, 60), null, NOW))
+        Instant dayBefore = START.minus(Duration.ofDays(1));
+        assertThat(ReminderPlan.plan(CalendarEventStatus.CONFIRMED, START, List.of(2880, 60), null, dayBefore))
                 .extracting(ReminderPlan.Planned::minutesBefore).containsExactly(60);
     }
 
