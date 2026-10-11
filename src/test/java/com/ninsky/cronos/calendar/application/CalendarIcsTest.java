@@ -32,7 +32,7 @@ class CalendarIcsTest {
         assertThat(ics).startsWith("BEGIN:VCALENDAR\r\n").endsWith("END:VCALENDAR\r\n")
                 .contains("PRODID:-//Cronos//Calendar//ES", "UID:" + id + "@cronos", "DTSTAMP:20261011T150000Z",
                         "DTSTART:20261020T180000Z", "DTEND:20261020T190000Z", "STATUS:CONFIRMED", "TRIGGER:-PT60M",
-                        "SUMMARY:CR-AB12 · Ana\\, boda\; 3 pisos");
+                        "SUMMARY:CR-AB12 · Ana\\, boda\\; 3 pisos");
     }
 
     @Test
@@ -63,7 +63,7 @@ class CalendarIcsTest {
 
     @Test
     void escapesText() {
-        assertThat(CalendarIcs.escape("a\\b;c,d\ne")).isEqualTo("a\\\\b\;c\\,d\\ne");
+        assertThat(CalendarIcs.escape("a\\b;c,d\ne")).isEqualTo("a\\\\b\\;c\\,d\\ne");
     }
 
     private static CalendarEventResponse entry(UUID id, boolean allDay, CalendarEventStatus status, Instant start, Instant end) {

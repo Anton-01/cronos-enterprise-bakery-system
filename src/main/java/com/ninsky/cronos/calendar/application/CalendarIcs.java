@@ -115,7 +115,7 @@ public final class CalendarIcs {
 
     /** TEXT escaping of RFC 5545 §3.3.11. */
     static String escape(String text) {
-        return text.replace("\\", "\\\\").replace(";", "\;").replace(",", "\\,").replace("\r\n", "\\n").replace("\n", "\\n")
+        return text.replace("\\", "\\\\").replace(";", "\\;").replace(",", "\\,").replace("\r\n", "\\n").replace("\n", "\\n")
                 .replace("\r", "\\n");
     }
 
