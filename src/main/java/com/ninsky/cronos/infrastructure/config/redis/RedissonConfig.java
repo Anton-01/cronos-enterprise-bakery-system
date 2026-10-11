@@ -16,17 +16,10 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class RedissonConfig {
 
-    @Value("${spring.data.redis.host:localhost}")
-    private String redisHost;
-
-    @Value("${spring.data.redis.port:6379}")
-    private int redisPort;
-
-    @Value("${spring.data.redis.password:}")
-    private String redisPassword;
-
     @Bean(destroyMethod = "shutdown")
-    public RedissonClient redissonClient() {
+    public RedissonClient redissonClient(@Value("${spring.data.redis.host:localhost}") String redisHost,
+                                         @Value("${spring.data.redis.port:6379}") int redisPort,
+                                         @Value("${spring.data.redis.password:}") String redisPassword) {
         Config config = new Config();
         config.useSingleServer()
                 .setAddress("redis://%s:%d".formatted(redisHost, redisPort))
