@@ -30,7 +30,7 @@ public class AuthRateLimiter {
         AVAILABILITY_IP(window(60, Duration.ofHours(1))),
         RECOVERY_IDENTIFIER(window(1, Duration.ofMinutes(1)), window(5, Duration.ofHours(1))),
         RECOVERY_IP(window(30, Duration.ofHours(1))),
-        PUBLIC_QUOTE(window(10, Duration.ofHours(1))),
+        PUBLIC_QUOTE(window(60, Duration.ofHours(1))),
         PUSH_RENEW_IP(window(30, Duration.ofHours(1)));
 
         private final List<Bandwidth> bandwidths;
