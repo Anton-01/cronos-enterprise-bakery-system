@@ -115,7 +115,7 @@ public class RegistrationCustomRepository {
     public List<RegistrationRow> expiredPending(Instant now, int limit) {
         return jdbc.query("""
                         SELECT * FROM registration_requests WHERE status = 'PENDING' AND expires_at < :now
-                        ORDER BY expires_at LIMIT :limit FOR UPDATE SKIP LOCKED""",
+                        ORDER BY expires_at LIMIT :limit""",
                 new MapSqlParameterSource("now", Timestamp.from(now)).addValue("limit", limit), ROW);
     }
 
