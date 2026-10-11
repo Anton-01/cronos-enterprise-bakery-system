@@ -14,6 +14,13 @@ public interface UserTokens {
     /** Marks the token used and returns its user when it is valid, unused and unexpired. */
     Optional<UUID> consume(String rawToken, TokenPurpose purpose);
 
+    /** The holder and expiry of a valid, unused token, without consuming it (link pre-checks). */
+    Optional<PendingToken> peek(String rawToken, TokenPurpose purpose);
+
+    /** A token that would still be accepted. */
+    record PendingToken(UUID userId, Instant expiresAt) {
+    }
+
     /** Expiry of the newest unused, unexpired token of that purpose. */
     Optional<Instant> pendingExpiry(UUID userId, TokenPurpose purpose);
 

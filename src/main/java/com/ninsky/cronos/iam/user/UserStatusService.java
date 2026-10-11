@@ -24,6 +24,8 @@ import com.ninsky.cronos.infrastructure.exception.ApiErrorCode;
 import com.ninsky.cronos.infrastructure.exception.ApiException;
 import com.ninsky.cronos.infrastructure.exception.Violations;
 import org.springframework.context.ApplicationEventPublisher;
+import com.ninsky.cronos.eventing.application.DomainEventPublisher;
+import com.ninsky.cronos.identity.domain.IdentityEvents;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -53,11 +55,12 @@ public class UserStatusService {
     private final UserTokens tokens;
     private final ApplicationEventPublisher events;
     private final BulkRunner bulk;
+    private final DomainEventPublisher domainEvents;
     private final Clock clock;
 
     public UserStatusService(UserReadCustomRepository users, UserStatusWriter writer, UserViews views, AccessGuards guards,
                              ActorProvider actors, AuditRecorder recorder, UserTokens tokens,
-                             ApplicationEventPublisher events, BulkRunner bulk, Clock clock) {
+                             ApplicationEventPublisher events, BulkRunner bulk, DomainEventPublisher domainEvents, Clock clock) {
         this.users = users;
         this.writer = writer;
         this.views = views;
@@ -67,6 +70,7 @@ public class UserStatusService {
         this.tokens = tokens;
         this.events = events;
         this.bulk = bulk;
+        this.domainEvents = domainEvents;
         this.clock = clock;
     }
 
@@ -101,6 +105,10 @@ public class UserStatusService {
         UserRow row = users.find(id).orElseThrow(() -> ApiException.notFound("iam.user.notFound"));
         if (actor != null) {
             guards.requireCanModify(actor, List.of(id));
+            // Self-registered accounts are decided through /iam/registrations, never through the generic status change.
+            if (row.status() == UserStatus.PENDING_APPROVAL) {
+                throw ApiException.of(ApiErrorCode.INVALID_STATE_TRANSITION, "status", "iam.user.pendingApproval");
+            }
         }
         if (row.status() != change.status() && !row.status().canMoveTo(change.status())) {
             throw ApiException.of(ApiErrorCode.INVALID_STATE_TRANSITION, "status", "iam.user.invalidTransition",
@@ -117,6 +125,9 @@ public class UserStatusService {
             IssuedToken token = tokens.issue(id, TokenPurpose.PASSWORD_RESET, RESET_LINK_TTL);
             events.publishEvent(new CredentialDelivery.PasswordResetLink(id, row.email(), row.displayName(), row.locale(),
                     token.rawToken(), token.expiresAt()));
+        }
+        if (row.status() == UserStatus.LOCKED && change.status() == UserStatus.ACTIVE) {
+            domainEvents.publish(new IdentityEvents.AccountUnlocked(id, change.comment() == null ? "STATUS_CHANGE" : change.comment()));
         }
         Map<String, Object> changes = new LinkedHashMap<>();
         Changes.put(changes, "status", row.status().name(), change.status().name());

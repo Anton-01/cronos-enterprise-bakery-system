@@ -68,16 +68,6 @@ spring:
     locale-resolver: accept-header
     resources:
       add-mappings: false
-  security:
-    oauth2:
-      client:
-        registration:
-          google:
-            client-id: "dummy-client-id-local-dev.apps.googleusercontent.com"
-            client-secret: "dummy-client-secret-local-dev"
-            scope:
-              - email
-              - profile
   jackson:
     date-format: "yyyy-MM-dd HH:mm:ss"
     time-zone: America/Mexico_City

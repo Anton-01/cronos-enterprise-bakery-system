@@ -22,6 +22,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.ninsky.cronos.eventing.application.DomainEventPublisher;
+import com.ninsky.cronos.identity.domain.IdentityEvents;
+
+import java.time.Clock;
 import java.util.List;
 import java.util.UUID;
 
@@ -44,6 +48,8 @@ public class ActivationService {
     private final UserStatusWriter statusWriter;
     private final UserDirectory directory;
     private final AuditRecorder recorder;
+    private final DomainEventPublisher events;
+    private final Clock clock;
 
     @Transactional
     public void activate(String token, String password) {
@@ -64,6 +70,7 @@ public class ActivationService {
         statusWriter.apply(userId, new UserStatusWriter.Change(UserStatus.ACTIVE, null, null, null, null), null);
         recorder.record(AuditEvent.of(AuditAction.INVITATION_ACCEPTED, AuditTargets.USER, userId,
                 directory.ref(userId).map(UserRef::displayName).orElse(user.getUsername())).build());
+        events.publish(new IdentityEvents.PasswordChanged(userId, clock.instant(), "ACTIVATION"));
         log.info("Invitation accepted by user {}", userId);
     }
 }

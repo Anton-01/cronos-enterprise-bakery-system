@@ -2,7 +2,9 @@ package com.ninsky.cronos.application.response.auth;
 
 import com.ninsky.cronos.application.response.menu.MenuItemResponse;
 import lombok.Builder;
+
 import java.util.List;
+import java.util.UUID;
 
 @Builder
 public record LoginResponse(
@@ -18,8 +20,14 @@ public record LoginResponse(
         /** DB-driven nav tree, pruned to what the user's granted permissions unlock. */
         List<MenuItemResponse> navigation,
         Boolean requiresTwoFactor,
+        /** Answer it with POST /auth/login/two-factor (§2.3.4); null when no second step is pending. */
+        UUID challengeId,
         /** True when the password must be changed before using the app (forced or past the policy max age). */
         Boolean mustChangePassword,
+        /** Same fact under the name of the §2.2 contract. */
+        Boolean passwordChangeRequired,
+        /** Idle minutes before the UI locks the screen; null/0 = disabled (§2.7). */
+        Integer screenLockMinutes,
         /** Contract §8.1: 2FA is mandatory and not enrolled yet, so the UI routes straight to setup. */
         Boolean requiresTwoFactorEnrollment,
         String message

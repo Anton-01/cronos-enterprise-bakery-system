@@ -55,6 +55,19 @@ public class UserTokenCustomRepository implements UserTokens {
     }
 
     @Override
+    public Optional<PendingToken> peek(String rawToken, TokenPurpose purpose) {
+        if (!TokenCodec.wellFormed(rawToken)) {
+            return Optional.empty();
+        }
+        return jdbc.query("""
+                        SELECT user_id, expires_at FROM user_tokens
+                        WHERE token_hash = :hash AND purpose = :purpose AND used_at IS NULL AND expires_at > :now""",
+                params(null, purpose, TenantTime.now(clock)).addValue("hash", TokenCodec.hash(rawToken)),
+                (rs, row) -> new PendingToken(rs.getObject("user_id", UUID.class), rs.getTimestamp("expires_at").toInstant()))
+                .stream().findFirst();
+    }
+
+    @Override
     public Optional<Instant> pendingExpiry(UUID userId, TokenPurpose purpose) {
         return jdbc.queryForList("""
                         SELECT max(expires_at) FROM user_tokens

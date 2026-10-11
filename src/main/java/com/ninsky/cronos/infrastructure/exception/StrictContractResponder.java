@@ -39,7 +39,7 @@ public class StrictContractResponder {
         List<ApiError> errors = ex.violations().stream()
                 .map(v -> new ApiError(v.code().name(), message(v.messageKey(), v.args().toArray(), locale), v.field(), null, v.details()))
                 .toList();
-        ResponseEntity.BodyBuilder builder = ResponseEntity.status(ex.primaryCode().status());
+        ResponseEntity.BodyBuilder builder = ResponseEntity.status(ex.status());
         if (ex.retryAfterSeconds() != null) {
             builder.header(HttpHeaders.RETRY_AFTER, String.valueOf(ex.retryAfterSeconds()));
         }

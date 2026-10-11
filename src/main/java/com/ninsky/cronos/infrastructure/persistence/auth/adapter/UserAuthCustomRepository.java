@@ -50,7 +50,7 @@ public class UserAuthCustomRepository implements UserAuthLookupPort {
                    account_non_expired, credentials_non_expired, two_factor_enabled, locked_until,
                    status, access_version, password_needs_change
             FROM users
-            WHERE username = ? OR email_blind_index = ?
+            WHERE lower(username) = lower(?) OR email_blind_index = ?
             """;
 
     private static final String SELECT_USER_BY_ID = """
