@@ -48,6 +48,13 @@ public class QuoteMapper {
                 .deliveryFee(money(entity.getDeliveryFee(), scale))
                 .extraFee(money(entity.getExtraFee(), scale))
                 .extraFeeDescription(entity.getExtraFeeDescription())
+                .eventDate(entity.getEventDate())
+                .acceptedAt(entity.getAcceptedAt())
+                .rejectedAt(entity.getRejectedAt())
+                .rejectReason(entity.getRejectReason())
+                .calendarEventId(entity.getCalendarEventId())
+                .firstViewedAt(entity.getFirstViewedAt())
+                .deletedAt(entity.getDeletedAt())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .items(entity.getItems().stream().map(item -> toDomain(item, scale)).collect(Collectors.toList()))
@@ -87,6 +94,13 @@ public class QuoteMapper {
                 .deliveryFee(domain.getDeliveryFee())
                 .extraFee(domain.getExtraFee())
                 .extraFeeDescription(domain.getExtraFeeDescription())
+                .eventDate(domain.getEventDate())
+                .acceptedAt(domain.getAcceptedAt())
+                .rejectedAt(domain.getRejectedAt())
+                .rejectReason(domain.getRejectReason())
+                .calendarEventId(domain.getCalendarEventId())
+                .firstViewedAt(domain.getFirstViewedAt())
+                .deletedAt(domain.getDeletedAt())
                 .build();
         entity.setCreatedAt(domain.getCreatedAt());
         entity.setUpdatedAt(domain.getUpdatedAt());

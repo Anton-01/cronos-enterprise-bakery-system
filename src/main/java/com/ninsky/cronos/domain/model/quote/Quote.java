@@ -14,6 +14,9 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.time.Instant;
+import java.time.LocalDate;
+import com.ninsky.cronos.quote.domain.QuoteRejectReason;
 
 @Getter
 @Setter
@@ -57,6 +60,16 @@ public class Quote {
     @Builder.Default
     private BigDecimal extraFee = BigDecimal.ZERO;
     private String extraFeeDescription;
+    /** Day of the event in the tenant calendar (optional). */
+    private LocalDate eventDate;
+    private Instant acceptedAt;
+    private Instant rejectedAt;
+    private QuoteRejectReason rejectReason;
+    /** Order scheduled when the quote was accepted. */
+    private UUID calendarEventId;
+    private Instant firstViewedAt;
+    /** Soft delete (DRAFT only). */
+    private Instant deletedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

@@ -15,12 +15,14 @@ import com.ninsky.cronos.kitchen.unit.UnitInfo;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /** Assembles recipe summaries and details from batched lookups (no N+1). */
 @Component
@@ -49,6 +51,25 @@ public class RecipeViews {
                 .map(h -> summary(h, contained.getOrDefault(h.id(), Set.of()), categoryNames, covers.get(h.id()), view, language))
                 .toList();
         return new CatalogPage<>(rows, ids.pageNumber(), ids.pageSize(), ids.totalElements(), ids.totalPages(), ids.last());
+    }
+
+    /**
+     * Cards of {@code ids} (deleted recipes included, they may still be linked) in one batch per lookup.
+     *
+     * @return id → card; unknown ids are absent
+     */
+    public Map<UUID, RecipeCard> cards(Collection<UUID> ids, UUID tenant, String language) {
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        List<RecipeAggregate.Head> heads = queries.heads(List.copyOf(Set.copyOf(ids)));
+        List<UUID> recipeIds = heads.stream().map(RecipeAggregate.Head::id).toList();
+        Map<UUID, Set<Long>> contained = queries.containedAllergens(recipeIds);
+        Map<UUID, String> covers = files.coverKeys(recipeIds);
+        AllergenCatalog.View view = allergens.view(tenant);
+        return heads.stream().collect(Collectors.toUnmodifiableMap(RecipeAggregate.Head::id, head -> new RecipeCard(head.id(), head.name(),
+                fileService.signed(covers.get(head.id()), properties.signedUrlMinutes()), head.yieldQuantity(), head.yieldUnit(),
+                view.refs(contained.getOrDefault(head.id(), Set.of()), language))));
     }
 
     public RecipeDetail detail(RecipeAggregate recipe, UUID tenant, String language) {

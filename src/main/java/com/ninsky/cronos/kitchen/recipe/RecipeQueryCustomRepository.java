@@ -89,6 +89,17 @@ public class RecipeQueryCustomRepository {
     }
 
     /** Heads (no lines) for list rows, in the given order. */
+    /** The subset of {@code ids} the tenant can read (own or library, not deleted; archived included). */
+    public Set<UUID> visibleIds(UUID tenant, Collection<UUID> ids) {
+        if (ids.isEmpty()) {
+            return Set.of();
+        }
+        return Set.copyOf(jdbc.queryForList("""
+                SELECT r.id FROM recipes r
+                WHERE r.id IN (:ids) AND r.deleted_at IS NULL AND (r.owner_id IS NULL OR r.owner_id = :tenant)""",
+                new MapSqlParameterSource().addValue("ids", Set.copyOf(ids)).addValue("tenant", tenant), UUID.class));
+    }
+
     public List<RecipeAggregate.Head> heads(List<UUID> ids) {
         return store.headsInOrder(ids);
     }

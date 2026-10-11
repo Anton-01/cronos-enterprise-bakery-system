@@ -38,5 +38,10 @@ public record InternalQuoteResponse(
         BigDecimal subtotal,
         BigDecimal taxAmount,
         // An ingredient price changed since the items were priced (kitchen §4.5); saving re-prices
-        boolean priceReviewRequired
+        boolean priceReviewRequired,
+        // Lifecycle (auth-quotes-calendar-notifications §4.2)
+        LocalDate eventDate,
+        LocalDateTime validUntil,
+        Integer viewsCount,
+        UUID calendarEventId
 ) {}

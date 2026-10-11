@@ -1,5 +1,6 @@
 package com.ninsky.cronos.application.request.quote;
 
+import java.time.LocalDate;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.Builder;
@@ -45,5 +46,7 @@ public record CreateQuoteRequest(
         String extraFeeDescription,
 
         // Optional catalog preset; wins over taxRate (which must then match it)
-        Long taxRateId
+        Long taxRateId,
+        // Optional day of the event (tenant calendar); today or later on create
+        LocalDate eventDate
 ) {}

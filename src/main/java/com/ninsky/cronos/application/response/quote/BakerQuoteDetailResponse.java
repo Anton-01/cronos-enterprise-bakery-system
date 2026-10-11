@@ -31,5 +31,14 @@ public record BakerQuoteDetailResponse(
         String publicToken,
 
         List<InternalQuoteItemResponse> items,
-        List<QuoteAccessLogResponse> accessLogs
+        List<QuoteAccessLogResponse> accessLogs,
+        // Lifecycle (auth-quotes-calendar-notifications §4.2)
+        String currency,
+        String clientAddress,
+        String notes,
+        LocalDate eventDate,
+        UUID calendarEventId,
+        String rejectReason,
+        /** Oldest first. */
+        List<QuoteStatusChange> statusHistory
 ) {}
