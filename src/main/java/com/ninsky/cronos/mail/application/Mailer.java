@@ -6,6 +6,7 @@ import com.ninsky.cronos.eventing.domain.TimeOrderedIds;
 import com.ninsky.cronos.mail.domain.EmailTemplate;
 import com.ninsky.cronos.mail.domain.EmailTemplateCatalog;
 import com.ninsky.cronos.mail.domain.MailLocales;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,18 +27,21 @@ public class Mailer {
 
     private final EmailTemplateCatalog catalog;
     private final DomainEventPublisher events;
+    private final ObjectProvider<MailPreferences> preferences;
     private final Clock clock;
 
-    public Mailer(EmailTemplateCatalog catalog, DomainEventPublisher events, Clock clock) {
+    public Mailer(EmailTemplateCatalog catalog, DomainEventPublisher events, ObjectProvider<MailPreferences> preferences, Clock clock) {
         this.catalog = catalog;
         this.events = events;
+        this.preferences = preferences;
         this.clock = clock;
     }
 
     /**
      * Enqueues {@code request}.
      *
-     * @return the message id (also the {@code Message-ID} local part), empty when the dedupe key coalesced it
+     * @return the message id (also the {@code Message-ID} local part), empty when the dedupe key coalesced it or the
+     *         recipient turned off the email of a non-transactional template
      * @throws IllegalArgumentException for an unknown template, a blank recipient or a missing declared variable
      */
     @Transactional(propagation = Propagation.MANDATORY)
@@ -62,6 +66,10 @@ public class Mailer {
                 .collect(Collectors.toCollection(TreeSet::new));
         if (!missing.isEmpty()) {
             throw new IllegalArgumentException("Email " + request.templateKey() + " is missing variables " + missing);
+        }
+        if (!test && !template.transactional() && request.recipientUserId() != null
+                && !preferences.getIfAvailable(() -> MailPreferences.ALLOW_ALL).allows(request.recipientUserId(), template.key())) {
+            return Optional.empty();
         }
         UUID messageId = TimeOrderedIds.next(clock);
         MailRequested event = new MailRequested(messageId, template.key(), MailLocales.normalize(request.locale()),
