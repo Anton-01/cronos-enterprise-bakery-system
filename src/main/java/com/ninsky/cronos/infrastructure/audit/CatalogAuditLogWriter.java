@@ -3,52 +3,38 @@ package com.ninsky.cronos.infrastructure.audit;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ninsky.cronos.application.event.CatalogAuditEvent;
-import com.ninsky.cronos.domain.model.audit.AuditLogEntry;
-import com.ninsky.cronos.domain.port.audit.AuditLogPort;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Async;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.event.TransactionPhase;
-import org.springframework.transaction.event.TransactionalEventListener;
 
 /**
- * Persists {@link CatalogAuditEvent}s once the business transaction has committed, off the request
- * thread. Same contract as the account module's {@code AuditLogWriter}: a failure is logged, never
- * propagated (the change already committed), and {@code REQUIRES_NEW} keeps the write committing
- * even when the listener runs synchronously (async disabled, tests).
+ * Turns a catalog audit event into an outbox entry in the same transaction as the catalog change (written later by
+ * {@link AuditEntryWriter}); a rolled-back change leaves no row, a crash after commit no longer loses one.
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class CatalogAuditLogWriter {
 
-    private final AuditLogPort auditLogPort;
+    private final AuditEntries entries;
     private final ObjectMapper objectMapper;
 
-    @Async("systemTaskExecutor")
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public CatalogAuditLogWriter(AuditEntries entries, ObjectMapper objectMapper) {
+        this.entries = entries;
+        this.objectMapper = objectMapper;
+    }
+
+    @EventListener
     public void on(CatalogAuditEvent event) {
+        String changes;
         try {
-            auditLogPort.save(AuditLogEntry.builder()
-                    .actorUserId(event.actor().userId())
-                    .actorUsername(event.actor().username())
-                    .action(event.action())
-                    .targetType(event.targetType())
-                    .targetId(event.targetId())
-                    .details(event.details())
-                    .changes(event.changes().isEmpty() ? null : objectMapper.writeValueAsString(event.changes()))
-                    .ipAddress(event.ipAddress())
-                    .userAgent(event.userAgent())
-                    .traceId(event.traceId())
-                    .createdAt(event.occurredAt())
-                    .build());
-        } catch (JsonProcessingException | RuntimeException e) {
-            log.error("Failed to write {} audit entry for {}/{} (traceId={}): {}",
-                    event.action(), event.targetType(), event.targetId(), event.traceId(), e.getMessage());
+            changes = event.changes().isEmpty() ? null : objectMapper.writeValueAsString(event.changes());
+        } catch (JsonProcessingException e) {
+            log.error("Audit diff of {} {}/{} cannot be serialised (traceId={}): {}", event.action(), event.targetType(),
+                    event.targetId(), event.traceId(), e.getMessage());
+            changes = null;
         }
+        entries.publish(new AuditEntryRecorded(entries.nextId(), event.actor().userId(), event.actor().username(), event.action(),
+                event.targetType(), event.targetId(), event.details(), changes, event.ipAddress(), event.userAgent(), event.traceId(),
+                event.occurredAt()));
     }
 }

@@ -3,76 +3,45 @@ package com.ninsky.cronos.account.shared.infrastructure.audit;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ninsky.cronos.account.shared.domain.audit.AuditChange;
-import com.ninsky.cronos.account.shared.domain.audit.ResourceType;
 import com.ninsky.cronos.domain.model.audit.AuditAction;
-import com.ninsky.cronos.domain.model.audit.AuditLogEntry;
-import com.ninsky.cronos.domain.port.audit.AuditLogPort;
-import lombok.RequiredArgsConstructor;
+import com.ninsky.cronos.infrastructure.audit.AuditEntries;
+import com.ninsky.cronos.infrastructure.audit.AuditEntryRecorded;
+import com.ninsky.cronos.infrastructure.audit.AuditEntryWriter;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Async;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.event.TransactionPhase;
-import org.springframework.transaction.event.TransactionalEventListener;
-
-import java.util.EnumMap;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
- * Persists account audit events to the existing immutable {@code audit_log} ledger, only once the
- * business transaction has committed and off the request thread. A failure here is logged, never
- * propagated: the user's change already committed and must not be reported as failed.
- * <p>
- * {@code REQUIRES_NEW} matters even though the listener is {@code @Async}: if it ever runs
- * synchronously (async disabled, tests), an AFTER_COMMIT write would otherwise join the
- * already-committed transaction and never be committed itself.
+ * Queues account audit events for the immutable {@code audit_log} ledger: the entry enters the outbox in the
+ * transaction of the audited change (rolled back with it) and {@link AuditEntryWriter} writes it after commit, with
+ * retries. Before, an {@code @Async} after-commit listener lost the row when the process stopped in between.
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class AuditLogWriter {
 
-    private final AuditLogPort auditLogPort;
+    private final AuditEntries entries;
     private final ObjectMapper objectMapper;
 
-    @Async("systemTaskExecutor")
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public AuditLogWriter(AuditEntries entries, ObjectMapper objectMapper) {
+        this.entries = entries;
+        this.objectMapper = objectMapper;
+    }
+
+    @EventListener
     public void on(AuditRecorded event) {
-        writeAll(List.of(event));
-    }
-
-    public void writeAll(List<AuditRecorded> events) {
-        Map<ResourceType, List<AuditRecorded>> byResource = events.stream()
-                .collect(Collectors.groupingBy(e -> e.change().resourceType(), () -> new EnumMap<>(ResourceType.class), Collectors.toList()));
-
-        byResource.forEach((resourceType, batch) -> {
-            batch.forEach(this::writeOne);
-            log.debug("Wrote {} {} audit entr{}", batch.size(), resourceType, batch.size() == 1 ? "y" : "ies");
-        });
-    }
-
-    private void writeOne(AuditRecorded event) {
         AuditChange change = event.change();
+        String changes;
         try {
-            auditLogPort.save(AuditLogEntry.builder()
-                    .actorUserId(change.actorId())
-                    .action(actionOf(change))
-                    .targetType(change.resourceType().name())
-                    .targetId(change.resourceId() == null ? null : change.resourceId().toString())
-                    .changes(change.changes().isEmpty() ? null : objectMapper.writeValueAsString(change.changes()))
-                    .ipAddress(truncate(event.ipAddress(), 45))
-                    .userAgent(event.userAgent())
-                    .traceId(event.traceId())
-                    .createdAt(event.occurredAt())
-                    .build());
-        } catch (JsonProcessingException | RuntimeException e) {
-            log.error("Failed to write {} audit entry for user {} (traceId={}): {}",
-                    change.getClass().getSimpleName(), change.actorId(), event.traceId(), e.getMessage());
+            changes = change.changes().isEmpty() ? null : objectMapper.writeValueAsString(change.changes());
+        } catch (JsonProcessingException e) {
+            log.error("Audit diff of {} for user {} cannot be serialised (traceId={}): {}", change.getClass().getSimpleName(),
+                    change.actorId(), event.traceId(), e.getMessage());
+            changes = null;
         }
+        entries.publish(new AuditEntryRecorded(entries.nextId(), change.actorId(), null, actionOf(change), change.resourceType().name(),
+                change.resourceId() == null ? null : change.resourceId().toString(), null, changes, truncate(event.ipAddress(), 45),
+                event.userAgent(), event.traceId(), event.occurredAt()));
     }
 
     static AuditAction actionOf(AuditChange change) {

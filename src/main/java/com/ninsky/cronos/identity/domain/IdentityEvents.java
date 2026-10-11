@@ -91,4 +91,11 @@ public final class IdentityEvents {
         @Override public String aggregateType() { return USER; }
         @Override public UUID aggregateId() { return userId; }
     }
+
+    /** An account was created (self-registration, an administrator, the seed); modules prepare their defaults. */
+    @EventType("identity.account-created")
+    public record AccountCreated(UUID userId) implements DomainEvent {
+        @Override public String aggregateType() { return USER; }
+        @Override public UUID aggregateId() { return userId; }
+    }
 }

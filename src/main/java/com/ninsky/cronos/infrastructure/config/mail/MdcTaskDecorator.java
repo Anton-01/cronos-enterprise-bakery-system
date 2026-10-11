@@ -10,8 +10,8 @@ import java.util.Map;
 
 /**
  * Copies the calling thread's MDC (in particular {@code traceId}) onto the thread that actually
- * runs an {@code @Async} task, so background work — email listeners chief among them — logs under
- * the same traceId as the HTTP request that triggered it. The {@link TraceContext} travels with it, so
+ * runs a task of the application executor, so asynchronous request work logs under the same traceId
+ * as the HTTP request that triggered it. The {@link TraceContext} travels with it, so
  * events published from async work keep the request's correlation id.
  */
 public class MdcTaskDecorator implements TaskDecorator {

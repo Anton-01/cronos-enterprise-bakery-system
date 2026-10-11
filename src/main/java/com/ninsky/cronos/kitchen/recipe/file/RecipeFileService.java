@@ -1,6 +1,8 @@
 package com.ninsky.cronos.kitchen.recipe.file;
 
 import com.ninsky.cronos.domain.model.audit.AuditAction;
+import com.ninsky.cronos.eventing.application.DomainEventPublisher;
+import com.ninsky.cronos.eventing.domain.TimeOrderedIds;
 import com.ninsky.cronos.iam.audit.AuditEvent;
 import com.ninsky.cronos.iam.audit.AuditRecorder;
 import com.ninsky.cronos.iam.audit.AuditTargets;
@@ -52,6 +54,7 @@ public class RecipeFileService {
     private final KitchenProperties properties;
     private final AuditRecorder audit;
     private final ActorProvider actors;
+    private final DomainEventPublisher events;
     private final Clock clock;
 
     @Transactional
@@ -317,18 +320,19 @@ public class RecipeFileService {
         }
     }
 
-    /** Removes the objects once the deleting transaction committed (no dangling rows on rollback). */
+    /**
+     * Removes the objects once the deleting transaction committed (no dangling rows on rollback): the release is queued
+     * in the outbox with the transaction and deleted by {@link RecipeFileObjectCleanup}, retried if the storage fails.
+     */
     public void deleteBlobsAfterCommit(String... keys) {
-        Runnable delete = () -> Stream.of(keys).filter(Objects::nonNull).forEach(this::quietDelete);
-        if (TransactionSynchronizationManager.isSynchronizationActive()) {
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    delete.run();
-                }
-            });
+        List<String> released = Stream.of(keys).filter(Objects::nonNull).toList();
+        if (released.isEmpty()) {
+            return;
+        }
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            events.publish(new RecipeFilesReleased(TimeOrderedIds.next(clock), released));
         } else {
-            delete.run();
+            released.forEach(this::quietDelete);
         }
     }
 

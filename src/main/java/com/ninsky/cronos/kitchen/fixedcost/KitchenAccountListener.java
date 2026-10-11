@@ -1,29 +1,35 @@
 package com.ninsky.cronos.kitchen.fixedcost;
 
-import com.ninsky.cronos.iam.shared.AccountCreated;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
-import lombok.RequiredArgsConstructor;
-import org.springframework.context.event.EventListener;
+import com.ninsky.cronos.eventing.application.EventEnvelope;
+import com.ninsky.cronos.eventing.application.OutboxHandler;
+import com.ninsky.cronos.identity.domain.IdentityEvents;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-/** New accounts start with the default fixed costs, in the creating transaction (baking-studio §4.6). */
+/**
+ * Seeds the default fixed costs of a new account after it committed (outbox consumer), off the sign-up request. Kitchen
+ * reads still seed lazily, so a screen opened before this runs never misses them; seeding is idempotent.
+ */
 @Component
-@RequiredArgsConstructor
-public class KitchenAccountListener {
+public class KitchenAccountListener implements OutboxHandler<IdentityEvents.AccountCreated> {
 
     private final FixedCostSeeder seeder;
 
-    @PersistenceContext
-    private EntityManager entityManager;
+    public KitchenAccountListener(FixedCostSeeder seeder) {
+        this.seeder = seeder;
+    }
 
-    @EventListener
-    public void on(AccountCreated event) {
-        // Accounts created through JPA are not inserted until flush; the seeding ledger references users(id).
-        if (TransactionSynchronizationManager.isActualTransactionActive()) {
-            entityManager.flush();
-        }
+    @Override
+    public Class<IdentityEvents.AccountCreated> eventClass() {
+        return IdentityEvents.AccountCreated.class;
+    }
+
+    @Override
+    public void handle(IdentityEvents.AccountCreated event, EventEnvelope envelope) {
         seeder.ensureSeeded(event.userId());
+    }
+
+    @Override
+    public String name() {
+        return "KitchenFixedCostSeeding";
     }
 }
