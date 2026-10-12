@@ -62,6 +62,8 @@ services:
           target: /build/src/main/resources
         - path: ./pom.xml
           action: rebuild
+        - path: ./lombok.config
+          action: rebuild
 
   # Backs the token/session blacklist (TokenBlacklistService) and Redisson distributed locks.
   redis:
