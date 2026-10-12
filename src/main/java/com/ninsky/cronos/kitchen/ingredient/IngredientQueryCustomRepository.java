@@ -4,6 +4,7 @@ import com.ninsky.cronos.finance.shared.UserRef;
 import com.ninsky.cronos.finance.shared.UserRefCustomRepository;
 import com.ninsky.cronos.infrastructure.web.paging.CatalogPage;
 import com.ninsky.cronos.infrastructure.web.paging.PageQuery;
+import com.ninsky.cronos.kitchen.costing.CostEngine;
 import com.ninsky.cronos.kitchen.costing.IngredientPriceCustomRepository;
 import com.ninsky.cronos.kitchen.costing.PriceSource;
 import com.ninsky.cronos.kitchen.shared.Dimension;
@@ -16,6 +17,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
@@ -41,6 +43,8 @@ public class IngredientQueryCustomRepository {
             "usedInRecipes", "used");
     static final String DEFAULT_SORT = "name,asc";
     static final Map<String, String> HISTORY_SORTS = Map.of("pricedAt", "p.priced_at");
+    private static final BigDecimal HUNDRED = BigDecimal.valueOf(100);
+    private static final int PERCENT_DECIMALS = 2;
 
     private static final String USED = """
             LEFT JOIN LATERAL (SELECT count(DISTINCT l.recipe_id) AS used FROM recipe_lines l JOIN recipes r ON r.id = l.recipe_id
@@ -179,17 +183,32 @@ public class IngredientQueryCustomRepository {
                 .addValue("limit", query.size()).addValue("offset", query.offset());
         String where = " WHERE p.ingredient_id = :id AND (p.owner_id IS NULL OR p.owner_id = :tenant)";
         Long total = jdbc.queryForObject("SELECT count(*) FROM ingredient_prices p" + where, params, Long.class);
-        List<PriceHistoryEntry> content = jdbc.query("SELECT p.id, p.owner_id, p.purchase_quantity, p.purchase_unit_id, mu.code_identity, "
-                        + "p.price, p.currency, p.supplier, p.priced_at, p.cost_per_base_unit, p.recorded_at, "
-                        + UserRefCustomRepository.columns("p.recorded_by") + " FROM ingredient_prices p"
-                        + " JOIN measurement_units mu ON mu.id = p.purchase_unit_id" + UserRefCustomRepository.join("p.recorded_by") + where
-                        + " ORDER BY p.priced_at DESC, p.recorded_at DESC LIMIT :limit OFFSET :offset", params,
-                (rs, i) -> new PriceHistoryEntry(rs.getObject("id", UUID.class),
-                        rs.getObject("owner_id") == null ? PriceSource.REFERENCE : PriceSource.OWN, rs.getBigDecimal("purchase_quantity"),
-                        rs.getLong("purchase_unit_id"), rs.getString("code_identity"), rs.getBigDecimal("price"), rs.getString("currency"),
-                        rs.getString("supplier"), rs.getObject("priced_at", LocalDate.class), rs.getBigDecimal("cost_per_base_unit"),
-                        Sql.instant(rs, "recorded_at"), userRefs.map(rs)));
+        // The window runs over the whole series before paging, so the oldest row of a page still compares with its predecessor.
+        List<PriceHistoryEntry> content = jdbc.query("SELECT p.id, p.purchase_quantity, p.purchase_unit_id, mu.code_identity, "
+                        + "p.price, p.currency, p.supplier, p.priced_at, p.cost_per_base_unit, p.previous_cost, p.recorded_at, "
+                        + UserRefCustomRepository.columns("p.recorded_by")
+                        + " FROM (SELECT p.*, lag(p.cost_per_base_unit) OVER (PARTITION BY p.owner_id IS NULL"
+                        + " ORDER BY p.priced_at, p.recorded_at, p.id) AS previous_cost FROM ingredient_prices p" + where + ") p"
+                        + " JOIN measurement_units mu ON mu.id = p.purchase_unit_id" + UserRefCustomRepository.join("p.recorded_by")
+                        + " ORDER BY p.priced_at DESC, p.recorded_at DESC, p.id DESC LIMIT :limit OFFSET :offset", params,
+                (rs, i) -> {
+                    BigDecimal cost = rs.getBigDecimal("cost_per_base_unit");
+                    return new PriceHistoryEntry(rs.getObject("id", UUID.class),
+                            new IngredientPrice(rs.getBigDecimal("purchase_quantity"), rs.getLong("purchase_unit_id"),
+                                    rs.getString("code_identity"), rs.getBigDecimal("price"), rs.getString("currency"),
+                                    rs.getString("supplier"), rs.getObject("priced_at", LocalDate.class)),
+                            cost, changePercent(rs.getBigDecimal("previous_cost"), cost), Sql.instant(rs, "recorded_at"), userRefs.map(rs));
+                });
         return CatalogPage.of(content, query, total == null ? 0 : total);
+    }
+
+    /** % change vs the previous cost of the series (§5.5: scale 10 HALF_EVEN internally, 2 decimals shown); null without one. */
+    static BigDecimal changePercent(BigDecimal previous, BigDecimal current) {
+        if (previous == null || current == null || previous.signum() == 0) {
+            return null;
+        }
+        return current.subtract(previous).multiply(HUNDRED).divide(previous, CostEngine.SCALE, RoundingMode.HALF_EVEN)
+                .setScale(PERCENT_DECIMALS, RoundingMode.HALF_EVEN);
     }
 
     /** A declared substitute pair visible to the tenant (tenant declarations win over platform ones). */
