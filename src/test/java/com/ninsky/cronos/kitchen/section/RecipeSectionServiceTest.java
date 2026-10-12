@@ -44,7 +44,7 @@ class RecipeSectionServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new RecipeSectionService(sections, settings, actors, CLOCK);
+        service = new RecipeSectionService(sections, settings, actors, CLOCK, new org.springframework.cache.concurrent.ConcurrentMapCacheManager());
         when(actors.require()).thenReturn(ACTOR);
         when(settings.peek(ACTOR_ID)).thenReturn(new KitchenSettingsCustomRepository.Seeded(true, true));
     }

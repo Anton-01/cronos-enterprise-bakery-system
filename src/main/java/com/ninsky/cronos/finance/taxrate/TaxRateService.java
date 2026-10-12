@@ -4,6 +4,7 @@ import com.ninsky.cronos.domain.model.audit.AuditAction;
 import com.ninsky.cronos.domain.model.audit.AuditSeverity;
 import com.ninsky.cronos.finance.shared.Changes;
 import com.ninsky.cronos.finance.shared.FinanceLocks;
+import com.ninsky.cronos.finance.shared.FinanceCatalogs;
 import com.ninsky.cronos.finance.shared.FinanceSettingsCache;
 import com.ninsky.cronos.finance.shared.FinanceStatus;
 import com.ninsky.cronos.finance.shared.StatusRequest;
@@ -19,6 +20,8 @@ import com.ninsky.cronos.infrastructure.exception.Violations;
 import com.ninsky.cronos.infrastructure.web.paging.CatalogPage;
 import com.ninsky.cronos.infrastructure.web.paging.PageQuery;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,6 +44,7 @@ public class TaxRateService {
     private final TaxRateQueryCustomRepository queries;
     private final FinanceLocks locks;
     private final FinanceSettingsCache settingsCache;
+    private final FinanceCatalogs catalogs;
     private final AuditRecorder audit;
     private final ActorProvider actors;
     private final Clock clock;
@@ -51,12 +55,12 @@ public class TaxRateService {
     }
 
     /** ACTIVE and currently valid in the tenant timezone, default first. */
-    @Transactional(readOnly = true)
     public List<TaxRateOption> catalog() {
-        return repository.findSelectable(FinanceStatus.ACTIVE, TenantTime.today(clock)).stream().map(TaxRateOption::of).toList();
+        return catalogs.taxRates(TenantTime.today(clock));
     }
 
     @Transactional
+    @CacheEvict(cacheNames = FinanceCatalogs.CACHE, allEntries = true)
     public TaxRateResponse create(TaxRateRequest request) {
         TaxRateDraft draft = TaxRateDraft.from(request);
         Violations violations = rules(draft);
@@ -71,6 +75,7 @@ public class TaxRateService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = FinanceCatalogs.CACHE, allEntries = true)
     public TaxRateResponse update(long id, TaxRateRequest request) {
         if (request.version() == null) {
             throw ApiException.invalid("version", "api.validation.required");
@@ -102,6 +107,7 @@ public class TaxRateService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = FinanceCatalogs.CACHE, allEntries = true)
     public TaxRateResponse changeStatus(long id, StatusRequest request) {
         TaxRateEntity entity = load(id);
         FinanceLocks.requireVersion(request.version(), entity.getVersion());
@@ -122,6 +128,7 @@ public class TaxRateService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = FinanceCatalogs.CACHE, allEntries = true)
     public TaxRateResponse makeDefault(long id, VersionRequest request) {
         locks.lockDefaults();
         TaxRateEntity target = load(id);
@@ -151,6 +158,7 @@ public class TaxRateService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = FinanceCatalogs.CACHE, allEntries = true)
     public void delete(long id) {
         TaxRateEntity entity = load(id);
         if (entity.isDefault()) {

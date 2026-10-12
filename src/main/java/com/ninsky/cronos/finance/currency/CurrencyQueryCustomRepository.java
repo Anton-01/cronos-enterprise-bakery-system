@@ -6,6 +6,7 @@ import com.ninsky.cronos.finance.shared.UserRefCustomRepository;
 import com.ninsky.cronos.infrastructure.web.paging.CatalogPage;
 import com.ninsky.cronos.infrastructure.web.paging.PageQuery;
 import lombok.RequiredArgsConstructor;
+import com.ninsky.cronos.infrastructure.persistence.jdbc.JdbcPages;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -44,10 +45,18 @@ public class CurrencyQueryCustomRepository {
                 .addValue("status", status == null ? null : status.name())
                 .addValue("limit", query.size())
                 .addValue("offset", query.offset());
-        Long total = jdbc.queryForObject("SELECT count(*) FROM currencies c" + FILTER, params, Long.class);
-        List<CurrencyResponse> content = jdbc.query(SELECT + FILTER + " ORDER BY " + query.orderBySql() + ", c.id ASC LIMIT :limit OFFSET :offset",
-                params, rowMapper());
-        return CatalogPage.of(content, query, total == null ? 0 : total);
+        // Page and total in one statement (performance-latency P1-3).
+        return JdbcPages.catalogPage(jdbc, "SELECT " + JdbcPages.TOTAL_COLUMN + ", " + SELECT.substring("SELECT ".length()) + FILTER
+                        + " ORDER BY " + query.orderBySql() + ", c.id ASC LIMIT :limit OFFSET :offset",
+                params, query, rowMapper(), "SELECT count(*) FROM currencies c" + FILTER);
+    }
+
+    /** Picker rows, default first (spec §9.1): only the picker columns. */
+    public List<CurrencyOption> catalog() {
+        return jdbc.query("SELECT c.id, c.code, c.name, c.symbol, c.decimal_places, c.symbol_position, c.is_default FROM currencies c"
+                        + " WHERE c.status = 'ACTIVE' ORDER BY c.is_default DESC, c.code ASC", new MapSqlParameterSource(),
+                (rs, rowNum) -> new CurrencyOption(rs.getLong("id"), rs.getString("code"), rs.getString("name"), rs.getString("symbol"),
+                        rs.getInt("decimal_places"), SymbolPosition.valueOf(rs.getString("symbol_position")), rs.getBoolean("is_default")));
     }
 
     public Optional<CurrencyResponse> find(long id) {

@@ -15,6 +15,7 @@ import com.ninsky.cronos.finance.settings.FinanceSettingsService;
 import com.ninsky.cronos.finance.settings.PricingSnapshotResolver;
 import com.ninsky.cronos.finance.settings.PricingSnapshotResolver.PricingInput;
 import com.ninsky.cronos.finance.shared.FinanceLocks;
+import com.ninsky.cronos.finance.shared.FinanceCatalogs;
 import com.ninsky.cronos.finance.shared.FinanceSettingsCache;
 import com.ninsky.cronos.finance.shared.FinanceStatus;
 import com.ninsky.cronos.finance.shared.StatusRequest;
@@ -91,7 +92,7 @@ import static org.mockito.Mockito.when;
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 @Import({CurrencyService.class, CurrencyQueryCustomRepository.class, TaxRateService.class, TaxRateQueryCustomRepository.class, FinanceSettingsService.class,
         PricingSnapshotResolver.class, FinanceLocks.class, FinanceLockCustomRepository.class, AdvisoryLockCustomRepository.class,
-        AuditLogCustomRepository.class, FinanceSettingsCache.class, UserRefCustomRepository.class, DefaultTaxRateExpiryJob.class,
+        AuditLogCustomRepository.class, FinanceSettingsCache.class, FinanceCatalogs.class, UserRefCustomRepository.class, DefaultTaxRateExpiryJob.class,
         JdbcAuditRecorder.class, CacheConfig.class, EncryptedStringConverter.class, EncryptedLocalDateConverter.class, FinancePostgresIT.Beans.class})
 class FinancePostgresIT {
 

@@ -4,6 +4,7 @@ import com.ninsky.cronos.domain.model.audit.AuditAction;
 import com.ninsky.cronos.domain.model.audit.AuditSeverity;
 import com.ninsky.cronos.finance.pricing.TaxFactorType;
 import com.ninsky.cronos.finance.shared.FinanceLocks;
+import com.ninsky.cronos.finance.shared.FinanceCatalogs;
 import com.ninsky.cronos.finance.shared.FinanceSettingsCache;
 import com.ninsky.cronos.finance.shared.FinanceStatus;
 import com.ninsky.cronos.finance.shared.StatusRequest;
@@ -58,6 +59,8 @@ class TaxRateServiceTest {
     @Mock
     private FinanceSettingsCache cache;
     @Mock
+    private FinanceCatalogs catalogs;
+    @Mock
     private AuditRecorder audit;
     @Mock
     private ActorProvider actors;
@@ -66,7 +69,7 @@ class TaxRateServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new TaxRateService(repository, queries, locks, cache, audit, actors, CLOCK);
+        service = new TaxRateService(repository, queries, locks, cache, catalogs, audit, actors, CLOCK);
         when(actors.require()).thenReturn(ACTOR);
         when(repository.saveAndFlush(any())).thenAnswer(inv -> inv.getArgument(0));
         when(queries.find(anyLong())).thenReturn(Optional.of(mock(TaxRateResponse.class)));
@@ -165,8 +168,8 @@ class TaxRateServiceTest {
 
     @Test
     void catalogUsesTheTenantDate() {
-        when(repository.findSelectable(FinanceStatus.ACTIVE, TODAY)).thenReturn(List.of(
-                taxRate(1, "IVA_16", TaxFactorType.TASA, "16", FROM, null, true, FinanceStatus.ACTIVE)));
+        when(catalogs.taxRates(TODAY)).thenReturn(List.of(
+                new TaxRateOption(1L, "IVA_16", "IVA 16%", TaxFactorType.TASA, new java.math.BigDecimal("16"), true)));
 
         assertThat(service.catalog()).extracting(TaxRateOption::code).containsExactly("IVA_16");
     }

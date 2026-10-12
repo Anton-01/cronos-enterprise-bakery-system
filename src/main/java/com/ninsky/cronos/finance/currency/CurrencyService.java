@@ -4,6 +4,7 @@ import com.ninsky.cronos.domain.model.audit.AuditAction;
 import com.ninsky.cronos.domain.model.audit.AuditSeverity;
 import com.ninsky.cronos.finance.shared.Changes;
 import com.ninsky.cronos.finance.shared.FinanceLocks;
+import com.ninsky.cronos.finance.shared.FinanceCatalogs;
 import com.ninsky.cronos.finance.shared.FinanceSettingsCache;
 import com.ninsky.cronos.finance.shared.FinanceStatus;
 import com.ninsky.cronos.finance.shared.StatusRequest;
@@ -19,6 +20,8 @@ import com.ninsky.cronos.infrastructure.exception.Violations;
 import com.ninsky.cronos.infrastructure.web.paging.CatalogPage;
 import com.ninsky.cronos.infrastructure.web.paging.PageQuery;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -49,12 +52,14 @@ public class CurrencyService {
         return queries.page(search, status, PageQuery.of(page, size, sort, CurrencyQueryCustomRepository.SORTS, CurrencyQueryCustomRepository.DEFAULT_SORT));
     }
 
-    @Transactional(readOnly = true)
+    /** Cached reference data (performance-latency P1-1); every currency write evicts it. */
+    @Cacheable(cacheNames = FinanceCatalogs.CACHE, key = "'currencies'")
     public List<CurrencyOption> catalog() {
-        return repository.findByStatusOrderByIsDefaultDescCodeAsc(FinanceStatus.ACTIVE).stream().map(CurrencyOption::of).toList();
+        return queries.catalog();
     }
 
     @Transactional
+    @CacheEvict(cacheNames = FinanceCatalogs.CACHE, allEntries = true)
     public CurrencyResponse create(CurrencyRequest request) {
         CurrencyDraft draft = CurrencyDraft.from(request);
         Violations violations = new Violations();
@@ -70,6 +75,7 @@ public class CurrencyService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = FinanceCatalogs.CACHE, allEntries = true)
     public CurrencyResponse update(long id, CurrencyRequest request) {
         if (request.version() == null) {
             throw ApiException.invalid("version", "api.validation.required");
@@ -102,6 +108,7 @@ public class CurrencyService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = FinanceCatalogs.CACHE, allEntries = true)
     public CurrencyResponse changeStatus(long id, StatusRequest request) {
         CurrencyEntity entity = load(id);
         FinanceLocks.requireVersion(request.version(), entity.getVersion());
@@ -122,6 +129,7 @@ public class CurrencyService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = FinanceCatalogs.CACHE, allEntries = true)
     public CurrencyResponse makeDefault(long id, VersionRequest request) {
         locks.lockDefaults();
         CurrencyEntity target = load(id);
@@ -151,6 +159,7 @@ public class CurrencyService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = FinanceCatalogs.CACHE, allEntries = true)
     public void delete(long id) {
         CurrencyEntity entity = load(id);
         if (entity.isDefault()) {
