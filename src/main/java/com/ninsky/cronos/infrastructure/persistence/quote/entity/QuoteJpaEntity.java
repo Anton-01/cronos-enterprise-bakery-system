@@ -13,6 +13,9 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.time.Instant;
+import java.time.LocalDate;
+import com.ninsky.cronos.quote.domain.QuoteRejectReason;
 
 @Entity
 @Table(name = "quotes")
@@ -126,4 +129,26 @@ public class QuoteJpaEntity extends AuditableEntity {
 
     @Column(name = "extra_fee_description", length = 200)
     private String extraFeeDescription;
+
+    @Column(name = "event_date")
+    private LocalDate eventDate;
+
+    @Column(name = "accepted_at")
+    private Instant acceptedAt;
+
+    @Column(name = "rejected_at")
+    private Instant rejectedAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "reject_reason", length = 32)
+    private QuoteRejectReason rejectReason;
+
+    @Column(name = "calendar_event_id")
+    private UUID calendarEventId;
+
+    @Column(name = "first_viewed_at")
+    private Instant firstViewedAt;
+
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
 }

@@ -1,6 +1,7 @@
 package com.ninsky.cronos.application.service.recipe;
 
-import com.ninsky.cronos.application.event.RecipeSharedEvent;
+import com.ninsky.cronos.application.event.RecipeShared;
+import com.ninsky.cronos.eventing.application.DomainEventPublisher;
 import com.ninsky.cronos.application.request.recipe.CreateRecipeShareRequest;
 import com.ninsky.cronos.application.response.recipe.*;
 import com.ninsky.cronos.domain.model.auth.UserProfile;
@@ -24,7 +25,6 @@ import com.ninsky.cronos.infrastructure.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -47,12 +47,12 @@ public class RecipeShareService {
     private final RecipeFileService recipeFileService;
     private final ActorProvider actors;
     private final UserProfileRepositoryPort userProfileRepository;
-    private final ApplicationEventPublisher eventPublisher;
+    private final DomainEventPublisher events;
     private final IngredientQueryCustomRepository ingredientQueries;
     private final UnitCatalog unitCatalog;
 
     @Value("${app.frontend.urlSharePublicRecipe}")
-    private String frontendUrlSharePublicRecipe;
+    private final String frontendUrlSharePublicRecipe;
 
     /**
      * The caller's links for a recipe they can see: their own recipes and the SYSTEM library (the public
@@ -80,7 +80,7 @@ public class RecipeShareService {
         share = shareRepository.save(share);
 
         if (request.recipientEmail() != null && !request.recipientEmail().isBlank()) {
-            eventPublisher.publishEvent(RecipeSharedEvent.builder().shareId(share.getId()).build());
+            events.publish(new RecipeShared(share.getId(), recipe.id(), userId));
         }
         return mapToResponse(share);
     }

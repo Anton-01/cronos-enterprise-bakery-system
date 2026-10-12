@@ -1,5 +1,6 @@
 package com.ninsky.cronos.infrastructure.security;
 
+import com.ninsky.cronos.eventing.application.TraceContexts;
 import com.ninsky.cronos.infrastructure.config.security.DpopConfig;
 import com.ninsky.cronos.infrastructure.security.blacklist.TokenBlacklistService;
 import com.ninsky.cronos.infrastructure.security.dpop.DpopProofValidator;
@@ -78,6 +79,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     );
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authToken);
+                    // Events published by this request now carry the actor and session (log MDC too).
+                    TraceContexts.current().ifPresent(trace ->
+                            TraceContexts.bind(trace.withActor(userDetails.getId(), jwtService.extractSessionId(jwt))));
                 }
             }
         } catch (Exception e) {

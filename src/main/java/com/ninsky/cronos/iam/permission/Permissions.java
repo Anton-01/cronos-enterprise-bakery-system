@@ -80,6 +80,19 @@ public final class Permissions {
     public static final String IAM_SECURITY_POLICY_READ = "IAM.SECURITY_POLICY.READ";
     public static final String IAM_SECURITY_POLICY_UPDATE = "IAM.SECURITY_POLICY.UPDATE";
 
+    /** Self-registration review (auth-quotes-calendar-notifications §3). */
+    public static final String IAM_REGISTRATION_READ = "IAM.REGISTRATION.READ";
+    public static final String IAM_REGISTRATION_DECIDE = "IAM.REGISTRATION.DECIDE";
+
+    /** Orders calendar (§5); owner-scoped like quotes. */
+    public static final String CALENDAR_EVENT_READ = "CALENDAR.EVENT.READ";
+    public static final String CALENDAR_EVENT_MANAGE = "CALENDAR.EVENT.MANAGE";
+
+    /** Transactional email catalog and system announcements (§7, §10). */
+    public static final String NOTIFICATION_EMAIL_TEMPLATE_READ = "NOTIFICATION.EMAIL_TEMPLATE.READ";
+    public static final String NOTIFICATION_EMAIL_TEMPLATE_TEST_SEND = "NOTIFICATION.EMAIL_TEMPLATE.TEST_SEND";
+    public static final String NOTIFICATION_BROADCAST_SEND = "NOTIFICATION.BROADCAST.SEND";
+
     /** Transitional alias kept in the token while the SPA still checks it (spec §1.4.4). */
     public static final String LEGACY_MANAGE_CATALOGS = "MANAGE_CATALOGS";
 

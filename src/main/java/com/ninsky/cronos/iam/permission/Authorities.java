@@ -60,6 +60,13 @@ public final class Authorities {
     public static final String IAM_AUDIT_EXPORT = "hasAuthority('IAM.AUDIT.EXPORT')";
     public static final String IAM_SECURITY_POLICY_READ = "hasAuthority('IAM.SECURITY_POLICY.READ')";
     public static final String IAM_SECURITY_POLICY_UPDATE = "hasAuthority('IAM.SECURITY_POLICY.UPDATE')";
+    public static final String IAM_REGISTRATION_READ = "hasAuthority('IAM.REGISTRATION.READ')";
+    public static final String IAM_REGISTRATION_DECIDE = "hasAuthority('IAM.REGISTRATION.DECIDE')";
+    public static final String CALENDAR_EVENT_READ = "hasAuthority('CALENDAR.EVENT.READ')";
+    public static final String CALENDAR_EVENT_MANAGE = "hasAuthority('CALENDAR.EVENT.MANAGE')";
+    public static final String NOTIFICATION_EMAIL_TEMPLATE_READ = "hasAuthority('NOTIFICATION.EMAIL_TEMPLATE.READ')";
+    public static final String NOTIFICATION_EMAIL_TEMPLATE_TEST_SEND = "hasAuthority('NOTIFICATION.EMAIL_TEMPLATE.TEST_SEND')";
+    public static final String NOTIFICATION_BROADCAST_SEND = "hasAuthority('NOTIFICATION.BROADCAST.SEND')";
 
     /** Permission catalog readers (spec §1.4.7). */
     public static final String PERMISSION_CATALOG_READ =

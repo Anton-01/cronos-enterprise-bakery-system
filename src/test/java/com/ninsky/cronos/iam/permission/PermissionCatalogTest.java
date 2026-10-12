@@ -12,13 +12,13 @@ class PermissionCatalogTest {
     void catalogIsAValidDagInCanonicalOrder() {
         PermissionCatalog.validate();
         assertThat(PermissionCatalog.all()).isSortedAccordingTo(PermissionDefinition.CANONICAL_ORDER);
-        assertThat(PermissionCatalog.codes()).hasSize(59);
+        assertThat(PermissionCatalog.codes()).hasSize(66);
     }
 
     @Test
     void everyNonReadActionDependsOnItsOwnReadExceptStandaloneOnes() {
         java.util.Set<String> standalone = java.util.Set.of(Permissions.FINANCE_SETTINGS_UPDATE, Permissions.GUIDE_PAN_MANAGE,
-                Permissions.GUIDE_CONTENT_MANAGE);
+                Permissions.GUIDE_CONTENT_MANAGE, Permissions.NOTIFICATION_BROADCAST_SEND);
         PermissionCatalog.all().stream()
                 .filter(d -> !d.isRead() && !standalone.contains(d.code()))
                 .forEach(d -> assertThat(d.dependsOn()).contains(d.module() + "." + d.resource() + ".READ"));

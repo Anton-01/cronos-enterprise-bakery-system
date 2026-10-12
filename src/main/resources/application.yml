@@ -60,7 +60,7 @@ spring:
       max-file-size: 26MB
       max-request-size: 27MB
   messages:
-    basename: i18n/messages,i18n/api,i18n/iam,i18n/security,i18n/finance,i18n/kitchen
+    basename: i18n/messages,i18n/api,i18n/iam,i18n/security,i18n/finance,i18n/kitchen,i18n/events,i18n/notification
     encoding: UTF-8
     fallback-to-system-locale: false
   web:
@@ -68,16 +68,6 @@ spring:
     locale-resolver: accept-header
     resources:
       add-mappings: false
-  security:
-    oauth2:
-      client:
-        registration:
-          google:
-            client-id: "dummy-client-id-local-dev.apps.googleusercontent.com"
-            client-secret: "dummy-client-secret-local-dev"
-            scope:
-              - email
-              - profile
   jackson:
     date-format: "yyyy-MM-dd HH:mm:ss"
     time-zone: America/Mexico_City

@@ -32,6 +32,20 @@ public enum ApiErrorCode {
     QUOTA_EXCEEDED(HttpStatus.CONFLICT),
     PRICE_BELOW_COST(HttpStatus.BAD_REQUEST),
     INVALID_SUBSTITUTION(HttpStatus.BAD_REQUEST),
+    // Authentication (auth-quotes-calendar-notifications §2.9)
+    INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED),
+    ACCOUNT_LOCKED(HttpStatus.UNAUTHORIZED),
+    ACCOUNT_PENDING_APPROVAL(HttpStatus.FORBIDDEN),
+    ACCOUNT_REJECTED(HttpStatus.FORBIDDEN),
+    ACCOUNT_DISABLED(HttpStatus.FORBIDDEN),
+    EMAIL_NOT_VERIFIED(HttpStatus.FORBIDDEN),
+    INVALID_TWO_FACTOR_CODE(HttpStatus.UNAUTHORIZED),
+    TWO_FACTOR_CHALLENGE_EXPIRED(HttpStatus.UNAUTHORIZED),
+    PASSWORD_POLICY_VIOLATION(HttpStatus.BAD_REQUEST),
+    PASSWORD_REUSED(HttpStatus.BAD_REQUEST),
+    /** 400 for links (reset, verification); thrown with a 401 override for sessions (unlock). */
+    INVALID_TOKEN(HttpStatus.BAD_REQUEST),
+    SESSION_LOCKED(HttpStatus.LOCKED),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR);
 
     private final HttpStatus status;

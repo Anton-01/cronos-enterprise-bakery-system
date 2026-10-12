@@ -5,7 +5,10 @@ import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.UUID;
 
 /** Password columns of {@code users} and {@code password_history}. */
@@ -44,9 +47,44 @@ public class CredentialCustomRepository {
                 new MapSqlParameterSource("id", userId).addValue("now", now), Integer.class);
     }
 
-    /** Clears the failed-attempt counter and stamps the login time. */
+    /** Clears the failed-attempt counter and window and stamps the login time. */
     public void recordSuccessfulLogin(UUID userId, LocalDateTime now) {
-        jdbc.update("UPDATE users SET failed_login_attempts = 0, last_login_at = :now WHERE id = :id",
+        jdbc.update("UPDATE users SET failed_login_attempts = 0, first_failed_at = NULL, last_login_at = :now WHERE id = :id",
                 new MapSqlParameterSource("id", userId).addValue("now", now));
+    }
+
+    /** Failure counters after one more failed sign-in. */
+    public record FailureState(int attempts, int lockCount, Instant lastLockedAt) {
+    }
+
+    /**
+     * Counts one failed sign-in inside a sliding window: a failure after the window started over restarts the count.
+     * Returns empty for an unknown user.
+     */
+    public Optional<FailureState> registerFailure(UUID userId, Instant now, Instant windowStart, LocalDateTime nowLocal) {
+        return jdbc.query("""
+                        UPDATE users SET
+                            failed_login_attempts = CASE WHEN first_failed_at IS NULL OR first_failed_at < :windowStart
+                                                         THEN 1 ELSE failed_login_attempts + 1 END,
+                            first_failed_at = CASE WHEN first_failed_at IS NULL OR first_failed_at < :windowStart
+                                                   THEN :now ELSE first_failed_at END,
+                            last_failed_login = :nowLocal
+                        WHERE id = :id
+                        RETURNING failed_login_attempts, lock_count, last_locked_at""",
+                new MapSqlParameterSource("id", userId)
+                        .addValue("now", Timestamp.from(now))
+                        .addValue("windowStart", Timestamp.from(windowStart))
+                        .addValue("nowLocal", nowLocal),
+                (rs, row) -> new FailureState(rs.getInt("failed_login_attempts"), rs.getInt("lock_count"),
+                        rs.getTimestamp("last_locked_at") == null ? null : rs.getTimestamp("last_locked_at").toInstant()))
+                .stream().findFirst();
+    }
+
+    /** Stamps lock number {@code lockCount} and clears the failure window. */
+    public void recordLock(UUID userId, int lockCount, Instant now) {
+        jdbc.update("""
+                        UPDATE users SET lock_count = :lockCount, last_locked_at = :now, failed_login_attempts = 0, first_failed_at = NULL
+                        WHERE id = :id""",
+                new MapSqlParameterSource("id", userId).addValue("lockCount", lockCount).addValue("now", Timestamp.from(now)));
     }
 }

@@ -1,5 +1,20 @@
 package com.ninsky.cronos.account.it;
 
+import com.ninsky.cronos.account.avatar.domain.AvatarReleased;
+import com.ninsky.cronos.eventing.infrastructure.EventTypeRegistry;
+import com.ninsky.cronos.eventing.infrastructure.EventingProperties;
+import com.ninsky.cronos.eventing.infrastructure.OutboxCustomRepository;
+import com.ninsky.cronos.eventing.infrastructure.OutboxDispatcher;
+import com.ninsky.cronos.eventing.infrastructure.OutboxDomainEventPublisher;
+import com.ninsky.cronos.eventing.infrastructure.OutboxRelay;
+import com.ninsky.cronos.eventing.infrastructure.OutboxSignal;
+import com.ninsky.cronos.eventing.infrastructure.SensitivePayloadCodec;
+import com.ninsky.cronos.iam.shared.ActorProvider;
+import com.ninsky.cronos.infrastructure.audit.AuditEntries;
+import com.ninsky.cronos.infrastructure.audit.AuditEntryRecorded;
+import com.ninsky.cronos.infrastructure.audit.AuditEntryWriter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import com.ninsky.cronos.account.avatar.infrastructure.AvatarObjectCleanupListener;
 import com.ninsky.cronos.account.avatar.infrastructure.AvatarUrlMapping;
 import com.ninsky.cronos.account.avatar.infrastructure.InMemoryAvatarStorage;
@@ -37,6 +52,9 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.time.Clock;
+import java.time.Duration;
+import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -45,8 +63,9 @@ import static org.mockito.Mockito.when;
 /**
  * JPA slice against a real PostgreSQL running every Flyway migration, so {@code ddl-auto=validate}
  * also proves the new entities match V6. Tests are NOT wrapped in a rolled-back test transaction:
- * AFTER_COMMIT behaviour (audit rows, avatar cleanup) needs real commits, driven via
- * {@link #tx}. Field encryption is replaced by an identity mock — it is not what is under test.
+ * after-commit effects (audit rows, avatar cleanup) travel through the outbox, so they need real commits, driven via
+ * {@link #tx}, and a drain of the relay ({@link #afterCommitEffects()}). Field encryption is replaced by an identity
+ * mock — it is not what is under test.
  */
 @Testcontainers(disabledWithoutDocker = true)
 @DataJpaTest(properties = {"spring.jpa.hibernate.ddl-auto=validate", "spring.flyway.enabled=true"})
@@ -57,6 +76,9 @@ import static org.mockito.Mockito.when;
         JpaFiscalDataRepository.class, FiscalDataMapperImpl.class,
         JpaUserAccountRepository.class, UserProfileMapperImpl.class, AvatarUrlMapping.class, AvatarObjectCleanupListener.class,
         SpringEventAuditTrail.class, AuditLogWriter.class, AuditLogRepositoryAdapter.class, AuditLogMapper.class,
+        AuditEntries.class, AuditEntryWriter.class,
+        OutboxCustomRepository.class, OutboxDomainEventPublisher.class, SensitivePayloadCodec.class, OutboxSignal.class,
+        OutboxDispatcher.class, OutboxRelay.class,
         AccountPostgresIT.Beans.class})
 abstract class AccountPostgresIT {
 
@@ -72,6 +94,10 @@ abstract class AccountPostgresIT {
     protected FieldEncryptionService fieldEncryptionService;
     @MockitoBean
     protected RequestContextUtil requestContextUtil;
+    @MockitoBean
+    protected ActorProvider actorProvider;
+    @Autowired
+    private OutboxRelay relay;
 
     @Autowired
     protected JdbcTemplate jdbc;
@@ -93,6 +119,31 @@ abstract class AccountPostgresIT {
         PiiMasker piiMasker() {
             return new PiiMasker();
         }
+
+        @Bean
+        Clock clock() {
+            return Clock.systemUTC();
+        }
+
+        @Bean
+        MeterRegistry meterRegistry() {
+            return new SimpleMeterRegistry();
+        }
+
+        @Bean
+        EventTypeRegistry eventTypeRegistry() {
+            return EventTypeRegistry.of(List.of(AuditEntryRecorded.class, AvatarReleased.class));
+        }
+
+        @Bean
+        EventingProperties eventingProperties() {
+            return new EventingProperties(false, Duration.ofMillis(500), 100, 4, Duration.ofMinutes(5), Duration.ofDays(30));
+        }
+    }
+
+    /** Runs the outbox consumers of what the committed transactions queued (audit rows, object cleanup). */
+    protected void afterCommitEffects() {
+        relay.drainNow();
     }
 
     @BeforeEach

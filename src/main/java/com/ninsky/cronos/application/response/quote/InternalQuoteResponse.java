@@ -5,6 +5,7 @@ import com.ninsky.cronos.finance.pricing.FinanceRoundingMode;
 import com.ninsky.cronos.finance.pricing.TaxFactorType;
 import lombok.Builder;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -38,5 +39,10 @@ public record InternalQuoteResponse(
         BigDecimal subtotal,
         BigDecimal taxAmount,
         // An ingredient price changed since the items were priced (kitchen §4.5); saving re-prices
-        boolean priceReviewRequired
+        boolean priceReviewRequired,
+        // Lifecycle (auth-quotes-calendar-notifications §4.2)
+        LocalDate eventDate,
+        LocalDateTime validUntil,
+        Integer viewsCount,
+        UUID calendarEventId
 ) {}

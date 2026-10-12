@@ -76,6 +76,7 @@ class ProfileAndAvatarPersistenceIT extends AccountPostgresIT {
             assertThat(avatarStorage.exists(oldKey)).as("still there before commit").isTrue();
             return null;
         });
+        afterCommitEffects();
 
         assertThat(avatarStorage.exists(oldKey)).isFalse();
         assertThat(avatarStorage.exists(newKey)).isTrue();
@@ -95,6 +96,7 @@ class ProfileAndAvatarPersistenceIT extends AccountPostgresIT {
             s.setRollbackOnly();
             return null;
         });
+        afterCommitEffects();
 
         assertThat(avatarStorage.exists(oldKey)).isTrue();
         assertThat(accounts.findById(userId).orElseThrow().avatarKey()).isEqualTo(oldKey);

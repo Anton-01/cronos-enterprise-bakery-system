@@ -6,6 +6,8 @@ import java.util.Set;
 
 /** Account lifecycle (spec §3.3). */
 public enum UserStatus {
+    /** Self-registered, waiting for an administrator (§3); only the registration review moves it on. */
+    PENDING_APPROVAL,
     PENDING_ACTIVATION,
     ACTIVE,
     SUSPENDED,
@@ -13,6 +15,7 @@ public enum UserStatus {
     DEACTIVATED;
 
     private static final Map<UserStatus, Set<UserStatus>> TRANSITIONS = Map.of(
+            PENDING_APPROVAL, EnumSet.of(ACTIVE, DEACTIVATED),
             PENDING_ACTIVATION, EnumSet.of(ACTIVE, DEACTIVATED),
             ACTIVE, EnumSet.of(SUSPENDED, LOCKED, DEACTIVATED),
             SUSPENDED, EnumSet.of(ACTIVE, DEACTIVATED),

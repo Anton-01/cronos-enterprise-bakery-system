@@ -2,6 +2,7 @@ package com.ninsky.cronos.application.response.quote;
 
 import lombok.Builder;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -31,5 +32,14 @@ public record BakerQuoteDetailResponse(
         String publicToken,
 
         List<InternalQuoteItemResponse> items,
-        List<QuoteAccessLogResponse> accessLogs
+        List<QuoteAccessLogResponse> accessLogs,
+        // Lifecycle (auth-quotes-calendar-notifications §4.2)
+        String currency,
+        String clientAddress,
+        String notes,
+        LocalDate eventDate,
+        UUID calendarEventId,
+        String rejectReason,
+        /** Oldest first. */
+        List<QuoteStatusChange> statusHistory
 ) {}

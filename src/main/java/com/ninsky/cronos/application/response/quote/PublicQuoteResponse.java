@@ -25,5 +25,8 @@ public record PublicQuoteResponse(
         List<PublicQuoteItemResponse> items,
         BigDecimal deliveryFee,
         BigDecimal extraFee,
-        String extraFeeDescription
+        String extraFeeDescription,
+        /** SENT or VIEWED, not expired and not revoked: the client may accept or reject. */
+        boolean canRespond,
+        LocalDate eventDate
 ) {}

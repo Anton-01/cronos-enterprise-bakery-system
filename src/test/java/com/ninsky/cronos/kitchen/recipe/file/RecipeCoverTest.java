@@ -74,7 +74,8 @@ class RecipeCoverTest {
     @BeforeEach
     void setUp() {
         KitchenProperties properties = new KitchenProperties(60, 500, 120, DataSize.ofMegabytes(25), 40, DataSize.ofMegabytes(500), 15, 30, "");
-        service = new RecipeFileService(recipes, files, revisions, storage, properties, audit, actors, CLOCK);
+        service = new RecipeFileService(recipes, files, revisions, storage, properties, audit, actors,
+                mock(com.ninsky.cronos.eventing.application.DomainEventPublisher.class), CLOCK);
         when(actors.require()).thenReturn(ACTOR);
         RecipeAggregate recipe = mock(RecipeAggregate.class);
         RecipeAggregate.Head head = mock(RecipeAggregate.Head.class);

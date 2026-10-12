@@ -8,6 +8,13 @@ import com.ninsky.cronos.kitchen.shared.Warned;
 import com.ninsky.cronos.application.response.quote.BakerQuoteDetailResponse;
 import com.ninsky.cronos.application.response.quote.InternalQuoteResponse;
 import com.ninsky.cronos.application.service.quote.QuoteService;
+import com.ninsky.cronos.domain.entity.enums.QuoteStatus;
+import com.ninsky.cronos.quote.api.AcceptQuoteRequest;
+import com.ninsky.cronos.quote.api.AcceptQuoteResponse;
+import com.ninsky.cronos.quote.api.QuoteStats;
+import com.ninsky.cronos.quote.api.RejectQuoteRequest;
+import com.ninsky.cronos.quote.api.ShareQuoteRequest;
+import com.ninsky.cronos.quote.application.QuoteLifecycleService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -15,12 +22,12 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -32,13 +39,25 @@ import java.util.UUID;
 public class QuoteController {
 
     private final QuoteService quoteService;
+    private final QuoteLifecycleService lifecycle;
 
     @GetMapping
-    @Operation(summary = "Get paginated quotes", description = "Retrieves a list of quotes belonging to the authenticated baker")
-    public ResponseEntity<ApiResponse<Page<InternalQuoteResponse>>> getQuotes(Authentication authentication, Pageable pageable) {
-        log.info("User {} requesting quotes list with pageable: {}", authentication.getName(), pageable);
-        Page<InternalQuoteResponse> response = quoteService.getQuotesByUser(authentication.getName(), pageable);
+    @Operation(summary = "Get paginated quotes",
+            description = "Quotes of the authenticated baker. search matches number, client name, phone or email (min 2 chars, "
+                    + "accent-insensitive); statuses filters (repeatable); sort whitelist: createdAt, quoteNumber, clientName, total, "
+                    + "eventDate, validUntil (default createdAt,desc).")
+    public ResponseEntity<ApiResponse<Page<InternalQuoteResponse>>> getQuotes(
+            Authentication authentication, @RequestParam(required = false) String search,
+            @RequestParam(required = false) List<QuoteStatus> statuses, @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size, @RequestParam(required = false) String sort) {
+        Page<InternalQuoteResponse> response = quoteService.page(authentication.getName(), search, statuses, page, size, sort);
         return ResponseEntity.ok(ApiResponse.success("Quotes retrieved successfully", response));
+    }
+
+    @GetMapping("/stats")
+    @Operation(summary = "Quote figures", description = "Counts per status, open value, accepted value (30 days), conversion (90 days) and quotes expiring within 3 days")
+    public ResponseEntity<ApiResponse<QuoteStats>> stats() {
+        return ResponseEntity.ok(ApiResponse.success(null, lifecycle.stats()));
     }
 
     @PostMapping
@@ -69,7 +88,7 @@ public class QuoteController {
     @PreAuthorize(Authorities.QUOTE_UPDATE)
     @Operation(summary = "Revoke public access", description = "Instantly disables the public link for a quote")
     public ResponseEntity<ApiResponse<Void>> revokeQuote(Authentication authentication, @PathVariable UUID quoteId) {
-        quoteService.revokeQuoteLink(authentication.getName(), quoteId);
+        lifecycle.revoke(quoteId);
         return ResponseEntity.ok(ApiResponse.success("Public link revoked successfully", null));
     }
 
@@ -77,8 +96,47 @@ public class QuoteController {
     @PreAuthorize(Authorities.QUOTE_SHARE)
     @Operation(summary = "Send quote via email", description = "Sends the public link of the quote to the client's email")
     public ResponseEntity<ApiResponse<Void>> sendQuoteEmail(Authentication authentication, @PathVariable UUID quoteId) {
-        quoteService.sendQuoteByEmail(authentication.getName(), quoteId);
-        return ResponseEntity.ok(ApiResponse.success("Quote sent via email successfully", null));
+        lifecycle.sendByEmail(quoteId);
+        return ResponseEntity.accepted().body(ApiResponse.success("Quote sent via email successfully", null));
+    }
+
+    @PostMapping("/{quoteId}/shared")
+    @PreAuthorize(Authorities.QUOTE_SHARE)
+    @Operation(summary = "Record an out-of-band share", description = "WhatsApp, copied link or own email: DRAFT/EXPIRED move to SENT")
+    public ResponseEntity<Void> shared(@PathVariable UUID quoteId, @Valid @RequestBody ShareQuoteRequest request) {
+        lifecycle.share(quoteId, request.channel());
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{quoteId}/accept")
+    @PreAuthorize(Authorities.QUOTE_UPDATE)
+    @Operation(summary = "Accept a quote", description = "Optionally schedules the order in the calendar in the same transaction")
+    public ResponseEntity<ApiResponse<AcceptQuoteResponse>> accept(@PathVariable UUID quoteId, @Valid @RequestBody AcceptQuoteRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(null, lifecycle.accept(quoteId, request)));
+    }
+
+    @PostMapping("/{quoteId}/reject")
+    @PreAuthorize(Authorities.QUOTE_UPDATE)
+    @Operation(summary = "Reject a quote", description = "OTHER requires a comment")
+    public ResponseEntity<Void> reject(@PathVariable UUID quoteId, @Valid @RequestBody RejectQuoteRequest request) {
+        lifecycle.reject(quoteId, request.reason(), request.comment());
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{quoteId}/duplicate")
+    @PreAuthorize(Authorities.QUOTE_CREATE)
+    @Operation(summary = "Duplicate a quote", description = "New DRAFT with the same client, items and fees")
+    public ResponseEntity<ApiResponse<InternalQuoteResponse>> duplicate(@PathVariable UUID quoteId) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Quote duplicated successfully", quoteService.toSummary(lifecycle.duplicate(quoteId))));
+    }
+
+    @DeleteMapping("/{quoteId}")
+    @PreAuthorize(Authorities.QUOTE_DELETE)
+    @Operation(summary = "Delete a draft", description = "Only DRAFT quotes can be deleted")
+    public ResponseEntity<Void> delete(@PathVariable UUID quoteId) {
+        lifecycle.delete(quoteId);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{quoteId}/details")

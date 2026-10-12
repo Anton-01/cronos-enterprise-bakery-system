@@ -17,16 +17,18 @@ import java.util.concurrent.TimeUnit;
 @Service
 public class GcsStorageAdapter implements StoragePort {
 
-    @Value("${gcp.project-id}")
-    private String projectId;
-
-    @Value("${gcp.bucket-name}")
-    private String bucketName;
-
-    @Value("${gcp.credentials-file}")
-    private Resource credentialsResource;
+    private final String projectId;
+    private final String bucketName;
+    private final Resource credentialsResource;
 
     private Storage storage;
+
+    public GcsStorageAdapter(@Value("${gcp.project-id}") String projectId, @Value("${gcp.bucket-name}") String bucketName,
+                             @Value("${gcp.credentials-file}") Resource credentialsResource) {
+        this.projectId = projectId;
+        this.bucketName = bucketName;
+        this.credentialsResource = credentialsResource;
+    }
 
     @PostConstruct
     private void init() throws IOException {

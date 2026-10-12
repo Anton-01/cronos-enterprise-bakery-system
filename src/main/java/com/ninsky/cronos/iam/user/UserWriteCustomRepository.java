@@ -45,6 +45,32 @@ public class UserWriteCustomRepository {
                 params.addValue("profileId", UUID.randomUUID()));
     }
 
+    /**
+     * Self-registered user (§2.4): PENDING_APPROVAL, email unverified, no roles, the accepted terms on record, the
+     * password already chosen; plus its profile row and first password-history entry.
+     */
+    public void insertSelfRegistered(UUID id, UserProfile profile, String passwordHash, String termsVersion, Instant now) {
+        var params = profileParams(id, profile, null, now)
+                .addValue("password", passwordHash)
+                .addValue("terms", termsVersion)
+                .addValue("now", java.sql.Timestamp.from(now))
+                .addValue("actorName", profile.username());
+        jdbc.update("""
+                INSERT INTO users (id, username, email, email_blind_index, password, enabled, account_non_expired,
+                                   account_non_locked, credentials_non_expired, email_verified, failed_login_attempts,
+                                   password_needs_change, two_factor_enabled, created_at, created_by, password_changed_at,
+                                   locale, status, require_two_factor, access_version, version, terms_version, terms_accepted_at)
+                VALUES (:id, :username, :email, :emailIndex, :password, TRUE, TRUE, TRUE, TRUE, FALSE, 0, FALSE,
+                        FALSE, :nowLocal, :actorName, :nowLocal, :locale, 'PENDING_APPROVAL', FALSE, 0, 0, :terms, :now)""", params);
+        jdbc.update("""
+                INSERT INTO user_profiles (id, user_id, first_name, last_name, phone_number, email_notifications,
+                                           push_notifications, sms_notifications, created_at, created_by, language)
+                VALUES (:profileId, :id, :firstName, :lastName, :phone, TRUE, TRUE, FALSE, :nowLocal, :actorName, :locale)""",
+                params.addValue("profileId", UUID.randomUUID()));
+        jdbc.update("INSERT INTO password_history (id, user_id, password_hash, changed_at) VALUES (:historyId, :id, :password, :nowLocal)",
+                params.addValue("historyId", UUID.randomUUID()));
+    }
+
     /** Full profile replace; email change clears {@code email_verified}. @return false on a stale version */
     public boolean update(UUID id, UserProfile profile, boolean emailChanged, UUID actorId, Instant now, long expectedVersion) {
         var params = profileParams(id, profile, actorId, now)

@@ -71,6 +71,7 @@ class FiscalDataPersistenceIT extends AccountPostgresIT {
             assertThat(auditRows(userId)).as("nothing before commit").isZero();
             return null;
         });
+        afterCommitEffects();
 
         assertThat(auditRows(userId)).isEqualTo(1);
         Map<String, Object> row = jdbc.queryForMap(
@@ -89,6 +90,7 @@ class FiscalDataPersistenceIT extends AccountPostgresIT {
             s.setRollbackOnly();
             return null;
         });
+        afterCommitEffects();
 
         assertThat(auditRows(userId)).isZero();
     }

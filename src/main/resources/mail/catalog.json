@@ -1,0 +1,2339 @@
+{
+  "version": 1,
+  "templates": [
+    {
+      "key": "auth.registration-received",
+      "audience": "USER",
+      "transactional": true,
+      "trigger": "RegistrationSubmittedEvent",
+      "description": "Confirms a self-registration and explains that an administrator reviews it.",
+      "variables": [
+        {
+          "name": "displayName",
+          "description": "Recipient's display name",
+          "sample": "Ana López",
+          "kind": "text"
+        },
+        {
+          "name": "reference",
+          "description": "Registration reference",
+          "sample": "REG-2026-000042",
+          "kind": "text"
+        }
+      ],
+      "locales": {
+        "es-MX": {
+          "subject": "Recibimos tu solicitud de registro",
+          "preheader": "Un administrador la revisará pronto.",
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "Recibimos tu solicitud"
+            },
+            {
+              "type": "paragraph",
+              "text": "Hola, {{ displayName }}:"
+            },
+            {
+              "type": "paragraph",
+              "text": "Gracias por registrarte en {{ brandName }}. Un administrador revisará tu solicitud y te avisaremos por correo cuando esté aprobada."
+            },
+            {
+              "type": "details",
+              "rows": [
+                {
+                  "label": "Referencia",
+                  "value": "{{ reference }}"
+                }
+              ]
+            },
+            {
+              "type": "callout",
+              "tone": "info",
+              "text": "Si te pedimos confirmar tu correo, hazlo desde el mensaje que te enviamos por separado."
+            },
+            {
+              "type": "signature",
+              "text": "El equipo de {{ brandName }}"
+            }
+          ]
+        },
+        "en": {
+          "subject": "We received your registration",
+          "preheader": "An administrator will review it soon.",
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "We received your request"
+            },
+            {
+              "type": "paragraph",
+              "text": "Hi {{ displayName }},"
+            },
+            {
+              "type": "paragraph",
+              "text": "Thanks for signing up for {{ brandName }}. An administrator will review your request and we will email you once it is approved."
+            },
+            {
+              "type": "details",
+              "rows": [
+                {
+                  "label": "Reference",
+                  "value": "{{ reference }}"
+                }
+              ]
+            },
+            {
+              "type": "callout",
+              "tone": "info",
+              "text": "If we asked you to confirm your email, use the separate message we sent you."
+            },
+            {
+              "type": "signature",
+              "text": "The {{ brandName }} team"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "key": "auth.email-verification",
+      "audience": "USER",
+      "transactional": true,
+      "trigger": "EmailVerificationRequestedEvent",
+      "description": "Single-use link (24 h) that confirms the address belongs to the user.",
+      "variables": [
+        {
+          "name": "displayName",
+          "description": "Recipient's display name",
+          "sample": "Ana López",
+          "kind": "text"
+        },
+        {
+          "name": "verifyUrl",
+          "description": "Verification link",
+          "sample": "https://app.cronos.mx/auth/verify-email?token=sample",
+          "kind": "url"
+        },
+        {
+          "name": "expiresAt",
+          "description": "Link expiry, formatted",
+          "sample": "11 de octubre de 2026, 10:00",
+          "kind": "text"
+        }
+      ],
+      "locales": {
+        "es-MX": {
+          "subject": "Confirma tu correo electrónico",
+          "preheader": "Un clic y listo.",
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "Confirma tu correo"
+            },
+            {
+              "type": "paragraph",
+              "text": "Hola, {{ displayName }}:"
+            },
+            {
+              "type": "paragraph",
+              "text": "Confirma que esta dirección te pertenece."
+            },
+            {
+              "type": "button",
+              "label": "Confirmar correo",
+              "url": "{{ verifyUrl }}"
+            },
+            {
+              "type": "callout",
+              "tone": "info",
+              "text": "El enlace vence el {{ expiresAt }} y solo funciona una vez."
+            },
+            {
+              "type": "paragraph",
+              "text": "Si el botón no funciona, copia este enlace en tu navegador: {{ verifyUrl }}"
+            },
+            {
+              "type": "paragraph",
+              "text": "Si no fuiste tú, ignora este mensaje o escríbenos a {{ supportEmail }}."
+            },
+            {
+              "type": "signature",
+              "text": "El equipo de {{ brandName }}"
+            }
+          ]
+        },
+        "en": {
+          "subject": "Confirm your email address",
+          "preheader": "One click and you are done.",
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "Confirm your email"
+            },
+            {
+              "type": "paragraph",
+              "text": "Hi {{ displayName }},"
+            },
+            {
+              "type": "paragraph",
+              "text": "Please confirm that this address belongs to you."
+            },
+            {
+              "type": "button",
+              "label": "Confirm email",
+              "url": "{{ verifyUrl }}"
+            },
+            {
+              "type": "callout",
+              "tone": "info",
+              "text": "The link expires on {{ expiresAt }} and works only once."
+            },
+            {
+              "type": "paragraph",
+              "text": "If the button does not work, paste this link into your browser: {{ verifyUrl }}"
+            },
+            {
+              "type": "paragraph",
+              "text": "If this wasn't you, ignore this message or write to {{ supportEmail }}."
+            },
+            {
+              "type": "signature",
+              "text": "The {{ brandName }} team"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "key": "admin.registration-pending",
+      "audience": "ADMIN",
+      "transactional": false,
+      "trigger": "RegistrationSubmittedEvent",
+      "description": "Tells reviewers that a registration waits for a decision.",
+      "variables": [
+        {
+          "name": "applicantName",
+          "description": "Applicant's name",
+          "sample": "Ana López",
+          "kind": "text"
+        },
+        {
+          "name": "applicantEmail",
+          "description": "Applicant's email, masked",
+          "sample": "a***@cronos.mx",
+          "kind": "text"
+        },
+        {
+          "name": "reference",
+          "description": "Registration reference",
+          "sample": "REG-2026-000042",
+          "kind": "text"
+        },
+        {
+          "name": "reviewUrl",
+          "description": "Review queue link",
+          "sample": "https://app.cronos.mx/cronos/admin/solicitudes-registro",
+          "kind": "url"
+        }
+      ],
+      "locales": {
+        "es-MX": {
+          "subject": "Nueva solicitud de registro: {{ applicantName }}",
+          "preheader": "Hay una cuenta esperando tu revisión.",
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "Solicitud de registro pendiente"
+            },
+            {
+              "type": "paragraph",
+              "text": "{{ applicantName }} pidió una cuenta y espera aprobación."
+            },
+            {
+              "type": "details",
+              "rows": [
+                {
+                  "label": "Solicitante",
+                  "value": "{{ applicantName }}"
+                },
+                {
+                  "label": "Correo",
+                  "value": "{{ applicantEmail }}"
+                },
+                {
+                  "label": "Referencia",
+                  "value": "{{ reference }}"
+                }
+              ]
+            },
+            {
+              "type": "button",
+              "label": "Revisar solicitudes",
+              "url": "{{ reviewUrl }}"
+            },
+            {
+              "type": "signature",
+              "text": "El equipo de {{ brandName }}"
+            }
+          ]
+        },
+        "en": {
+          "subject": "New registration request: {{ applicantName }}",
+          "preheader": "An account is waiting for your review.",
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "Registration pending review"
+            },
+            {
+              "type": "paragraph",
+              "text": "{{ applicantName }} asked for an account and is waiting for approval."
+            },
+            {
+              "type": "details",
+              "rows": [
+                {
+                  "label": "Applicant",
+                  "value": "{{ applicantName }}"
+                },
+                {
+                  "label": "Email",
+                  "value": "{{ applicantEmail }}"
+                },
+                {
+                  "label": "Reference",
+                  "value": "{{ reference }}"
+                }
+              ]
+            },
+            {
+              "type": "button",
+              "label": "Review requests",
+              "url": "{{ reviewUrl }}"
+            },
+            {
+              "type": "signature",
+              "text": "The {{ brandName }} team"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "key": "auth.account-approved",
+      "audience": "USER",
+      "transactional": true,
+      "trigger": "RegistrationApprovedEvent",
+      "description": "Welcome email once an administrator approves the account.",
+      "variables": [
+        {
+          "name": "displayName",
+          "description": "Recipient's display name",
+          "sample": "Ana López",
+          "kind": "text"
+        },
+        {
+          "name": "signInUrl",
+          "description": "Sign-in link",
+          "sample": "https://app.cronos.mx/auth/login",
+          "kind": "url"
+        }
+      ],
+      "locales": {
+        "es-MX": {
+          "subject": "¡Tu cuenta fue aprobada!",
+          "preheader": "Ya puedes iniciar sesión.",
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "¡Bienvenido a {{ brandName }}!"
+            },
+            {
+              "type": "paragraph",
+              "text": "Hola, {{ displayName }}:"
+            },
+            {
+              "type": "paragraph",
+              "text": "Un administrador aprobó tu cuenta. Ya puedes iniciar sesión con tu usuario o tu correo."
+            },
+            {
+              "type": "button",
+              "label": "Iniciar sesión",
+              "url": "{{ signInUrl }}"
+            },
+            {
+              "type": "signature",
+              "text": "El equipo de {{ brandName }}"
+            }
+          ]
+        },
+        "en": {
+          "subject": "Your account was approved!",
+          "preheader": "You can sign in now.",
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "Welcome to {{ brandName }}!"
+            },
+            {
+              "type": "paragraph",
+              "text": "Hi {{ displayName }},"
+            },
+            {
+              "type": "paragraph",
+              "text": "An administrator approved your account. You can now sign in with your username or email."
+            },
+            {
+              "type": "button",
+              "label": "Sign in",
+              "url": "{{ signInUrl }}"
+            },
+            {
+              "type": "signature",
+              "text": "The {{ brandName }} team"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "key": "auth.account-rejected",
+      "audience": "USER",
+      "transactional": true,
+      "trigger": "RegistrationRejectedEvent",
+      "description": "Sent only when the reviewer chose to notify the applicant.",
+      "variables": [
+        {
+          "name": "displayName",
+          "description": "Recipient's display name",
+          "sample": "Ana López",
+          "kind": "text"
+        },
+        {
+          "name": "reason",
+          "description": "Localised rejection reason",
+          "sample": "Información incompleta",
+          "kind": "text"
+        },
+        {
+          "name": "comment",
+          "description": "Reviewer's comment (may be empty)",
+          "sample": "Falta el nombre del negocio.",
+          "kind": "text"
+        }
+      ],
+      "locales": {
+        "es-MX": {
+          "subject": "Sobre tu solicitud de registro",
+          "preheader": "No pudimos aprobar tu cuenta.",
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "No pudimos aprobar tu solicitud"
+            },
+            {
+              "type": "paragraph",
+              "text": "Hola, {{ displayName }}:"
+            },
+            {
+              "type": "paragraph",
+              "text": "Revisamos tu solicitud de registro y por ahora no podemos aprobarla."
+            },
+            {
+              "type": "details",
+              "rows": [
+                {
+                  "label": "Motivo",
+                  "value": "{{ reason }}"
+                },
+                {
+                  "label": "Comentario",
+                  "value": "{{ comment }}"
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "text": "Si crees que se trata de un error, escríbenos a {{ supportEmail }}."
+            },
+            {
+              "type": "signature",
+              "text": "El equipo de {{ brandName }}"
+            }
+          ]
+        },
+        "en": {
+          "subject": "About your registration",
+          "preheader": "We could not approve your account.",
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "We could not approve your request"
+            },
+            {
+              "type": "paragraph",
+              "text": "Hi {{ displayName }},"
+            },
+            {
+              "type": "paragraph",
+              "text": "We reviewed your registration request and cannot approve it at this time."
+            },
+            {
+              "type": "details",
+              "rows": [
+                {
+                  "label": "Reason",
+                  "value": "{{ reason }}"
+                },
+                {
+                  "label": "Comment",
+                  "value": "{{ comment }}"
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "text": "If you think this is a mistake, write to {{ supportEmail }}."
+            },
+            {
+              "type": "signature",
+              "text": "The {{ brandName }} team"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "key": "auth.password-reset",
+      "audience": "USER",
+      "transactional": true,
+      "trigger": "PasswordResetRequestedEvent",
+      "description": "Single-use password recovery link.",
+      "variables": [
+        {
+          "name": "displayName",
+          "description": "Recipient's display name",
+          "sample": "Ana López",
+          "kind": "text"
+        },
+        {
+          "name": "resetUrl",
+          "description": "Reset link",
+          "sample": "https://app.cronos.mx/auth/reset-password?token=sample",
+          "kind": "url"
+        },
+        {
+          "name": "expiresAt",
+          "description": "Link expiry, formatted",
+          "sample": "10 de octubre de 2026, 18:30",
+          "kind": "text"
+        }
+      ],
+      "locales": {
+        "es-MX": {
+          "subject": "Restablece tu contraseña",
+          "preheader": "El enlace vence pronto.",
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "Restablecer contraseña"
+            },
+            {
+              "type": "paragraph",
+              "text": "Hola, {{ displayName }}:"
+            },
+            {
+              "type": "paragraph",
+              "text": "Recibimos una solicitud para restablecer la contraseña de tu cuenta."
+            },
+            {
+              "type": "button",
+              "label": "Elegir nueva contraseña",
+              "url": "{{ resetUrl }}"
+            },
+            {
+              "type": "callout",
+              "tone": "warning",
+              "text": "El enlace vence el {{ expiresAt }} y solo funciona una vez. Al cambiarla se cerrarán todas tus sesiones."
+            },
+            {
+              "type": "paragraph",
+              "text": "Si el botón no funciona, copia este enlace en tu navegador: {{ resetUrl }}"
+            },
+            {
+              "type": "paragraph",
+              "text": "Si no fuiste tú, ignora este mensaje o escríbenos a {{ supportEmail }}."
+            },
+            {
+              "type": "signature",
+              "text": "El equipo de {{ brandName }}"
+            }
+          ]
+        },
+        "en": {
+          "subject": "Reset your password",
+          "preheader": "The link expires soon.",
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "Reset your password"
+            },
+            {
+              "type": "paragraph",
+              "text": "Hi {{ displayName }},"
+            },
+            {
+              "type": "paragraph",
+              "text": "We received a request to reset your account password."
+            },
+            {
+              "type": "button",
+              "label": "Choose a new password",
+              "url": "{{ resetUrl }}"
+            },
+            {
+              "type": "callout",
+              "tone": "warning",
+              "text": "The link expires on {{ expiresAt }} and works only once. Changing it signs you out everywhere."
+            },
+            {
+              "type": "paragraph",
+              "text": "If the button does not work, paste this link into your browser: {{ resetUrl }}"
+            },
+            {
+              "type": "paragraph",
+              "text": "If this wasn't you, ignore this message or write to {{ supportEmail }}."
+            },
+            {
+              "type": "signature",
+              "text": "The {{ brandName }} team"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "key": "auth.password-changed",
+      "audience": "USER",
+      "transactional": true,
+      "trigger": "PasswordChangedEvent",
+      "description": "Security notice after any password change or reset.",
+      "variables": [
+        {
+          "name": "displayName",
+          "description": "Recipient's display name",
+          "sample": "Ana López",
+          "kind": "text"
+        },
+        {
+          "name": "changedAt",
+          "description": "When it changed, formatted",
+          "sample": "10 de octubre de 2026, 18:05",
+          "kind": "text"
+        }
+      ],
+      "locales": {
+        "es-MX": {
+          "subject": "Tu contraseña cambió",
+          "preheader": "Aviso de seguridad.",
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "Contraseña actualizada"
+            },
+            {
+              "type": "paragraph",
+              "text": "Hola, {{ displayName }}:"
+            },
+            {
+              "type": "paragraph",
+              "text": "La contraseña de tu cuenta cambió el {{ changedAt }}."
+            },
+            {
+              "type": "callout",
+              "tone": "warning",
+              "text": "Si no fuiste tú, restablécela de inmediato y escríbenos a {{ supportEmail }}."
+            },
+            {
+              "type": "signature",
+              "text": "El equipo de {{ brandName }}"
+            }
+          ]
+        },
+        "en": {
+          "subject": "Your password changed",
+          "preheader": "Security notice.",
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "Password updated"
+            },
+            {
+              "type": "paragraph",
+              "text": "Hi {{ displayName }},"
+            },
+            {
+              "type": "paragraph",
+              "text": "Your account password changed on {{ changedAt }}."
+            },
+            {
+              "type": "callout",
+              "tone": "warning",
+              "text": "If this wasn't you, reset it right away and write to {{ supportEmail }}."
+            },
+            {
+              "type": "signature",
+              "text": "The {{ brandName }} team"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "key": "auth.account-locked",
+      "audience": "USER",
+      "transactional": true,
+      "trigger": "AccountLockedEvent",
+      "description": "Too many failed sign-ins locked the account temporarily.",
+      "variables": [
+        {
+          "name": "displayName",
+          "description": "Recipient's display name",
+          "sample": "Ana López",
+          "kind": "text"
+        },
+        {
+          "name": "lockedUntil",
+          "description": "End of the lock, formatted",
+          "sample": "10 de octubre de 2026, 18:45",
+          "kind": "text"
+        },
+        {
+          "name": "resetUrl",
+          "description": "Forgot-password page",
+          "sample": "https://app.cronos.mx/auth/forgot-password",
+          "kind": "url"
+        }
+      ],
+      "locales": {
+        "es-MX": {
+          "subject": "Bloqueamos temporalmente tu cuenta",
+          "preheader": "Demasiados intentos fallidos.",
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "Cuenta bloqueada temporalmente"
+            },
+            {
+              "type": "paragraph",
+              "text": "Hola, {{ displayName }}:"
+            },
+            {
+              "type": "paragraph",
+              "text": "Detectamos varios intentos fallidos de inicio de sesión y bloqueamos tu cuenta hasta el {{ lockedUntil }}."
+            },
+            {
+              "type": "paragraph",
+              "text": "Si fuiste tú y olvidaste tu contraseña, puedes restablecerla; eso también desbloquea la cuenta."
+            },
+            {
+              "type": "button",
+              "label": "Restablecer contraseña",
+              "url": "{{ resetUrl }}"
+            },
+            {
+              "type": "callout",
+              "tone": "danger",
+              "text": "Si no fuiste tú, alguien podría estar intentando entrar. Cambia tu contraseña y avísanos a {{ supportEmail }}."
+            },
+            {
+              "type": "signature",
+              "text": "El equipo de {{ brandName }}"
+            }
+          ]
+        },
+        "en": {
+          "subject": "We temporarily locked your account",
+          "preheader": "Too many failed attempts.",
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "Account temporarily locked"
+            },
+            {
+              "type": "paragraph",
+              "text": "Hi {{ displayName }},"
+            },
+            {
+              "type": "paragraph",
+              "text": "We noticed several failed sign-in attempts and locked your account until {{ lockedUntil }}."
+            },
+            {
+              "type": "paragraph",
+              "text": "If it was you and you forgot your password, you can reset it; that also unlocks the account."
+            },
+            {
+              "type": "button",
+              "label": "Reset password",
+              "url": "{{ resetUrl }}"
+            },
+            {
+              "type": "callout",
+              "tone": "danger",
+              "text": "If it wasn't you, someone may be trying to get in. Change your password and tell us at {{ supportEmail }}."
+            },
+            {
+              "type": "signature",
+              "text": "The {{ brandName }} team"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "key": "auth.new-sign-in",
+      "audience": "USER",
+      "transactional": false,
+      "trigger": "NewDeviceSignInEvent",
+      "description": "Sign-in from a device not seen in the last 90 days.",
+      "variables": [
+        {
+          "name": "displayName",
+          "description": "Recipient's display name",
+          "sample": "Ana López",
+          "kind": "text"
+        },
+        {
+          "name": "device",
+          "description": "Browser and operating system",
+          "sample": "Chrome en Windows",
+          "kind": "text"
+        },
+        {
+          "name": "location",
+          "description": "Approximate location",
+          "sample": "Ciudad de México",
+          "kind": "text"
+        },
+        {
+          "name": "ipAddress",
+          "description": "IP address",
+          "sample": "201.141.0.10",
+          "kind": "text"
+        },
+        {
+          "name": "signedInAt",
+          "description": "When, formatted",
+          "sample": "10 de octubre de 2026, 18:00",
+          "kind": "text"
+        },
+        {
+          "name": "securityUrl",
+          "description": "Sessions page",
+          "sample": "https://app.cronos.mx/cronos/cuenta/seguridad",
+          "kind": "url"
+        }
+      ],
+      "locales": {
+        "es-MX": {
+          "subject": "Nuevo inicio de sesión en tu cuenta",
+          "preheader": "¿Fuiste tú?",
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "Nuevo inicio de sesión"
+            },
+            {
+              "type": "paragraph",
+              "text": "Hola, {{ displayName }}:"
+            },
+            {
+              "type": "paragraph",
+              "text": "Alguien inició sesión en tu cuenta desde un dispositivo nuevo."
+            },
+            {
+              "type": "details",
+              "rows": [
+                {
+                  "label": "Dispositivo",
+                  "value": "{{ device }}"
+                },
+                {
+                  "label": "Ubicación",
+                  "value": "{{ location }}"
+                },
+                {
+                  "label": "IP",
+                  "value": "{{ ipAddress }}"
+                },
+                {
+                  "label": "Fecha",
+                  "value": "{{ signedInAt }}"
+                }
+              ]
+            },
+            {
+              "type": "button",
+              "label": "Revisar mis sesiones",
+              "url": "{{ securityUrl }}"
+            },
+            {
+              "type": "callout",
+              "tone": "warning",
+              "text": "Si no fuiste tú, cierra esa sesión y cambia tu contraseña."
+            },
+            {
+              "type": "signature",
+              "text": "El equipo de {{ brandName }}"
+            }
+          ]
+        },
+        "en": {
+          "subject": "New sign-in to your account",
+          "preheader": "Was it you?",
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "New sign-in"
+            },
+            {
+              "type": "paragraph",
+              "text": "Hi {{ displayName }},"
+            },
+            {
+              "type": "paragraph",
+              "text": "Someone signed in to your account from a new device."
+            },
+            {
+              "type": "details",
+              "rows": [
+                {
+                  "label": "Device",
+                  "value": "{{ device }}"
+                },
+                {
+                  "label": "Location",
+                  "value": "{{ location }}"
+                },
+                {
+                  "label": "IP",
+                  "value": "{{ ipAddress }}"
+                },
+                {
+                  "label": "When",
+                  "value": "{{ signedInAt }}"
+                }
+              ]
+            },
+            {
+              "type": "button",
+              "label": "Review my sessions",
+              "url": "{{ securityUrl }}"
+            },
+            {
+              "type": "callout",
+              "tone": "warning",
+              "text": "If it wasn't you, sign that session out and change your password."
+            },
+            {
+              "type": "signature",
+              "text": "The {{ brandName }} team"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "key": "quote.sent-to-client",
+      "audience": "CLIENT",
+      "transactional": true,
+      "trigger": "QuoteSentEvent(channel=EMAIL)",
+      "description": "The baker's quote, with the public link, for their client.",
+      "variables": [
+        {
+          "name": "clientName",
+          "description": "Client's name",
+          "sample": "María Pérez",
+          "kind": "text"
+        },
+        {
+          "name": "bakerName",
+          "description": "Baker or business name",
+          "sample": "Pastelería Luna",
+          "kind": "text"
+        },
+        {
+          "name": "quoteNumber",
+          "description": "Quote number",
+          "sample": "CR-1A2B-202610101800",
+          "kind": "text"
+        },
+        {
+          "name": "total",
+          "description": "Total with currency",
+          "sample": "$2,450.00 MXN",
+          "kind": "text"
+        },
+        {
+          "name": "validUntil",
+          "description": "Valid until, formatted",
+          "sample": "24 de octubre de 2026",
+          "kind": "text"
+        },
+        {
+          "name": "quoteUrl",
+          "description": "Public quote link",
+          "sample": "https://app.cronos.mx/cronos/cotizaciones/ver/sample",
+          "kind": "url"
+        }
+      ],
+      "locales": {
+        "es-MX": {
+          "subject": "{{ bakerName }} te envió la cotización {{ quoteNumber }}",
+          "preheader": "Revísala y respóndela en línea.",
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "Tu cotización está lista"
+            },
+            {
+              "type": "paragraph",
+              "text": "Hola, {{ clientName }}:"
+            },
+            {
+              "type": "paragraph",
+              "text": "{{ bakerName }} preparó una cotización para ti. Puedes revisarla, aceptarla o rechazarla en línea."
+            },
+            {
+              "type": "details",
+              "rows": [
+                {
+                  "label": "Cotización",
+                  "value": "{{ quoteNumber }}"
+                },
+                {
+                  "label": "Total",
+                  "value": "{{ total }}"
+                },
+                {
+                  "label": "Vigencia",
+                  "value": "{{ validUntil }}"
+                }
+              ]
+            },
+            {
+              "type": "button",
+              "label": "Ver cotización",
+              "url": "{{ quoteUrl }}"
+            },
+            {
+              "type": "paragraph",
+              "text": "Si el botón no funciona, copia este enlace en tu navegador: {{ quoteUrl }}"
+            },
+            {
+              "type": "signature",
+              "text": "{{ bakerName }}"
+            }
+          ]
+        },
+        "en": {
+          "subject": "{{ bakerName }} sent you quote {{ quoteNumber }}",
+          "preheader": "Review it and reply online.",
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "Your quote is ready"
+            },
+            {
+              "type": "paragraph",
+              "text": "Hi {{ clientName }},"
+            },
+            {
+              "type": "paragraph",
+              "text": "{{ bakerName }} prepared a quote for you. You can review, accept or decline it online."
+            },
+            {
+              "type": "details",
+              "rows": [
+                {
+                  "label": "Quote",
+                  "value": "{{ quoteNumber }}"
+                },
+                {
+                  "label": "Total",
+                  "value": "{{ total }}"
+                },
+                {
+                  "label": "Valid until",
+                  "value": "{{ validUntil }}"
+                }
+              ]
+            },
+            {
+              "type": "button",
+              "label": "View quote",
+              "url": "{{ quoteUrl }}"
+            },
+            {
+              "type": "paragraph",
+              "text": "If the button does not work, paste this link into your browser: {{ quoteUrl }}"
+            },
+            {
+              "type": "signature",
+              "text": "{{ bakerName }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "key": "quote.accepted-baker",
+      "audience": "USER",
+      "transactional": false,
+      "trigger": "QuoteAcceptedEvent(actor=CLIENT)",
+      "description": "The client accepted from the public link; the baker should schedule the order.",
+      "variables": [
+        {
+          "name": "bakerName",
+          "description": "Baker's display name",
+          "sample": "Ana López",
+          "kind": "text"
+        },
+        {
+          "name": "clientName",
+          "description": "Client's name",
+          "sample": "María Pérez",
+          "kind": "text"
+        },
+        {
+          "name": "quoteNumber",
+          "description": "Quote number",
+          "sample": "CR-1A2B-202610101800",
+          "kind": "text"
+        },
+        {
+          "name": "total",
+          "description": "Total with currency",
+          "sample": "$2,450.00 MXN",
+          "kind": "text"
+        },
+        {
+          "name": "comment",
+          "description": "Client's comment (may be empty)",
+          "sample": "¿Pueden entregar a las 4 pm?",
+          "kind": "text"
+        },
+        {
+          "name": "scheduleUrl",
+          "description": "Link to schedule the order",
+          "sample": "https://app.cronos.mx/cronos/cotizaciones/detalles/sample?schedule=1",
+          "kind": "url"
+        }
+      ],
+      "locales": {
+        "es-MX": {
+          "subject": "{{ clientName }} aceptó la cotización {{ quoteNumber }}",
+          "preheader": "Agenda el pedido en tu calendario.",
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "¡Cotización aceptada!"
+            },
+            {
+              "type": "paragraph",
+              "text": "Hola, {{ bakerName }}:"
+            },
+            {
+              "type": "paragraph",
+              "text": "{{ clientName }} aceptó tu cotización. Agenda el pedido para no perder la fecha."
+            },
+            {
+              "type": "details",
+              "rows": [
+                {
+                  "label": "Cotización",
+                  "value": "{{ quoteNumber }}"
+                },
+                {
+                  "label": "Total",
+                  "value": "{{ total }}"
+                },
+                {
+                  "label": "Comentario",
+                  "value": "{{ comment }}"
+                }
+              ]
+            },
+            {
+              "type": "button",
+              "label": "Agendar pedido",
+              "url": "{{ scheduleUrl }}"
+            },
+            {
+              "type": "signature",
+              "text": "El equipo de {{ brandName }}"
+            }
+          ]
+        },
+        "en": {
+          "subject": "{{ clientName }} accepted quote {{ quoteNumber }}",
+          "preheader": "Schedule the order in your calendar.",
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "Quote accepted!"
+            },
+            {
+              "type": "paragraph",
+              "text": "Hi {{ bakerName }},"
+            },
+            {
+              "type": "paragraph",
+              "text": "{{ clientName }} accepted your quote. Schedule the order so the date is not missed."
+            },
+            {
+              "type": "details",
+              "rows": [
+                {
+                  "label": "Quote",
+                  "value": "{{ quoteNumber }}"
+                },
+                {
+                  "label": "Total",
+                  "value": "{{ total }}"
+                },
+                {
+                  "label": "Comment",
+                  "value": "{{ comment }}"
+                }
+              ]
+            },
+            {
+              "type": "button",
+              "label": "Schedule order",
+              "url": "{{ scheduleUrl }}"
+            },
+            {
+              "type": "signature",
+              "text": "The {{ brandName }} team"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "key": "quote.accepted-client",
+      "audience": "CLIENT",
+      "transactional": true,
+      "trigger": "QuoteAcceptedEvent (client has email)",
+      "description": "Confirms to the client that the quote was accepted.",
+      "variables": [
+        {
+          "name": "clientName",
+          "description": "Client's name",
+          "sample": "María Pérez",
+          "kind": "text"
+        },
+        {
+          "name": "bakerName",
+          "description": "Baker or business name",
+          "sample": "Pastelería Luna",
+          "kind": "text"
+        },
+        {
+          "name": "quoteNumber",
+          "description": "Quote number",
+          "sample": "CR-1A2B-202610101800",
+          "kind": "text"
+        },
+        {
+          "name": "total",
+          "description": "Total with currency",
+          "sample": "$2,450.00 MXN",
+          "kind": "text"
+        },
+        {
+          "name": "eventDate",
+          "description": "Event date, formatted (may be empty)",
+          "sample": "24 de octubre de 2026",
+          "kind": "text"
+        }
+      ],
+      "locales": {
+        "es-MX": {
+          "subject": "Confirmación de tu cotización {{ quoteNumber }}",
+          "preheader": "Tu pedido está confirmado.",
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "¡Gracias por tu confirmación!"
+            },
+            {
+              "type": "paragraph",
+              "text": "Hola, {{ clientName }}:"
+            },
+            {
+              "type": "paragraph",
+              "text": "La cotización {{ quoteNumber }} de {{ bakerName }} quedó aceptada."
+            },
+            {
+              "type": "details",
+              "rows": [
+                {
+                  "label": "Total",
+                  "value": "{{ total }}"
+                },
+                {
+                  "label": "Fecha del evento",
+                  "value": "{{ eventDate }}"
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "text": "{{ bakerName }} se pondrá en contacto contigo para los detalles de la entrega."
+            },
+            {
+              "type": "signature",
+              "text": "{{ bakerName }}"
+            }
+          ]
+        },
+        "en": {
+          "subject": "Your quote {{ quoteNumber }} is confirmed",
+          "preheader": "Your order is confirmed.",
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "Thank you for confirming!"
+            },
+            {
+              "type": "paragraph",
+              "text": "Hi {{ clientName }},"
+            },
+            {
+              "type": "paragraph",
+              "text": "Quote {{ quoteNumber }} from {{ bakerName }} is now accepted."
+            },
+            {
+              "type": "details",
+              "rows": [
+                {
+                  "label": "Total",
+                  "value": "{{ total }}"
+                },
+                {
+                  "label": "Event date",
+                  "value": "{{ eventDate }}"
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "text": "{{ bakerName }} will contact you about the delivery details."
+            },
+            {
+              "type": "signature",
+              "text": "{{ bakerName }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "key": "quote.expiring-reminder",
+      "audience": "USER",
+      "transactional": false,
+      "trigger": "QuoteExpiringEvent",
+      "description": "An open quote expires in two days or less.",
+      "variables": [
+        {
+          "name": "bakerName",
+          "description": "Baker's display name",
+          "sample": "Ana López",
+          "kind": "text"
+        },
+        {
+          "name": "clientName",
+          "description": "Client's name",
+          "sample": "María Pérez",
+          "kind": "text"
+        },
+        {
+          "name": "quoteNumber",
+          "description": "Quote number",
+          "sample": "CR-1A2B-202610101800",
+          "kind": "text"
+        },
+        {
+          "name": "validUntil",
+          "description": "Expiry, formatted",
+          "sample": "12 de octubre de 2026",
+          "kind": "text"
+        },
+        {
+          "name": "quoteUrl",
+          "description": "Quote detail link",
+          "sample": "https://app.cronos.mx/cronos/cotizaciones/detalles/sample",
+          "kind": "url"
+        }
+      ],
+      "locales": {
+        "es-MX": {
+          "subject": "La cotización {{ quoteNumber }} está por vencer",
+          "preheader": "Dale seguimiento a {{ clientName }}.",
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "Cotización por vencer"
+            },
+            {
+              "type": "paragraph",
+              "text": "Hola, {{ bakerName }}:"
+            },
+            {
+              "type": "paragraph",
+              "text": "La cotización {{ quoteNumber }} para {{ clientName }} vence el {{ validUntil }} y aún no tiene respuesta."
+            },
+            {
+              "type": "button",
+              "label": "Ver cotización",
+              "url": "{{ quoteUrl }}"
+            },
+            {
+              "type": "signature",
+              "text": "El equipo de {{ brandName }}"
+            }
+          ]
+        },
+        "en": {
+          "subject": "Quote {{ quoteNumber }} is about to expire",
+          "preheader": "Follow up with {{ clientName }}.",
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "Quote about to expire"
+            },
+            {
+              "type": "paragraph",
+              "text": "Hi {{ bakerName }},"
+            },
+            {
+              "type": "paragraph",
+              "text": "Quote {{ quoteNumber }} for {{ clientName }} expires on {{ validUntil }} and has no answer yet."
+            },
+            {
+              "type": "button",
+              "label": "View quote",
+              "url": "{{ quoteUrl }}"
+            },
+            {
+              "type": "signature",
+              "text": "The {{ brandName }} team"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "key": "calendar.order-reminder",
+      "audience": "USER",
+      "transactional": false,
+      "trigger": "CalendarReminderDueEvent",
+      "description": "Reminder before an order, with the production sheet link.",
+      "variables": [
+        {
+          "name": "displayName",
+          "description": "Recipient's display name",
+          "sample": "Ana López",
+          "kind": "text"
+        },
+        {
+          "name": "title",
+          "description": "Event title",
+          "sample": "CR-1A2B · María Pérez",
+          "kind": "text"
+        },
+        {
+          "name": "startsAt",
+          "description": "Start, formatted",
+          "sample": "24 de octubre de 2026, 16:00",
+          "kind": "text"
+        },
+        {
+          "name": "location",
+          "description": "Location (may be empty)",
+          "sample": "Av. Reforma 100, CDMX",
+          "kind": "text"
+        },
+        {
+          "name": "clientName",
+          "description": "Client (may be empty)",
+          "sample": "María Pérez",
+          "kind": "text"
+        },
+        {
+          "name": "productionUrl",
+          "description": "Production sheet link",
+          "sample": "https://app.cronos.mx/cronos/calendario/eventos/sample/produccion",
+          "kind": "url"
+        }
+      ],
+      "locales": {
+        "es-MX": {
+          "subject": "Recordatorio: {{ title }}",
+          "preheader": "{{ startsAt }}",
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "Tienes un pedido próximo"
+            },
+            {
+              "type": "paragraph",
+              "text": "Hola, {{ displayName }}:"
+            },
+            {
+              "type": "details",
+              "rows": [
+                {
+                  "label": "Pedido",
+                  "value": "{{ title }}"
+                },
+                {
+                  "label": "Fecha",
+                  "value": "{{ startsAt }}"
+                },
+                {
+                  "label": "Cliente",
+                  "value": "{{ clientName }}"
+                },
+                {
+                  "label": "Lugar",
+                  "value": "{{ location }}"
+                }
+              ]
+            },
+            {
+              "type": "button",
+              "label": "Abrir hoja de producción",
+              "url": "{{ productionUrl }}"
+            },
+            {
+              "type": "signature",
+              "text": "El equipo de {{ brandName }}"
+            }
+          ]
+        },
+        "en": {
+          "subject": "Reminder: {{ title }}",
+          "preheader": "{{ startsAt }}",
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "You have an upcoming order"
+            },
+            {
+              "type": "paragraph",
+              "text": "Hi {{ displayName }},"
+            },
+            {
+              "type": "details",
+              "rows": [
+                {
+                  "label": "Order",
+                  "value": "{{ title }}"
+                },
+                {
+                  "label": "When",
+                  "value": "{{ startsAt }}"
+                },
+                {
+                  "label": "Client",
+                  "value": "{{ clientName }}"
+                },
+                {
+                  "label": "Location",
+                  "value": "{{ location }}"
+                }
+              ]
+            },
+            {
+              "type": "button",
+              "label": "Open production sheet",
+              "url": "{{ productionUrl }}"
+            },
+            {
+              "type": "signature",
+              "text": "The {{ brandName }} team"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "key": "calendar.order-scheduled-client",
+      "audience": "CLIENT",
+      "transactional": true,
+      "trigger": "OrderScheduledEvent (client has email)",
+      "description": "Tells the client the date and place of their order.",
+      "variables": [
+        {
+          "name": "clientName",
+          "description": "Client's name",
+          "sample": "María Pérez",
+          "kind": "text"
+        },
+        {
+          "name": "bakerName",
+          "description": "Baker or business name",
+          "sample": "Pastelería Luna",
+          "kind": "text"
+        },
+        {
+          "name": "quoteNumber",
+          "description": "Quote number (may be empty)",
+          "sample": "CR-1A2B-202610101800",
+          "kind": "text"
+        },
+        {
+          "name": "startsAt",
+          "description": "Delivery or pickup, formatted",
+          "sample": "24 de octubre de 2026, 16:00",
+          "kind": "text"
+        },
+        {
+          "name": "location",
+          "description": "Location (may be empty)",
+          "sample": "Av. Reforma 100, CDMX",
+          "kind": "text"
+        },
+        {
+          "name": "kind",
+          "description": "Delivery or pickup, localised",
+          "sample": "Entrega a domicilio",
+          "kind": "text"
+        }
+      ],
+      "locales": {
+        "es-MX": {
+          "subject": "Tu pedido quedó agendado",
+          "preheader": "{{ startsAt }}",
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "Pedido agendado"
+            },
+            {
+              "type": "paragraph",
+              "text": "Hola, {{ clientName }}:"
+            },
+            {
+              "type": "paragraph",
+              "text": "{{ bakerName }} agendó tu pedido."
+            },
+            {
+              "type": "details",
+              "rows": [
+                {
+                  "label": "Tipo",
+                  "value": "{{ kind }}"
+                },
+                {
+                  "label": "Fecha",
+                  "value": "{{ startsAt }}"
+                },
+                {
+                  "label": "Lugar",
+                  "value": "{{ location }}"
+                },
+                {
+                  "label": "Cotización",
+                  "value": "{{ quoteNumber }}"
+                }
+              ]
+            },
+            {
+              "type": "signature",
+              "text": "{{ bakerName }}"
+            }
+          ]
+        },
+        "en": {
+          "subject": "Your order is scheduled",
+          "preheader": "{{ startsAt }}",
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "Order scheduled"
+            },
+            {
+              "type": "paragraph",
+              "text": "Hi {{ clientName }},"
+            },
+            {
+              "type": "paragraph",
+              "text": "{{ bakerName }} scheduled your order."
+            },
+            {
+              "type": "details",
+              "rows": [
+                {
+                  "label": "Type",
+                  "value": "{{ kind }}"
+                },
+                {
+                  "label": "When",
+                  "value": "{{ startsAt }}"
+                },
+                {
+                  "label": "Location",
+                  "value": "{{ location }}"
+                },
+                {
+                  "label": "Quote",
+                  "value": "{{ quoteNumber }}"
+                }
+              ]
+            },
+            {
+              "type": "signature",
+              "text": "{{ bakerName }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "key": "auth.invitation",
+      "audience": "USER",
+      "transactional": true,
+      "trigger": "UserInvitedEvent",
+      "description": "An administrator created the account; the link sets the first password.",
+      "variables": [
+        {
+          "name": "displayName",
+          "description": "Recipient's display name",
+          "sample": "Ana López",
+          "kind": "text"
+        },
+        {
+          "name": "activationUrl",
+          "description": "Activation link",
+          "sample": "https://app.cronos.mx/auth/activate?token=sample",
+          "kind": "url"
+        },
+        {
+          "name": "expiresAt",
+          "description": "Link expiry, formatted",
+          "sample": "13 de octubre de 2026, 18:00",
+          "kind": "text"
+        }
+      ],
+      "locales": {
+        "es-MX": {
+          "subject": "Te invitaron a {{ brandName }}",
+          "preheader": "Activa tu cuenta.",
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "Activa tu cuenta"
+            },
+            {
+              "type": "paragraph",
+              "text": "Hola, {{ displayName }}:"
+            },
+            {
+              "type": "paragraph",
+              "text": "Se creó una cuenta para ti. Define tu contraseña para empezar."
+            },
+            {
+              "type": "button",
+              "label": "Activar cuenta",
+              "url": "{{ activationUrl }}"
+            },
+            {
+              "type": "callout",
+              "tone": "info",
+              "text": "El enlace vence el {{ expiresAt }}."
+            },
+            {
+              "type": "paragraph",
+              "text": "Si el botón no funciona, copia este enlace en tu navegador: {{ activationUrl }}"
+            },
+            {
+              "type": "signature",
+              "text": "El equipo de {{ brandName }}"
+            }
+          ]
+        },
+        "en": {
+          "subject": "You were invited to {{ brandName }}",
+          "preheader": "Activate your account.",
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "Activate your account"
+            },
+            {
+              "type": "paragraph",
+              "text": "Hi {{ displayName }},"
+            },
+            {
+              "type": "paragraph",
+              "text": "An account was created for you. Choose your password to get started."
+            },
+            {
+              "type": "button",
+              "label": "Activate account",
+              "url": "{{ activationUrl }}"
+            },
+            {
+              "type": "callout",
+              "tone": "info",
+              "text": "The link expires on {{ expiresAt }}."
+            },
+            {
+              "type": "paragraph",
+              "text": "If the button does not work, paste this link into your browser: {{ activationUrl }}"
+            },
+            {
+              "type": "signature",
+              "text": "The {{ brandName }} team"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "key": "auth.temporary-password",
+      "audience": "USER",
+      "transactional": true,
+      "trigger": "TemporaryPasswordIssuedEvent",
+      "description": "An administrator assigned a temporary password that must be changed at sign-in.",
+      "variables": [
+        {
+          "name": "displayName",
+          "description": "Recipient's display name",
+          "sample": "Ana López",
+          "kind": "text"
+        },
+        {
+          "name": "temporaryPassword",
+          "description": "The temporary password",
+          "sample": "Tmp-7g4K-92q",
+          "kind": "text"
+        },
+        {
+          "name": "signInUrl",
+          "description": "Sign-in link",
+          "sample": "https://app.cronos.mx/auth/login",
+          "kind": "url"
+        }
+      ],
+      "locales": {
+        "es-MX": {
+          "subject": "Tu contraseña temporal de {{ brandName }}",
+          "preheader": "Cámbiala al iniciar sesión.",
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "Contraseña temporal"
+            },
+            {
+              "type": "paragraph",
+              "text": "Hola, {{ displayName }}:"
+            },
+            {
+              "type": "paragraph",
+              "text": "Un administrador te asignó una contraseña temporal. Deberás cambiarla al iniciar sesión."
+            },
+            {
+              "type": "code",
+              "text": "{{ temporaryPassword }}"
+            },
+            {
+              "type": "button",
+              "label": "Iniciar sesión",
+              "url": "{{ signInUrl }}"
+            },
+            {
+              "type": "paragraph",
+              "text": "Si no fuiste tú, ignora este mensaje o escríbenos a {{ supportEmail }}."
+            },
+            {
+              "type": "signature",
+              "text": "El equipo de {{ brandName }}"
+            }
+          ]
+        },
+        "en": {
+          "subject": "Your temporary {{ brandName }} password",
+          "preheader": "Change it when you sign in.",
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "Temporary password"
+            },
+            {
+              "type": "paragraph",
+              "text": "Hi {{ displayName }},"
+            },
+            {
+              "type": "paragraph",
+              "text": "An administrator assigned you a temporary password. You will have to change it when you sign in."
+            },
+            {
+              "type": "code",
+              "text": "{{ temporaryPassword }}"
+            },
+            {
+              "type": "button",
+              "label": "Sign in",
+              "url": "{{ signInUrl }}"
+            },
+            {
+              "type": "paragraph",
+              "text": "If this wasn't you, ignore this message or write to {{ supportEmail }}."
+            },
+            {
+              "type": "signature",
+              "text": "The {{ brandName }} team"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "key": "auth.email-changed",
+      "audience": "USER",
+      "transactional": true,
+      "trigger": "EmailChangedEvent",
+      "description": "Notice to the previous address that the account email changed.",
+      "variables": [
+        {
+          "name": "displayName",
+          "description": "Recipient's display name",
+          "sample": "Ana López",
+          "kind": "text"
+        },
+        {
+          "name": "newEmail",
+          "description": "New address, masked",
+          "sample": "a***@cronos.mx",
+          "kind": "text"
+        }
+      ],
+      "locales": {
+        "es-MX": {
+          "subject": "Tu correo electrónico cambió",
+          "preheader": "Aviso de seguridad.",
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "Correo actualizado"
+            },
+            {
+              "type": "paragraph",
+              "text": "Hola, {{ displayName }}:"
+            },
+            {
+              "type": "paragraph",
+              "text": "El correo de tu cuenta se cambió a {{ newEmail }}."
+            },
+            {
+              "type": "callout",
+              "tone": "warning",
+              "text": "Si no fuiste tú, avisa a un administrador o escríbenos a {{ supportEmail }}."
+            },
+            {
+              "type": "signature",
+              "text": "El equipo de {{ brandName }}"
+            }
+          ]
+        },
+        "en": {
+          "subject": "Your email address changed",
+          "preheader": "Security notice.",
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "Email updated"
+            },
+            {
+              "type": "paragraph",
+              "text": "Hi {{ displayName }},"
+            },
+            {
+              "type": "paragraph",
+              "text": "Your account email was changed to {{ newEmail }}."
+            },
+            {
+              "type": "callout",
+              "tone": "warning",
+              "text": "If this wasn't you, tell an administrator or write to {{ supportEmail }}."
+            },
+            {
+              "type": "signature",
+              "text": "The {{ brandName }} team"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "key": "auth.two-factor-disabled",
+      "audience": "USER",
+      "transactional": true,
+      "trigger": "TwoFactorDisabledEvent",
+      "description": "Two-step verification was turned off and other sessions were closed.",
+      "variables": [
+        {
+          "name": "displayName",
+          "description": "Recipient's display name",
+          "sample": "Ana López",
+          "kind": "text"
+        }
+      ],
+      "locales": {
+        "es-MX": {
+          "subject": "Desactivaste la verificación en dos pasos",
+          "preheader": "Aviso de seguridad.",
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "Verificación en dos pasos desactivada"
+            },
+            {
+              "type": "paragraph",
+              "text": "Hola, {{ displayName }}:"
+            },
+            {
+              "type": "paragraph",
+              "text": "La verificación en dos pasos de tu cuenta se desactivó y se cerraron tus otras sesiones."
+            },
+            {
+              "type": "callout",
+              "tone": "warning",
+              "text": "Si no fuiste tú, avisa a un administrador."
+            },
+            {
+              "type": "signature",
+              "text": "El equipo de {{ brandName }}"
+            }
+          ]
+        },
+        "en": {
+          "subject": "You turned off two-step verification",
+          "preheader": "Security notice.",
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "Two-step verification turned off"
+            },
+            {
+              "type": "paragraph",
+              "text": "Hi {{ displayName }},"
+            },
+            {
+              "type": "paragraph",
+              "text": "Two-step verification was turned off for your account and your other sessions were closed."
+            },
+            {
+              "type": "callout",
+              "tone": "warning",
+              "text": "If this wasn't you, tell an administrator."
+            },
+            {
+              "type": "signature",
+              "text": "The {{ brandName }} team"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "key": "auth.recovery-code-used",
+      "audience": "USER",
+      "transactional": true,
+      "trigger": "RecoveryCodeUsedEvent",
+      "description": "Someone signed in with a recovery code.",
+      "variables": [
+        {
+          "name": "displayName",
+          "description": "Recipient's display name",
+          "sample": "Ana López",
+          "kind": "text"
+        },
+        {
+          "name": "remainingCodes",
+          "description": "Recovery codes left",
+          "sample": "7",
+          "kind": "text"
+        }
+      ],
+      "locales": {
+        "es-MX": {
+          "subject": "Se usó un código de respaldo",
+          "preheader": "Aviso de seguridad.",
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "Inicio de sesión con código de respaldo"
+            },
+            {
+              "type": "paragraph",
+              "text": "Hola, {{ displayName }}:"
+            },
+            {
+              "type": "paragraph",
+              "text": "Alguien inició sesión en tu cuenta con un código de respaldo. Te quedan {{ remainingCodes }}."
+            },
+            {
+              "type": "callout",
+              "tone": "warning",
+              "text": "Si no fuiste tú, cambia tu contraseña y avisa a un administrador."
+            },
+            {
+              "type": "signature",
+              "text": "El equipo de {{ brandName }}"
+            }
+          ]
+        },
+        "en": {
+          "subject": "A recovery code was used",
+          "preheader": "Security notice.",
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "Sign-in with a recovery code"
+            },
+            {
+              "type": "paragraph",
+              "text": "Hi {{ displayName }},"
+            },
+            {
+              "type": "paragraph",
+              "text": "Someone signed in to your account with a recovery code. You have {{ remainingCodes }} left."
+            },
+            {
+              "type": "callout",
+              "tone": "warning",
+              "text": "If this wasn't you, change your password and tell an administrator."
+            },
+            {
+              "type": "signature",
+              "text": "The {{ brandName }} team"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "key": "auth.registration-attempt",
+      "audience": "USER",
+      "transactional": true,
+      "trigger": "RegistrationAttemptOnExistingEmailEvent",
+      "description": "Someone tried to register with an address that already has an account (never revealed to them).",
+      "variables": [
+        {
+          "name": "displayName",
+          "description": "Recipient's display name",
+          "sample": "Ana López",
+          "kind": "text"
+        },
+        {
+          "name": "signInUrl",
+          "description": "Sign-in link",
+          "sample": "https://app.cronos.mx/auth/login",
+          "kind": "url"
+        },
+        {
+          "name": "resetUrl",
+          "description": "Forgot-password page",
+          "sample": "https://app.cronos.mx/auth/forgot-password",
+          "kind": "url"
+        }
+      ],
+      "locales": {
+        "es-MX": {
+          "subject": "Alguien intentó registrarse con tu correo",
+          "preheader": "Ya tienes una cuenta.",
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "Ya tienes una cuenta"
+            },
+            {
+              "type": "paragraph",
+              "text": "Hola, {{ displayName }}:"
+            },
+            {
+              "type": "paragraph",
+              "text": "Alguien intentó crear una cuenta nueva con tu correo. No creamos ninguna cuenta."
+            },
+            {
+              "type": "paragraph",
+              "text": "Si fuiste tú, inicia sesión con tu cuenta actual o restablece tu contraseña."
+            },
+            {
+              "type": "button",
+              "label": "Iniciar sesión",
+              "url": "{{ signInUrl }}"
+            },
+            {
+              "type": "paragraph",
+              "text": "¿Olvidaste tu contraseña? {{ resetUrl }}"
+            },
+            {
+              "type": "paragraph",
+              "text": "Si no fuiste tú, ignora este mensaje o escríbenos a {{ supportEmail }}."
+            },
+            {
+              "type": "signature",
+              "text": "El equipo de {{ brandName }}"
+            }
+          ]
+        },
+        "en": {
+          "subject": "Someone tried to register with your email",
+          "preheader": "You already have an account.",
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "You already have an account"
+            },
+            {
+              "type": "paragraph",
+              "text": "Hi {{ displayName }},"
+            },
+            {
+              "type": "paragraph",
+              "text": "Someone tried to create a new account with your email. No account was created."
+            },
+            {
+              "type": "paragraph",
+              "text": "If it was you, sign in with your existing account or reset your password."
+            },
+            {
+              "type": "button",
+              "label": "Sign in",
+              "url": "{{ signInUrl }}"
+            },
+            {
+              "type": "paragraph",
+              "text": "Forgot your password? {{ resetUrl }}"
+            },
+            {
+              "type": "paragraph",
+              "text": "If this wasn't you, ignore this message or write to {{ supportEmail }}."
+            },
+            {
+              "type": "signature",
+              "text": "The {{ brandName }} team"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "key": "recipe.shared",
+      "audience": "CLIENT",
+      "transactional": true,
+      "trigger": "RecipeSharedEvent",
+      "description": "A recipe was shared with an email recipient.",
+      "variables": [
+        {
+          "name": "senderName",
+          "description": "Who shared it",
+          "sample": "Ana López",
+          "kind": "text"
+        },
+        {
+          "name": "recipeName",
+          "description": "Recipe name",
+          "sample": "Pastel de tres leches",
+          "kind": "text"
+        },
+        {
+          "name": "shareUrl",
+          "description": "Public recipe link",
+          "sample": "https://app.cronos.mx/shared/recipe/sample",
+          "kind": "url"
+        },
+        {
+          "name": "expirationDays",
+          "description": "Days the link stays valid",
+          "sample": "7",
+          "kind": "text"
+        }
+      ],
+      "locales": {
+        "es-MX": {
+          "subject": "{{ senderName }} compartió una receta contigo",
+          "preheader": "{{ recipeName }}",
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "Te compartieron una receta"
+            },
+            {
+              "type": "paragraph",
+              "text": "{{ senderName }} compartió la receta «{{ recipeName }}» contigo."
+            },
+            {
+              "type": "button",
+              "label": "Ver receta",
+              "url": "{{ shareUrl }}"
+            },
+            {
+              "type": "callout",
+              "tone": "info",
+              "text": "El enlace está disponible durante {{ expirationDays }} días."
+            },
+            {
+              "type": "paragraph",
+              "text": "Si el botón no funciona, copia este enlace en tu navegador: {{ shareUrl }}"
+            },
+            {
+              "type": "signature",
+              "text": "El equipo de {{ brandName }}"
+            }
+          ]
+        },
+        "en": {
+          "subject": "{{ senderName }} shared a recipe with you",
+          "preheader": "{{ recipeName }}",
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "A recipe was shared with you"
+            },
+            {
+              "type": "paragraph",
+              "text": "{{ senderName }} shared the recipe “{{ recipeName }}” with you."
+            },
+            {
+              "type": "button",
+              "label": "View recipe",
+              "url": "{{ shareUrl }}"
+            },
+            {
+              "type": "callout",
+              "tone": "info",
+              "text": "The link is available for {{ expirationDays }} days."
+            },
+            {
+              "type": "paragraph",
+              "text": "If the button does not work, paste this link into your browser: {{ shareUrl }}"
+            },
+            {
+              "type": "signature",
+              "text": "The {{ brandName }} team"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

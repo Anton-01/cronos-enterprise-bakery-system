@@ -20,11 +20,13 @@ import java.util.concurrent.TimeUnit;
 @EnableCaching
 public class CacheConfig {
 
-    @Value("${app.cache.unit-types.ttl:60}")
-    private int ttl;
+    private final int ttl;
+    private final int maxSize;
 
-    @Value("${app.cache.unit-types.max-size:500}")
-    private int maxSize;
+    public CacheConfig(@Value("${app.cache.unit-types.ttl:60}") int ttl, @Value("${app.cache.unit-types.max-size:500}") int maxSize) {
+        this.ttl = ttl;
+        this.maxSize = maxSize;
+    }
 
     @Bean
     public CacheManager cacheManager() {
@@ -36,6 +38,7 @@ public class CacheConfig {
         cacheManager.registerCustomCache("userAuth", shortLived(Duration.ofSeconds(30), 10_000));
         cacheManager.registerCustomCache("sodRules", shortLived(Duration.ofMinutes(5), 10));
         cacheManager.registerCustomCache("securityPolicy", shortLived(Duration.ofSeconds(30), 10));
+        cacheManager.registerCustomCache("signInPolicy", shortLived(Duration.ofSeconds(30), 10));
         cacheManager.registerCustomCache("financeSettings", shortLived(Duration.ofSeconds(30), 10));
         // Kitchen: evicted on write; TTL bounds cross-instance staleness.
         cacheManager.registerCustomCache("kitchenUnits", shortLived(Duration.ofMinutes(10), 10));
