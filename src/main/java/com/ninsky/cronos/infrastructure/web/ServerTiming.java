@@ -1,5 +1,6 @@
 package com.ninsky.cronos.infrastructure.web;
 
+import com.ninsky.cronos.infrastructure.observability.SqlStatementStats;
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
 
@@ -8,6 +9,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Named phases of the current request, reported by {@link ServerTimingFilter} in the standard
@@ -53,10 +55,24 @@ public final class ServerTiming {
 
     /** {@code name;dur=ms} entries, milliseconds with one decimal. */
     static String header(Map<String, Long> phases, long totalNanos) {
+        return header(phases, null, totalNanos);
+    }
+
+    /**
+     * Same as {@link #header(Map, long)} plus {@code db;dur=ms;desc="n stmts"} before {@code app} when the request's
+     * statements were counted ({@code sql} not null).
+     */
+    static String header(Map<String, Long> phases, SqlStatementStats sql, long totalNanos) {
         Map<String, Long> all = new LinkedHashMap<>(phases == null ? Map.of() : phases);
-        all.put("app", totalNanos);
-        return all.entrySet().stream()
-                .map(e -> e.getKey() + ";dur=" + String.format(Locale.ROOT, "%.1f", e.getValue() / 1_000_000.0))
+        String entries = all.entrySet().stream()
+                .map(e -> entry(e.getKey(), e.getValue()))
                 .collect(Collectors.joining(", "));
+        String db = sql == null ? null : entry("db", sql.nanos()) + ";desc=\"" + sql.statements() + " stmts\"";
+        String app = entry("app", totalNanos);
+        return Stream.of(entries, db, app).filter(part -> part != null && !part.isEmpty()).collect(Collectors.joining(", "));
+    }
+
+    private static String entry(String name, long nanos) {
+        return name + ";dur=" + String.format(Locale.ROOT, "%.1f", nanos / 1_000_000.0);
     }
 }

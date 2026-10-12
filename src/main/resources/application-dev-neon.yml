@@ -1,0 +1,26 @@
+# Opt-in: run dev against Neon instead of the local Postgres (SPRING_PROFILES_ACTIVE=dev,dev-neon, or
+# CRONOS_PROFILES=dev,dev-neon with docker compose). Every statement pays the network distance to the Neon region, so
+# measure latency with the local database, or with the app in the same region as the branch (us-east-2).
+#
+# The `-pooler` endpoint runs PgBouncer in transaction mode: prepareThreshold=0 keeps the driver from creating
+# server-side prepared statements a later transaction may not find. Prefer the direct endpoint (Hikari already pools)
+# and set DB_PREPARE_THRESHOLD=5 there.
+spring:
+  config:
+    activate:
+      on-profile: dev-neon
+  datasource:
+    url: ${NEON_DB_URL}
+    username: ${NEON_DB_USERNAME}
+    password: ${NEON_DB_PASSWORD}
+    hikari:
+      maximum-pool-size: 15
+      minimum-idle: 15
+      # Below Neon's idle cut-off, so the pool recycles a connection before Neon drops it.
+      max-lifetime: 240000
+      keepalive-time: 30000
+      connection-timeout: 3000
+      validation-timeout: 1000
+      data-source-properties:
+        prepareThreshold: ${DB_PREPARE_THRESHOLD:0}
+        sslmode: require

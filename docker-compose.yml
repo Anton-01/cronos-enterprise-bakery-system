@@ -1,8 +1,9 @@
 # Local development stack for Cronos.
 #
-# The primary database (Neon, serverless Postgres) is NOT containerized here — it's external.
-# Point DB_URL/DB_USERNAME/DB_PASSWORD (in .env, see .env) at your Neon connection string,
-# including `?sslmode=require`.
+# The database is the `postgres` service below (Flyway builds the schema on first start). Every SQL
+# statement against a remote database pays the network round trip (~70 ms to Neon us-east-2 from a
+# laptop), so dev runs next to its database. Neon stays available as an opt-in profile:
+#   CRONOS_PROFILES=dev,dev-neon docker compose watch     # reads NEON_DB_URL/NEON_DB_USERNAME/NEON_DB_PASSWORD
 #
 # Hot reload: `docker compose watch` builds the `app` service up to the `builder` stage (JDK +
 # resolved deps + compiled source, see Dockerfile), then runs it via `mvnw spring-boot:run` instead
@@ -29,7 +30,7 @@ services:
     working_dir: /build
     command: >
       ./mvnw -B spring-boot:run
-      -Dspring-boot.run.profiles=dev
+      -Dspring-boot.run.profiles=${CRONOS_PROFILES:-dev}
       -Dspring-boot.run.jvmArguments=--sun-misc-unsafe-memory-access=allow
     ports:
       - "9191:9191"
@@ -39,7 +40,11 @@ services:
       - .env
     environment:
       SERVER_ADDRESS: 0.0.0.0
-      SPRING_PROFILES_ACTIVE: dev
+      SPRING_PROFILES_ACTIVE: ${CRONOS_PROFILES:-dev}
+      # Overrides any DB_* in .env: dev talks to the local container (dev-neon reads NEON_DB_* instead).
+      DB_URL: jdbc:postgresql://postgres:5432/cronos
+      DB_USERNAME: cronos
+      DB_PASSWORD: cronos
       REDIS_HOST: redis
       REDIS_PORT: 6379
       MAIL_HOST: mailpit
@@ -48,6 +53,8 @@ services:
       - maven-repo:/root/.m2
       - ./logs:/build/logs
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
       mailpit:
@@ -64,6 +71,23 @@ services:
           action: rebuild
         - path: ./lombok.config
           action: rebuild
+
+  # Dev database. Same major version as Neon; data survives restarts in the postgres-data volume.
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: cronos
+      POSTGRES_USER: cronos
+      POSTGRES_PASSWORD: cronos
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cronos -d cronos"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   # Backs the token/session blacklist (TokenBlacklistService) and Redisson distributed locks.
   redis:
@@ -129,6 +153,7 @@ services:
       - prometheus
 
 volumes:
+  postgres-data:
   maven-repo:
   redis-data:
   loki-data:

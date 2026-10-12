@@ -1,21 +1,28 @@
 package com.ninsky.cronos.infrastructure.web;
 
+import com.ninsky.cronos.infrastructure.observability.SqlStatementListener;
+import com.ninsky.cronos.infrastructure.observability.SqlStatementStats;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import jakarta.servlet.FilterChain;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
+import org.springframework.web.servlet.HandlerMapping;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class ServerTimingFilterTest {
 
-    private final ServerTimingFilter filter = new ServerTimingFilter();
+    private final ServerTimingFilter filter = new ServerTimingFilter(new StaticListableBeanFactory().getBeanProvider(MeterRegistry.class), false);
 
     @AfterEach
     void tearDown() {
@@ -60,6 +67,30 @@ class ServerTimingFilterTest {
 
         assertThat(response.getHeader("Timing-Allow-Origin")).isNull();
         assertThat(response.getHeader(ServerTimingFilter.HEADER)).startsWith("app;dur=");
+    }
+
+    @Test
+    void reportsDatabaseTimeAndStatementCountWhenCountingIsOn() throws Exception {
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        StaticListableBeanFactory beans = new StaticListableBeanFactory();
+        beans.addBean("registry", registry);
+        ServerTimingFilter counting = new ServerTimingFilter(beans.getBeanProvider(MeterRegistry.class), true);
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/recipes");
+        request.setAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE, "/recipes");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        SqlStatementListener listener = new SqlStatementListener(registry);
+
+        counting.doFilter(request, response, (req, res) -> {
+            listener.beforeQuery(null, List.of());
+            listener.afterQuery(null, List.of());
+            listener.beforeQuery(null, List.of());
+            listener.afterQuery(null, List.of());
+            res.getWriter().write("{}");
+        });
+
+        assertThat(response.getHeader(ServerTimingFilter.HEADER)).matches("db;dur=\\d+\\.\\d;desc=\"2 stmts\", app;dur=\\d+\\.\\d");
+        assertThat(registry.get("cronos.http.db.statements").tag("uri", "/recipes").summary().totalAmount()).isEqualTo(2.0);
+        assertThat(SqlStatementStats.current()).isEmpty();
     }
 
     @Test

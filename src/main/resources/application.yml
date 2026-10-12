@@ -7,11 +7,17 @@ spring:
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: 20
+      # Sized for virtual threads (spring.threads.virtual.enabled): requests no longer queue on Tomcat threads, so the
+      # pool is the concurrency limit of anything that touches the database.
+      maximum-pool-size: 15
       minimum-idle: 5
-      connection-timeout: 30000
+      connection-timeout: 3000
+      validation-timeout: 1000
       idle-timeout: 600000
       max-lifetime: 1800000
+      data-source-properties:
+        reWriteBatchedInserts: true
+        tcpKeepAlive: true
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -28,7 +34,14 @@ spring:
     baseline-on-migrate: true
     baseline-version: 0
     locations: classpath:db/migration
+  # Request threads are virtual (Java 25): blocking JDBC/Redis calls no longer pin a platform thread.
+  threads:
+    virtual:
+      enabled: true
   jpa:
+    # Never re-enable: with OSIV the persistence context (and a pooled connection after the first lazy load) lives for
+    # the whole HTTP request, including Jackson serialisation and long-lived SSE streams. Fetch what a response needs
+    # explicitly instead (performance-latency P0-3).
     open-in-view: false
     hibernate:
       ddl-auto: validate
@@ -39,6 +52,8 @@ spring:
         use_sql_comments: true
         order_inserts: true
         order_updates: true
+        # Safety net against N+1 on lazy associations, not the plan: lists use DTO projections (P1-2).
+        default_batch_fetch_size: 50
         jdbc:
           batch_size: 20
           time_zone: America/Mexico_City
@@ -75,6 +90,10 @@ spring:
       write-dates-as-timestamps: false
 
 app:
+  observability:
+    sql:
+      # Counts and times every JDBC statement (Server-Timing db;dur, cronos.db.statement). On in dev and tests.
+      enabled: false
   frontend:
     url: http://localhost:4200
     urlSharePublicRecipe: ${app.frontend.url}/shared/recipe/
@@ -120,6 +139,15 @@ app:
 
 server:
   port: 9191
+  # JSON only: text/event-stream must never be compressed (the gzip buffer would hold SSE events back).
+  compression:
+    enabled: true
+    mime-types: application/json,application/problem+json
+    min-response-size: 1KB
+  # h2c when the app is reached directly; deployed environments terminate TLS + HTTP/2 at the edge (nginx/ALB/Cloud
+  # Run) so the browser's six-connections-per-origin limit and the SSE socket stop serialising requests.
+  http2:
+    enabled: true
   # Tomcat-level RemoteIpValve: rewrites getScheme/getServerName/getServerPort/getRequestURL from
   # X-Forwarded-* before any Filter runs, so DPoP's htu (computed from getRequestURL()) matches
   # what the client actually targeted even behind a reverse proxy/LB. No-op locally.
@@ -186,8 +214,9 @@ security:
 logging:
   level:
     root: INFO
-    com.ninsky.cronos: DEBUG
-    org.springframework.security: DEBUG
+    com.ninsky.cronos: INFO
+    # DEBUG here logs three lines per request; turn it on locally only while debugging a security rule.
+    org.springframework.security: INFO
     org.hibernate.SQL: INFO
   file:
     name: logs/cronos-ninsky.log
@@ -218,3 +247,9 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
+    # Histogram buckets let Prometheus/Grafana compute p50/p95/p99 per route (histogram_quantile).
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      slo:
+        http.server.requests: 15ms,60ms,120ms,350ms,1s
