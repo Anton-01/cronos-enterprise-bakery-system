@@ -2,14 +2,19 @@ spring:
   config:
     activate:
       on-profile: dev
+  # Local Postgres from docker-compose.yml (service `postgres`) by default; DB_URL still wins when set. Neon is the
+  # opt-in `dev-neon` profile (application-dev-neon.yml). An app far from its database pays ~70 ms per statement.
   datasource:
+    url: ${DB_URL:jdbc:postgresql://${DB_HOST:localhost}:5432/cronos}
+    username: ${DB_USERNAME:cronos}
+    password: ${DB_PASSWORD:cronos}
     hikari:
-      maximum-pool-size: 5
-      minimum-idle: 1
-      max-lifetime: 240000
-      keepalive-time: 120000
-      connection-timeout: 10000
-      validation-timeout: 5000
+      maximum-pool-size: 15
+      minimum-idle: 5
+  jpa:
+    properties:
+      hibernate:
+        generate_statistics: true
   data:
     redis:
       host: ${REDIS_HOST:redis}
@@ -39,7 +44,14 @@ management:
     health:
       show-details: always
 
+app:
+  observability:
+    sql:
+      enabled: true
+
 logging:
   level:
-    com.ninsky.cronos: DEBUG
-    org.springframework.security: DEBUG
+    com.ninsky.cronos: INFO
+    org.springframework.security: INFO
+    # generate_statistics logs one summary per session at DEBUG; INFO keeps only the slow-query lines.
+    org.hibernate.stat: INFO

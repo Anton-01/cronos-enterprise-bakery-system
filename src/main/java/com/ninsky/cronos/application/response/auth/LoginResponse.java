@@ -30,5 +30,10 @@ public record LoginResponse(
         Integer screenLockMinutes,
         /** Contract §8.1: 2FA is mandatory and not enrolled yet, so the UI routes straight to setup. */
         Boolean requiresTwoFactorEnrollment,
-        String message
+        String message,
+        /**
+         * Additive (performance-latency §5.1): the signed-in user's profile, same shape as {@code GET /users/me} data,
+         * so the UI does not call it right after sign-in. Null while a second factor is pending.
+         */
+        UserResponse user
 ) { }

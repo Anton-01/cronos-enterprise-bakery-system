@@ -241,8 +241,8 @@ class CurrencyServiceTest {
 
     @Test
     void catalogListsActiveDefaultFirst() {
-        when(repository.findByStatusOrderByIsDefaultDescCodeAsc(FinanceStatus.ACTIVE))
-                .thenReturn(java.util.List.of(currency(1, "MXN", "484", 2, true, FinanceStatus.ACTIVE)));
+        when(queries.catalog()).thenReturn(java.util.List.of(
+                new CurrencyOption(1L, "MXN", "Peso mexicano", "$", 2, SymbolPosition.BEFORE, true)));
 
         assertThat(service.catalog()).extracting(CurrencyOption::code, CurrencyOption::isDefault)
                 .containsExactly(org.assertj.core.groups.Tuple.tuple("MXN", true));

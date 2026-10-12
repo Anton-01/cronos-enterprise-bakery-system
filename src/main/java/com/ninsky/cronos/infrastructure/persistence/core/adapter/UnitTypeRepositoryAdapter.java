@@ -36,7 +36,10 @@ public class UnitTypeRepositoryAdapter implements UnitTypeRepositoryPort {
     private final UnitTypeJpaRepository jpaRepository;
     private final UnitTypeMapper mapper;
 
-    public UnitTypeRepositoryAdapter(UnitTypeJpaRepository jpaRepository, UnitTypeMapper mapper) {
+    private final UnitTypeCustomRepository reads;
+
+    public UnitTypeRepositoryAdapter(UnitTypeJpaRepository jpaRepository, UnitTypeMapper mapper, UnitTypeCustomRepository reads) {
+        this.reads = reads;
         this.jpaRepository = jpaRepository;
         this.mapper = mapper;
     }
@@ -49,7 +52,7 @@ public class UnitTypeRepositoryAdapter implements UnitTypeRepositoryPort {
 
     @Override
     public Optional<UnitType> findById(Long id) {
-        return jpaRepository.findById(id).map(mapper::toDomain);
+        return reads.findById(id);
     }
 
     @Override
@@ -59,12 +62,12 @@ public class UnitTypeRepositoryAdapter implements UnitTypeRepositoryPort {
 
     @Override
     public List<UnitType> findAllActive() {
-        return jpaRepository.findAllByStatusOrderByNameAsc(RecordStatus.ACTIVE).stream().map(mapper::toDomain).toList();
+        return reads.findAllActive();
     }
 
     @Override
     public Page<UnitType> search(UnitTypeSearchCriteria criteria, Pageable pageable) {
-        return jpaRepository.findAll(matching(criteria), SORTABLE.translate(pageable)).map(mapper::toDomain);
+        return reads.search(criteria, pageable);
     }
 
     @Override

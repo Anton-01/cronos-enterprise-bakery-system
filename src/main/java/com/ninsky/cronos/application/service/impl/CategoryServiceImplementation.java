@@ -21,6 +21,8 @@ import com.ninsky.cronos.infrastructure.exception.UnauthorizedCategoryModificati
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.csv.CSVRecord;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -40,6 +42,9 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class CategoryServiceImplementation implements CategoryService {
 
+    /** Cache of category pages (reference data, CacheConfig: 60 s). */
+    static final String CACHE = "categories";
+
     private static final String COLUMN_NAME = "name";
     private static final String COLUMN_DESCRIPTION = "description";
     private static final String COLUMN_TYPE = "type";
@@ -54,6 +59,7 @@ public class CategoryServiceImplementation implements CategoryService {
      *  SYSTEM categories are seed-only (Flyway V18) or CSV-imported, never
      *  created through the normal REST path. */
     @Transactional
+    @CacheEvict(cacheNames = CACHE, allEntries = true)
     @Override
     public CategoryResponse createCategory(CreateCategoryRequest request, UUID currentUserId) {
         String name = request.name().trim();
@@ -77,6 +83,7 @@ public class CategoryServiceImplementation implements CategoryService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = CACHE, allEntries = true)
     @Override
     public CategoryResponse updateCategory(Long id, UpdateCategoryRequest request, UUID currentUserId) {
         Category category = requireOwnedByCaller(id, currentUserId, "edit");
@@ -99,6 +106,7 @@ public class CategoryServiceImplementation implements CategoryService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = CACHE, allEntries = true)
     @Override
     public void trashCategory(Long id, UUID currentUserId) {
         Category category = requireOwnedByCaller(id, currentUserId, "delete");
@@ -128,14 +136,15 @@ public class CategoryServiceImplementation implements CategoryService {
         return category;
     }
 
-    @Transactional(readOnly = true)
+    /** One statement (page + total), cached 60 s per caller/type/page and evicted by every category write (P1-1). */
+    @Cacheable(cacheNames = CACHE, key = "'visible:' + #currentUserId + ':' + #type + ':' + #pageable")
     @Override
     public Page<CategoryResponse> getVisibleCategories(CategoryType type, Pageable pageable, UUID currentUserId) {
         log.debug("Fetching visible categories for user {}. type={}, page={}", currentUserId, type, pageable);
         return categoryRepository.findVisibleToUser(currentUserId, type, pageable).map(this::mapToResponse);
     }
 
-    @Transactional(readOnly = true)
+    @Cacheable(cacheNames = CACHE, key = "'system:' + #type + ':' + #pageable")
     @Override
     public Page<CategoryResponse> getSystemCategories(CategoryType type, Pageable pageable) {
         log.debug("Fetching system categories. type={}, page={}", type, pageable);
@@ -146,6 +155,7 @@ public class CategoryServiceImplementation implements CategoryService {
      *  a use case (a baker adds their own categories one at a time via {@link #createCategory}).
      *  All-or-nothing: every row is validated first and nothing is written if any row is invalid. */
     @Transactional
+    @CacheEvict(cacheNames = CACHE, allEntries = true)
     @Override
     public CsvImportResponse importCategoriesFromCsv(MultipartFile file, Actor actor) {
         CsvCatalogFile csv = CsvCatalogFile.parse(file, Set.of(COLUMN_NAME, COLUMN_DESCRIPTION, COLUMN_TYPE), importProperties.maxRows());

@@ -24,6 +24,8 @@ public class KitchenCaches {
     public static final String UNITS = "kitchenUnits";
     public static final String ALLERGENS = "kitchenAllergens";
     public static final String STATS = "kitchenStats";
+    /** {@code GET /dashboard/summary} cache, keyed by user id. */
+    static final String DASHBOARD = "dashboardSummary";
 
     private final CacheManager cacheManager;
 
@@ -50,10 +52,33 @@ public class KitchenCaches {
 
     public void evict(String cacheName, Object key) {
         afterCommit(() -> cache(cacheName).evict(key));
+        if (STATS.equals(cacheName) && key instanceof String statsKey && statsKey.indexOf(':') > 0) {
+            // The dashboard counters (dashboardSummary, keyed by user) change with the same writes as the stats.
+            evictDashboard(statsKey.substring(statsKey.indexOf(':') + 1));
+        }
     }
 
     public void clear(String cacheName) {
         afterCommit(() -> cache(cacheName).clear());
+        if (STATS.equals(cacheName)) {
+            Cache dashboard = cacheManager.getCache(DASHBOARD);
+            if (dashboard != null) {
+                afterCommit(dashboard::clear);
+            }
+        }
+    }
+
+    private void evictDashboard(String tenant) {
+        Cache dashboard = cacheManager.getCache(DASHBOARD);
+        if (dashboard == null) {
+            return;
+        }
+        try {
+            java.util.UUID owner = java.util.UUID.fromString(tenant);
+            afterCommit(() -> dashboard.evict(owner));
+        } catch (IllegalArgumentException notAUser) {
+            // "null" tenant (SYSTEM rows): those changes reach every dashboard within the TTL.
+        }
     }
 
     private static void afterCommit(Runnable action) {

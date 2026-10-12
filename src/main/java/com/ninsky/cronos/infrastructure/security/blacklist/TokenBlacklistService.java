@@ -24,8 +24,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class TokenBlacklistService {
 
-    private static final String SESSION_PREFIX = "blacklist:session:";
-    private static final String USER_PREFIX = "blacklist:user:";
+    public static final String SESSION_PREFIX = "blacklist:session:";
+    public static final String USER_PREFIX = "blacklist:user:";
 
     private final StringRedisTemplate redisTemplate;
 

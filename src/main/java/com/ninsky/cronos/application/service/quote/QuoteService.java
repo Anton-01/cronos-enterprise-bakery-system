@@ -112,42 +112,46 @@ public class QuoteService {
     /**
      * One page of the caller's quotes. {@code search} matches the number, client name, phone or email (accent- and
      * case-insensitive; client fields are encrypted at rest, so matching happens after decryption).
+     * <p>
+     * Without a search: one statement (grid columns + total, performance-latency P1-2/P1-3). With a search or the
+     * client-name sort: one statement for every candidate row, filtered and sorted in memory.
      *
      * @throws ApiException VALIDATION_ERROR on {@code sort}
      */
     @Transactional(readOnly = true)
     public Page<InternalQuoteResponse> page(String username, String search, List<QuoteStatus> statuses, int page, int size, String sort) {
-        User user = userRepository.findByUsername(username).orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
+        UUID owner = actors.require().id();
         com.ninsky.cronos.infrastructure.web.paging.PageQuery query = com.ninsky.cronos.infrastructure.web.paging.PageQuery.of(
                 page, size, sort, QuoteQueryCustomRepository.SORTS, "createdAt,desc");
         Set<QuoteStatus> filter = QuoteLifecycleService.statuses(statuses);
         String term = normalize(search);
         boolean byClientName = "clientName".equals(query.sortField());
         if ((term == null || term.length() < SEARCH_MIN) && !byClientName) {
-            List<UUID> ids = queries.ids(user.getId(), filter, query.orderBySql(), query.size(), query.offset());
-            return new PageImpl<>(load(ids).stream().map(this::toSummary).toList(), pageable(query), queries.count(user.getId(), filter));
+            var rows = queries.summaries(owner, filter, query.orderBySql(), query.size(), query.offset());
+            return new PageImpl<>(rows.rows().stream().map(QuoteService::toSummary).toList(), pageable(query), rows.total());
         }
-        List<Quote> candidates = load(queries.ids(user.getId(), filter, query.orderBySql(), null, 0));
-        List<Quote> matching = candidates.stream().filter(quote -> term == null || term.length() < SEARCH_MIN || matches(quote, term)).toList();
+        List<QuoteQueryCustomRepository.SummaryRow> matching = queries.summaries(owner, filter, query.orderBySql(), null, 0).rows().stream()
+                .filter(row -> term == null || term.length() < SEARCH_MIN || matches(row, term)).toList();
         if (byClientName) {
-            Comparator<Quote> byName = Comparator.comparing(quote -> Optional.ofNullable(normalize(quote.getClientName())).orElse(""));
+            Comparator<QuoteQueryCustomRepository.SummaryRow> byName =
+                    Comparator.comparing(row -> Optional.ofNullable(normalize(row.clientName())).orElse(""));
             matching = matching.stream().sorted(query.ascending() ? byName : byName.reversed()).toList();
         }
-        List<InternalQuoteResponse> content = matching.stream().skip(query.offset()).limit(query.size()).map(this::toSummary).toList();
+        List<InternalQuoteResponse> content = matching.stream().skip(query.offset()).limit(query.size()).map(QuoteService::toSummary).toList();
         return new PageImpl<>(content, pageable(query), matching.size());
     }
 
     @Transactional
     public Warned<InternalQuoteResponse> createQuote(String username, CreateQuoteRequest request) {
         log.info("Initiating quote creation for client: {}", request.clientName());
-        User user = userRepository.findByUsername(username).orElseThrow();
+        UUID ownerId = actors.require().id();
         if (request.eventDate() != null && request.eventDate().isBefore(TenantTime.today(clock))) {
             throw ApiException.invalid("eventDate", "quote.eventDate.past");
         }
         LocalDateTime now = TenantTime.nowLocal(clock);
         PricingSnapshot snapshot = pricingSnapshots.forNewDocument(pricingInput(request));
 
-        Quote quote = Quote.builder().quoteNumber(QuoteNumbers.next(user.getId(), now)).userId(user.getId()).clientName(request.clientName())
+        Quote quote = Quote.builder().quoteNumber(QuoteNumbers.next(ownerId, now)).userId(ownerId).clientName(request.clientName())
                 .clientEmail(request.clientEmail()).clientPhone(request.clientPhone())
                 .clientAddress(request.clientAddress()).notes(request.notes())
                 .status(QuoteStatus.DRAFT).validUntil(now.plusDays(request.validDays()))
@@ -157,7 +161,7 @@ public class QuoteService {
 
         Priced priced = price(quote, snapshot, request, actors.require());
         Quote savedQuote = quoteRepository.save(quote);
-        history.append(savedQuote.getId(), QuoteStatus.DRAFT, QuoteActorType.BAKER, user.getId(), null, "CREATED", null,
+        history.append(savedQuote.getId(), QuoteStatus.DRAFT, QuoteActorType.BAKER, ownerId, null, "CREATED", null,
                 TenantTime.now(clock), MDC.get(TraceContexts.MDC_TRACE_ID));
         auditBelowCost(savedQuote, request, priced.belowCostApproved());
         events.publish(new QuoteEvents.QuoteCreated(savedQuote.getId(), savedQuote.getQuoteNumber(), savedQuote.getUserId()));
@@ -351,20 +355,28 @@ public class QuoteService {
     }
 
     private Quote owned(String username, UUID quoteId) {
-        User user = userRepository.findByUsername(username).orElseThrow();
-        return quoteRepository.findByIdAndUserId(quoteId, user.getId()).filter(quote -> quote.getDeletedAt() == null)
+        // The owner is the authenticated actor: no user row (and no email decryption) per request.
+        return quoteRepository.findByIdAndUserId(quoteId, actors.require().id()).filter(quote -> quote.getDeletedAt() == null)
                 .orElseThrow(() -> new ResourceNotFoundException("Cotización no encontrada"));
     }
 
-    private List<Quote> load(List<UUID> ids) {
-        Map<UUID, Quote> byId = quoteRepository.findAllById(ids).stream().collect(Collectors.toMap(Quote::getId, Function.identity()));
-        return ids.stream().map(byId::get).filter(java.util.Objects::nonNull).toList();
+    private static boolean matches(QuoteQueryCustomRepository.SummaryRow row, String term) {
+        String digits = term.replaceAll("\\D", "");
+        return contains(row.quoteNumber(), term) || contains(row.clientName(), term) || contains(row.clientEmail(), term)
+                || (digits.length() >= 3 && row.clientPhone() != null && row.clientPhone().replaceAll("\\D", "").contains(digits));
     }
 
-    private static boolean matches(Quote quote, String term) {
-        String digits = term.replaceAll("\\D", "");
-        return contains(quote.getQuoteNumber(), term) || contains(quote.getClientName(), term) || contains(quote.getClientEmail(), term)
-                || (digits.length() >= 3 && quote.getClientPhone() != null && quote.getClientPhone().replaceAll("\\D", "").contains(digits));
+    /** Grid row from the SQL projection (same shape as {@link #toSummary(Quote)}). */
+    private static InternalQuoteResponse toSummary(QuoteQueryCustomRepository.SummaryRow row) {
+        return InternalQuoteResponse.builder().id(row.id()).quoteNumber(row.quoteNumber())
+                .clientName(row.clientName()).total(row.total()).currency(row.currency())
+                .status(row.status()).createdAt(row.createdAt()).publicToken(row.publicToken())
+                .priceReviewRequired(row.priceReviewRequired())
+                .validDays(row.createdAt() == null || row.validUntil() == null ? 0
+                        : (int) ChronoUnit.DAYS.between(row.createdAt().toLocalDate(), row.validUntil().toLocalDate()))
+                .eventDate(row.eventDate()).validUntil(row.validUntil()).viewsCount(row.viewsCount())
+                .calendarEventId(row.calendarEventId())
+                .build();
     }
 
     private static boolean contains(String value, String term) {

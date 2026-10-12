@@ -40,17 +40,21 @@ public class RecipeViews {
     private final UserRefCustomRepository userRefs;
     private final KitchenProperties properties;
 
-    public CatalogPage<RecipeSummary> summaries(CatalogPage<UUID> ids, UUID tenant, String language) {
-        List<RecipeAggregate.Head> heads = queries.heads(ids.content());
-        List<UUID> recipeIds = heads.stream().map(RecipeAggregate.Head::id).toList();
+    /**
+     * List cards of one page: the page already carries heads, category names and cover keys (one statement), so only the
+     * contained allergens of the page's recipes are one more query (performance-latency P1-2: 2 statements per page).
+     */
+    public CatalogPage<RecipeSummary> summaries(CatalogPage<RecipeCustomRepository.ListRow> page, UUID tenant, String language) {
+        List<UUID> recipeIds = page.content().stream().map(row -> row.head().id()).toList();
         Map<UUID, Set<Long>> contained = queries.containedAllergens(recipeIds);
-        Map<Long, String> categoryNames = categories.names(heads.stream().map(RecipeAggregate.Head::categoryId).filter(Objects::nonNull).toList());
-        Map<UUID, String> covers = files.coverKeys(recipeIds);
+        Map<Long, String> categoryNames = new java.util.HashMap<>();
+        page.content().stream().filter(row -> row.head().categoryId() != null && row.categoryName() != null)
+                .forEach(row -> categoryNames.put(row.head().categoryId(), row.categoryName()));
         AllergenCatalog.View view = allergens.view(tenant);
-        List<RecipeSummary> rows = heads.stream()
-                .map(h -> summary(h, contained.getOrDefault(h.id(), Set.of()), categoryNames, covers.get(h.id()), view, language))
+        List<RecipeSummary> rows = page.content().stream()
+                .map(row -> summary(row.head(), contained.getOrDefault(row.head().id(), Set.of()), categoryNames, row.coverKey(), view, language))
                 .toList();
-        return new CatalogPage<>(rows, ids.pageNumber(), ids.pageSize(), ids.totalElements(), ids.totalPages(), ids.last());
+        return new CatalogPage<>(rows, page.pageNumber(), page.pageSize(), page.totalElements(), page.totalPages(), page.last());
     }
 
     /**

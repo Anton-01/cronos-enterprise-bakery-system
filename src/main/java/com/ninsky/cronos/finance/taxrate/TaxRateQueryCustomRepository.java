@@ -7,11 +7,13 @@ import com.ninsky.cronos.finance.shared.UserRefCustomRepository;
 import com.ninsky.cronos.infrastructure.web.paging.CatalogPage;
 import com.ninsky.cronos.infrastructure.web.paging.PageQuery;
 import lombok.RequiredArgsConstructor;
+import com.ninsky.cronos.infrastructure.persistence.jdbc.JdbcPages;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -43,10 +45,19 @@ public class TaxRateQueryCustomRepository {
                 .addValue("status", status == null ? null : status.name())
                 .addValue("limit", query.size())
                 .addValue("offset", query.offset());
-        Long total = jdbc.queryForObject("SELECT count(*) FROM tax_rates t" + FILTER, params, Long.class);
-        List<TaxRateResponse> content = jdbc.query(SELECT + FILTER + " ORDER BY " + query.orderBySql() + ", t.id ASC LIMIT :limit OFFSET :offset",
-                params, rowMapper());
-        return CatalogPage.of(content, query, total == null ? 0 : total);
+        // Page and total in one statement (performance-latency P1-3).
+        return JdbcPages.catalogPage(jdbc, "SELECT " + JdbcPages.TOTAL_COLUMN + ", " + SELECT.substring("SELECT ".length()) + FILTER
+                        + " ORDER BY " + query.orderBySql() + ", t.id ASC LIMIT :limit OFFSET :offset",
+                params, query, rowMapper(), "SELECT count(*) FROM tax_rates t" + FILTER);
+    }
+
+    /** Rates selectable on {@code day}, default first (spec §10.1): only the picker columns. */
+    public List<TaxRateOption> catalog(LocalDate day) {
+        return jdbc.query("SELECT t.id, t.code, t.name, t.factor_type, t.rate_percent, t.is_default FROM tax_rates t"
+                        + " WHERE t.status = 'ACTIVE' AND t.valid_from <= :day AND (t.valid_to IS NULL OR t.valid_to >= :day)"
+                        + " ORDER BY t.is_default DESC, t.rate_percent DESC NULLS LAST, t.code ASC", new MapSqlParameterSource("day", day),
+                (rs, rowNum) -> new TaxRateOption(rs.getLong("id"), rs.getString("code"), rs.getString("name"),
+                        TaxFactorType.valueOf(rs.getString("factor_type")), rs.getBigDecimal("rate_percent"), rs.getBoolean("is_default")));
     }
 
     public Optional<TaxRateResponse> find(long id) {

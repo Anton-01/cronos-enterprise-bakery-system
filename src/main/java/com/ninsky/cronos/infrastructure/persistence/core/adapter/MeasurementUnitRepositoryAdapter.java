@@ -44,13 +44,15 @@ public class MeasurementUnitRepositoryAdapter implements MeasurementUnitReposito
     private final MeasurementUnitJpaRepository jpaRepository;
     private final UnitTypeJpaRepository unitTypeJpaRepository;
     private final MeasurementUnitMapper mapper;
+    private final MeasurementUnitCustomRepository reads;
 
     public MeasurementUnitRepositoryAdapter(MeasurementUnitJpaRepository jpaRepository,
                                              UnitTypeJpaRepository unitTypeJpaRepository,
-                                             MeasurementUnitMapper mapper) {
+                                             MeasurementUnitMapper mapper, MeasurementUnitCustomRepository reads) {
         this.jpaRepository = jpaRepository;
         this.unitTypeJpaRepository = unitTypeJpaRepository;
         this.mapper = mapper;
+        this.reads = reads;
     }
 
     @Override
@@ -64,7 +66,7 @@ public class MeasurementUnitRepositoryAdapter implements MeasurementUnitReposito
 
     @Override
     public Optional<MeasurementUnit> findById(Long id) {
-        return jpaRepository.findById(id).map(mapper::toDomain);
+        return reads.findById(id);
     }
 
     @Override
@@ -84,17 +86,17 @@ public class MeasurementUnitRepositoryAdapter implements MeasurementUnitReposito
 
     @Override
     public Optional<MeasurementUnitView> findViewById(Long id) {
-        return jpaRepository.findWithUnitTypeById(id).map(mapper::toView);
+        return reads.findViewById(id);
     }
 
     @Override
     public Page<MeasurementUnitView> search(MeasurementUnitSearchCriteria criteria, Pageable pageable) {
-        return jpaRepository.findAll(matching(criteria), SORTABLE.translate(pageable)).map(mapper::toView);
+        return reads.search(criteria, pageable);
     }
 
     @Override
     public List<MeasurementUnitView> findSelectableViews() {
-        return jpaRepository.findAllSelectable(RecordStatus.ACTIVE).stream().map(mapper::toView).toList();
+        return reads.findSelectableViews();
     }
 
     @Override

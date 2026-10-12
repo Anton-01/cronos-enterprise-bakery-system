@@ -36,4 +36,5 @@ COPY --from=builder --chown=cronos:cronos /build/target/app.jar app.jar
 USER cronos
 EXPOSE 9191
 
-ENTRYPOINT ["java", "--sun-misc-unsafe-memory-access=allow", "--enable-native-access=ALL-UNNAMED", "-jar", "app.jar"]
+# ZGC keeps GC pauses sub-millisecond (request latency, performance-latency P2-4); the heap follows the container limit.
+ENTRYPOINT ["java", "-XX:+UseZGC", "-XX:MaxRAMPercentage=75", "--sun-misc-unsafe-memory-access=allow", "--enable-native-access=ALL-UNNAMED", "-jar", "app.jar"]

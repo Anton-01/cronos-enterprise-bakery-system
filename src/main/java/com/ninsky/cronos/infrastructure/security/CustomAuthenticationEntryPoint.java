@@ -10,7 +10,10 @@ import com.ninsky.cronos.infrastructure.web.TraceIdFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.AuthenticationException;
@@ -27,6 +30,7 @@ import java.util.Locale;
  * from the request header and writes the envelope directly, keeping unauthenticated responses
  * bilingual and shaped identically to every other error response.
  */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class CustomAuthenticationEntryPoint implements AuthenticationEntryPoint {
@@ -35,6 +39,19 @@ public class CustomAuthenticationEntryPoint implements AuthenticationEntryPoint 
 
     private final ErrorCatalogPort errorCatalogPort;
     private final ObjectMapper objectMapper;
+
+    /**
+     * Loads the 401 catalog entry into the (in-memory) error-catalog cache at startup, so an unauthenticated request is
+     * answered without any database round trip, the first one included (performance-latency §2: 401 in &lt; 5 ms).
+     */
+    @EventListener(ApplicationReadyEvent.class)
+    public void warmUp() {
+        try {
+            errorCatalogPort.findByCode(ERROR_CODE);
+        } catch (RuntimeException e) {
+            log.warn("Could not preload the {} error entry: {}", ERROR_CODE, e.getMessage());
+        }
+    }
 
     @Override
     public void commence(HttpServletRequest request, HttpServletResponse response, AuthenticationException authException)

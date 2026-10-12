@@ -26,6 +26,7 @@ public class DataImportBatchRepositoryAdapter implements ImportBatchRepositoryPo
     private static final Sort NEWEST_FIRST = Sort.by(Sort.Direction.DESC, "startedAt");
 
     private final DataImportBatchJpaRepository jpaRepository;
+    private final DataImportBatchCustomRepository reads;
 
     @Override
     public ImportBatch append(ImportBatch batch) {
@@ -34,13 +35,13 @@ public class DataImportBatchRepositoryAdapter implements ImportBatchRepositoryPo
 
     @Override
     public Optional<ImportBatch> findById(UUID id) {
-        return jpaRepository.findById(id).map(DataImportBatchRepositoryAdapter::toDomain);
+        return reads.findById(id);
     }
 
     @Override
     public Page<ImportBatch> search(ImportResource resource, ImportStatus status, Pageable pageable) {
-        Pageable newestFirst = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), NEWEST_FIRST);
-        return jpaRepository.search(resource, status, newestFirst).map(DataImportBatchRepositoryAdapter::toDomain);
+        // Always newest first; a client-supplied sort is ignored rather than trusted.
+        return reads.search(resource, status, PageRequest.of(pageable.getPageNumber(), pageable.getPageSize()));
     }
 
     @Override

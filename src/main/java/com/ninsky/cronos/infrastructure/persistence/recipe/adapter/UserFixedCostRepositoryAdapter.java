@@ -16,10 +16,13 @@ public class UserFixedCostRepositoryAdapter implements UserFixedCostRepositoryPo
 
     private final UserFixedCostJpaRepository jpaRepository;
     private final UserFixedCostMapper mapper;
+    private final UserFixedCostCustomRepository reads;
 
-    public UserFixedCostRepositoryAdapter(UserFixedCostJpaRepository jpaRepository, UserFixedCostMapper mapper) {
+    public UserFixedCostRepositoryAdapter(UserFixedCostJpaRepository jpaRepository, UserFixedCostMapper mapper,
+                                          UserFixedCostCustomRepository reads) {
         this.jpaRepository = jpaRepository;
         this.mapper = mapper;
+        this.reads = reads;
     }
 
     @Override
@@ -29,17 +32,17 @@ public class UserFixedCostRepositoryAdapter implements UserFixedCostRepositoryPo
 
     @Override
     public Optional<UserFixedCost> findByIdAndUserId(UUID id, UUID userId) {
-        return jpaRepository.findByIdAndUserId(id, userId).map(mapper::toDomain);
+        return reads.findByIdAndUserId(id, userId);
     }
 
     @Override
     public Page<UserFixedCost> findByUserId(UUID userId, Pageable pageable) {
-        return jpaRepository.findByUserId(userId, pageable).map(mapper::toDomain);
+        return reads.findByUser(userId, null, pageable);
     }
 
     @Override
     public Page<UserFixedCost> findByUserIdAndNameContainingIgnoreCase(UUID userId, String name, Pageable pageable) {
-        return jpaRepository.findByUserIdAndNameContainingIgnoreCase(userId, name, pageable).map(mapper::toDomain);
+        return reads.findByUser(userId, name, pageable);
     }
 
     @Override

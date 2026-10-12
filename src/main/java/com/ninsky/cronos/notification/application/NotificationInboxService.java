@@ -81,9 +81,9 @@ public class NotificationInboxService {
             throw ApiException.invalid("size", "api.validation.range", 1, PAGE_MAX);
         }
         Set<NotificationCategory> filter = categories == null ? Set.of() : Set.copyOf(categories);
-        long total = inbox.count(user, unreadOnly, filter);
-        List<AppNotification> content = inbox.page(user, unreadOnly, filter, pageSize, (long) pageNumber * pageSize).stream()
-                .map(NotificationInboxService::view).toList();
+        var rows = inbox.pageWithTotal(user, unreadOnly, filter, pageSize, (long) pageNumber * pageSize);
+        long total = rows.total();
+        List<AppNotification> content = rows.rows().stream().map(NotificationInboxService::view).toList();
         int totalPages = (int) ((total + pageSize - 1) / pageSize);
         return new CatalogPage<>(content, pageNumber, pageSize, total, totalPages, pageNumber + 1 >= totalPages);
     }
@@ -126,15 +126,14 @@ public class NotificationInboxService {
         publisher.publish(new NotificationEvents.NotificationsRead(user, List.of(id), false, unread(user).total()));
     }
 
-    /** A single-use ticket for {@code GET /notifications/stream}, bound to the caller's session. */
-    @Transactional
+    /** A single-use ticket for {@code GET /notifications/stream}, bound to the caller's session. Redis only, no SQL. */
     public StreamTicket ticket() {
         UUID user = user();
         byte[] raw = new byte[TICKET_BYTES];
         RANDOM.nextBytes(raw);
         String ticket = Base64.getUrlEncoder().withoutPadding().encodeToString(raw);
         Instant expiresAt = clock.instant().plus(properties.ticketTtl());
-        tickets.insert(sha256(ticket), user, TraceContexts.current().map(TraceContext::sessionId).orElse(null), expiresAt);
+        tickets.insert(sha256(ticket), user, TraceContexts.current().map(TraceContext::sessionId).orElse(null), properties.ticketTtl());
         return new StreamTicket(ticket, expiresAt);
     }
 
@@ -142,14 +141,16 @@ public class NotificationInboxService {
      * Consumes {@code ticket} and opens the stream: the reconnect delay, the notifications after {@code lastEventId}
      * (at most 100), then live frames.
      *
+     * Not transactional: the ticket lives in Redis and the replay is at most two autocommit reads, so no connection is
+     * held once the emitter is returned (the stream itself never touches JPA; frames arrive from outbox consumers).
+     *
      * @return empty when the ticket is unknown, used or expired
      */
-    @Transactional
     public Optional<SseEmitter> open(String ticket, String lastEventId) {
         if (ticket == null || ticket.isBlank() || ticket.length() > 100) {
             return Optional.empty();
         }
-        return tickets.consume(sha256(ticket), clock.instant()).map(owner -> {
+        return tickets.consume(sha256(ticket)).map(owner -> {
             SseEmitter emitter = connections.open(owner.userId(), owner.sessionId(), properties.streamTimeout());
             SseConnectionRegistry.send(emitter, SseEmitter.event().reconnectTime(5000).comment("connected"));
             parse(lastEventId).ifPresent(after -> {

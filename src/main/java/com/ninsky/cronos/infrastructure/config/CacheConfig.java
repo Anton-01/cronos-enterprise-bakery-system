@@ -44,6 +44,13 @@ public class CacheConfig {
         cacheManager.registerCustomCache("kitchenUnits", shortLived(Duration.ofMinutes(10), 10));
         cacheManager.registerCustomCache("kitchenAllergens", shortLived(Duration.ofMinutes(5), 5_000));
         cacheManager.registerCustomCache("kitchenStats", shortLived(Duration.ofSeconds(30), 10_000));
+        // Reference catalogs (performance-latency P1-1): evicted on write, TTL bounds cross-instance staleness and matches
+        // the Cache-Control max-age the catalog endpoints send.
+        cacheManager.registerCustomCache("categories", shortLived(Duration.ofSeconds(60), 5_000));
+        cacheManager.registerCustomCache("financeCatalogs", shortLived(Duration.ofSeconds(60), 100));
+        cacheManager.registerCustomCache("recipeSections", shortLived(Duration.ofSeconds(60), 5_000));
+        cacheManager.registerCustomCache("dashboardSummary", shortLived(Duration.ofSeconds(30), 10_000));
+        cacheManager.registerCustomCache("quoteStats", shortLived(Duration.ofSeconds(30), 10_000));
         return cacheManager;
     }
 

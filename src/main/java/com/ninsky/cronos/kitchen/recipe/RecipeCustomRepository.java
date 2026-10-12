@@ -4,6 +4,7 @@ import com.ninsky.cronos.kitchen.costing.CostEngine;
 import com.ninsky.cronos.kitchen.costing.CostStatus;
 import com.ninsky.cronos.kitchen.costing.FixedCostMethod;
 import com.ninsky.cronos.kitchen.costing.PricingMethod;
+import com.ninsky.cronos.infrastructure.persistence.jdbc.JdbcPages;
 import com.ninsky.cronos.kitchen.shared.Sql;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.RowMapper;
@@ -69,6 +70,31 @@ public class RecipeCustomRepository {
         }
         return assemble(heads(HEAD + " WHERE r.id IN (:ids) AND r.deleted_at IS NULL ORDER BY r.id FOR UPDATE",
                 new MapSqlParameterSource().addValue("ids", Set.copyOf(ids))));
+    }
+
+    /** One list row: the head plus what the card shows from other tables. */
+    public record ListRow(RecipeAggregate.Head head, String categoryName, String coverKey) {
+    }
+
+    /**
+     * One page of list rows in one statement (performance-latency P1-2/P1-3): the page (ids, positions and the total
+     * via {@code count(*) OVER ()}) is chosen first, then only those rows get their head, category name and cover key.
+     *
+     * @param where   {@code WHERE …} over {@code recipes r}
+     * @param orderBy SQL order over {@code r} (without {@code ORDER BY}); {@code r.id} is appended as tie-breaker
+     */
+    public JdbcPages.Rows<ListRow> listPage(String where, MapSqlParameterSource params, String orderBy, int limit, long offset) {
+        params.addValue("limit", limit).addValue("offset", offset);
+        String sql = "WITH page AS (SELECT r.id, " + JdbcPages.TOTAL_COLUMN + ", row_number() OVER (ORDER BY " + orderBy + ", r.id) AS pos"
+                + " FROM recipes r" + where + " ORDER BY " + orderBy + ", r.id LIMIT :limit OFFSET :offset) "
+                + HEAD.replace(" FROM recipes r", ", cat.name AS category_name, cover.k AS cover_key, page.total_count"
+                + " FROM page JOIN recipes r ON r.id = page.id LEFT JOIN categories cat ON cat.id = r.category_id"
+                + " LEFT JOIN LATERAL (SELECT coalesce(f.card_storage_key, f.thumbnail_key, f.storage_key) AS k FROM recipe_files f"
+                + " WHERE f.recipe_id = r.id AND f.is_cover LIMIT 1) cover ON TRUE")
+                + " ORDER BY page.pos";
+        return JdbcPages.rows(jdbc, sql, params, offset,
+                (rs, row) -> new ListRow(head(rs, row), rs.getString("category_name"), rs.getString("cover_key")),
+                "SELECT count(*) FROM recipes r" + where);
     }
 
     /** Heads only (list rows), in the order of {@code ids}. */

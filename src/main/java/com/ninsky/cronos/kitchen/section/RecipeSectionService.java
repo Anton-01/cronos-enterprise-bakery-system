@@ -7,6 +7,8 @@ import com.ninsky.cronos.infrastructure.exception.Violations;
 import com.ninsky.cronos.kitchen.shared.KitchenSettingsCustomRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +31,9 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 public class RecipeSectionService {
 
+    /** Per-user cache of the section list ({@code CacheConfig}). */
+    static final String CACHE = "recipeSections";
+
     static final int MAX_SECTIONS = 60;
     static final int MAX_NAME = 40;
     private static final Pattern COLOR = Pattern.compile("^#[0-9a-fA-F]{6}$");
@@ -38,17 +43,27 @@ public class RecipeSectionService {
     private final KitchenSettingsCustomRepository settings;
     private final ActorProvider actors;
     private final Clock clock;
+    private final CacheManager cacheManager;
 
     /** Ordered by {@code displayOrder, name}; the first call of a user seeds the defaults and the sections already in use. */
     @Transactional
     public List<RecipeSection> list() {
         UUID owner = owner();
-        ensureSeeded(owner);
-        return sections.list(owner);
+        Cache cache = cacheManager.getCache(CACHE);
+        if (cache == null) {
+            ensureSeeded(owner);
+            return sections.list(owner);
+        }
+        // Reference data per user (performance-latency P1-1): cached 60 s, evicted by this user's section writes.
+        return cache.get(owner, () -> {
+            ensureSeeded(owner);
+            return sections.list(owner);
+        });
     }
 
     @Transactional
     public RecipeSection create(RecipeSectionRequest request) {
+        evict();
         UUID owner = owner();
         ensureSeeded(owner);
         Valid valid = validate(owner, request, null);
@@ -67,6 +82,7 @@ public class RecipeSectionService {
     /** Renaming changes the catalog only (B3): the old name's lines simply stop counting for this label. */
     @Transactional
     public RecipeSection update(UUID id, RecipeSectionRequest request) {
+        evict();
         UUID owner = owner();
         sections.find(owner, id).orElseThrow(RecipeSectionService::notFound);
         Valid valid = validate(owner, request, id);
@@ -81,6 +97,7 @@ public class RecipeSectionService {
     /** Allowed while lines use the name: they keep their text. */
     @Transactional
     public void delete(UUID id) {
+        evict();
         if (!sections.delete(owner(), id)) {
             throw notFound();
         }
@@ -89,6 +106,7 @@ public class RecipeSectionService {
     /** Listed ids take {@code 0..n-1}; the others keep their relative order after them. Unknown or repeated ids → 400. */
     @Transactional
     public List<RecipeSection> reorder(RecipeSectionOrderRequest request) {
+        evict();
         UUID owner = owner();
         List<UUID> current = sections.orderedIds(owner);
         Set<UUID> known = new HashSet<>(current);
@@ -112,6 +130,7 @@ public class RecipeSectionService {
     /** Re-creates any default whose key is missing; never renames or deletes. */
     @Transactional
     public List<RecipeSection> restoreDefaults() {
+        evict();
         UUID owner = owner();
         ensureSeeded(owner);
         sections.insertMissingDefaults(owner, RecipeSectionDefaults.ALL, MAX_SECTIONS - sections.count(owner), clock.instant());
@@ -119,6 +138,14 @@ public class RecipeSectionService {
     }
 
     /** One-time lazy seeding under the settings row lock (two tabs never double-seed; deletions are never undone, B4). */
+    /** Drops the caller's cached list; the write that follows runs in the same transaction. */
+    private void evict() {
+        Cache cache = cacheManager.getCache(CACHE);
+        if (cache != null) {
+            cache.evict(owner());
+        }
+    }
+
     private void ensureSeeded(UUID owner) {
         if (settings.peek(owner).sections() || settings.lock(owner).sections()) {
             return;

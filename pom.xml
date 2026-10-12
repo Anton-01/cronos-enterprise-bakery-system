@@ -37,6 +37,7 @@
         <libphonenumber.version>8.13.52</libphonenumber.version>
         <twelvemonkeys.version>3.12.0</twelvemonkeys.version>
         <poi.version>5.4.1</poi.version>
+        <datasource-proxy.version>1.10</datasource-proxy.version>
         <!-- Silences Netty/Lettuce's sun.misc.Unsafe deprecation warning (JEP 471) on JDK 24+
              for `mvnw spring-boot:run`. Override on the command line with
              -Dspring-boot.run.jvmArguments="..." if you need other JVM args instead.
@@ -99,6 +100,13 @@
         <dependency>
             <groupId>io.micrometer</groupId>
             <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+        <!-- Counts and times every JDBC statement (Server-Timing db;dur, cronos.db.statement); wired only when
+             app.observability.sql.enabled=true (dev, tests). -->
+        <dependency>
+            <groupId>net.ttddyy</groupId>
+            <artifactId>datasource-proxy</artifactId>
+            <version>${datasource-proxy.version}</version>
         </dependency>
 
         <!-- Hot reload for local/docker-compose-watch development only -->

@@ -53,6 +53,15 @@ public class CredentialCustomRepository {
                 new MapSqlParameterSource("id", userId).addValue("now", now));
     }
 
+    /** Mirrors the Redis failure counter of the current window into the durable row (sign-in-failed consumer). */
+    public void recordFailedAttempts(UUID userId, int attempts, LocalDateTime at) {
+        jdbc.update("""
+                        UPDATE users SET failed_login_attempts = :attempts, last_failed_login = :at,
+                               first_failed_at = CASE WHEN :attempts = 1 OR first_failed_at IS NULL THEN now() ELSE first_failed_at END
+                        WHERE id = :id""",
+                new MapSqlParameterSource("id", userId).addValue("attempts", attempts).addValue("at", at));
+    }
+
     /** Failure counters after one more failed sign-in. */
     public record FailureState(int attempts, int lockCount, Instant lastLockedAt) {
     }

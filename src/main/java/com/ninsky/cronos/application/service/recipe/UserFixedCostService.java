@@ -52,7 +52,9 @@ public class UserFixedCostService {
         FixedCostMethod method = validate(request);
         UserFixedCost fixedCost = UserFixedCost.builder().userId(userId).isActive(true).build();
         apply(fixedCost, request, method);
-        return mapToResponse(fixedCostRepository.save(fixedCost));
+        UserFixedCostResponse created = mapToResponse(fixedCostRepository.save(fixedCost));
+        evictCounters(userId);
+        return created;
     }
 
     /** Active and inactive rows; the first call of a user seeds the default catalog (§4.6). */
@@ -107,12 +109,21 @@ public class UserFixedCostService {
         }
         fixedCosts.detachFromDeletedRecipes(id);
         fixedCostRepository.delete(id);
+        evictCounters(userId);
         log.info("Fixed cost {} deleted by {}", id, userId);
     }
 
     @Transactional
     public int restoreDefaults() {
-        return seeder.restoreDefaults(actors.require().id());
+        UUID userId = actors.require().id();
+        int restored = seeder.restoreDefaults(userId);
+        evictCounters(userId);
+        return restored;
+    }
+
+    /** The dashboard counts fixed costs; its cached entry is dropped with the "fixedCosts" stats key. */
+    private void evictCounters(UUID userId) {
+        caches.evict(KitchenCaches.STATS, KitchenCaches.statsKey("fixedCosts", userId));
     }
 
     /** Field rules of §4.1; returns the parsed calculation method. */

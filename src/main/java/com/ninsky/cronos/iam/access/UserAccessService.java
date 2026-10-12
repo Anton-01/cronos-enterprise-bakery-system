@@ -16,4 +16,12 @@ public class UserAccessService {
     public UserAccessState current(UUID userId) {
         return cache.load(userId, versions.current(userId));
     }
+
+    /**
+     * Same as {@link #current(UUID)} when the caller already read {@code users.access_version} (the sign-in query does),
+     * saving the version lookup.
+     */
+    public UserAccessState current(UUID userId, long accessVersion) {
+        return cache.load(userId, accessVersion);
+    }
 }

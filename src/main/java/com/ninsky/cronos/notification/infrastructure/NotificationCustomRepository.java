@@ -4,6 +4,7 @@ import com.ninsky.cronos.infrastructure.security.crypto.FieldEncryptionService;
 import com.ninsky.cronos.notification.domain.NotificationCategory;
 import com.ninsky.cronos.notification.domain.NotificationSeverity;
 import com.ninsky.cronos.notification.domain.NotificationType;
+import com.ninsky.cronos.infrastructure.persistence.jdbc.JdbcPages;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -61,6 +62,15 @@ public class NotificationCustomRepository {
                         .addValue("link", row.link()).addValue("subjectType", row.subjectType()).addValue("subjectId", row.subjectId())
                         .addValue("actor", encryption.encrypt(row.actorName())).addValue("source", sourceEventId)
                         .addValue("createdAt", Timestamp.from(row.createdAt()))) == 1;
+    }
+
+    /** Newest first, with the total of the filter, in one statement (performance-latency P1-3). */
+    public JdbcPages.Rows<NotificationRow> pageWithTotal(UUID userId, boolean unreadOnly, Set<NotificationCategory> categories, int limit,
+                                                        long offset) {
+        MapSqlParameterSource params = filter(userId, categories).addValue("limit", limit).addValue("offset", offset);
+        return JdbcPages.rows(jdbc, "SELECT *, " + JdbcPages.TOTAL_COLUMN + " FROM notifications WHERE " + where(unreadOnly, categories)
+                + " ORDER BY id DESC LIMIT :limit OFFSET :offset", params, offset, rowMapper,
+                "SELECT count(*) FROM notifications WHERE " + where(unreadOnly, categories));
     }
 
     /** Newest first. */
