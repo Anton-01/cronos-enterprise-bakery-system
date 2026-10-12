@@ -7,7 +7,8 @@ FROM eclipse-temurin:25-jdk AS builder
 WORKDIR /build
 
 COPY .mvn/ .mvn/
-COPY mvnw pom.xml ./
+# lombok.config: Lombok reads it at compile time (generated-code markers, @Value copied to constructor parameters).
+COPY mvnw pom.xml lombok.config ./
 RUN --mount=type=cache,target=/root/.m2 ./mvnw -B -q dependency:go-offline
 
 COPY src/ src/

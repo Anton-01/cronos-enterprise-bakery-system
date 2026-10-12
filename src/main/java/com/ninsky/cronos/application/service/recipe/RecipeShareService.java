@@ -22,7 +22,6 @@ import com.ninsky.cronos.kitchen.shared.KitchenMessages;
 import com.ninsky.cronos.kitchen.unit.UnitCatalog;
 import com.ninsky.cronos.kitchen.unit.UnitInfo;
 import com.ninsky.cronos.infrastructure.exception.ResourceNotFoundException;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -37,7 +36,6 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class RecipeShareService {
 
     private final RecipeShareRepositoryPort shareRepository;
@@ -51,8 +49,25 @@ public class RecipeShareService {
     private final IngredientQueryCustomRepository ingredientQueries;
     private final UnitCatalog unitCatalog;
 
-    @Value("${app.frontend.urlSharePublicRecipe}")
     private final String frontendUrlSharePublicRecipe;
+
+    public RecipeShareService(RecipeShareRepositoryPort shareRepository, RecipeShareAccessLogRepositoryPort accessLogRepository,
+                              RecipeCustomRepository recipeStore, RecipeFileCustomRepository recipeFileStore,
+                              RecipeFileService recipeFileService, ActorProvider actors, UserProfileRepositoryPort userProfileRepository,
+                              DomainEventPublisher events, IngredientQueryCustomRepository ingredientQueries, UnitCatalog unitCatalog,
+                              @Value("${app.frontend.urlSharePublicRecipe}") String frontendUrlSharePublicRecipe) {
+        this.shareRepository = shareRepository;
+        this.accessLogRepository = accessLogRepository;
+        this.recipeStore = recipeStore;
+        this.recipeFileStore = recipeFileStore;
+        this.recipeFileService = recipeFileService;
+        this.actors = actors;
+        this.userProfileRepository = userProfileRepository;
+        this.events = events;
+        this.ingredientQueries = ingredientQueries;
+        this.unitCatalog = unitCatalog;
+        this.frontendUrlSharePublicRecipe = frontendUrlSharePublicRecipe;
+    }
 
     /**
      * The caller's links for a recipe they can see: their own recipes and the SYSTEM library (the public

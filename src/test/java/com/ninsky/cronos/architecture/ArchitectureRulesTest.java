@@ -44,8 +44,10 @@ class ArchitectureRulesTest {
             .because("setter injection hides required dependencies");
 
     @ArchTest
-    static final ArchRule noAutowiredConstructors = noConstructors().should().beAnnotatedWith(Autowired.class)
-            .because("a single constructor is injected implicitly");
+    static final ArchRule noAutowiredConstructors = noConstructors().that().areDeclaredInClassesThat()
+            .haveSimpleNameNotEndingWith("MapperImpl")
+            .should().beAnnotatedWith(Autowired.class)
+            .because("a single constructor is injected implicitly (MapStruct-generated mappers are not our code)");
 
     @ArchTest
     static final ArchRule injectedFieldsAreFinal = fields().that().areDeclaredInClassesThat().areAnnotatedWith(Service.class)
