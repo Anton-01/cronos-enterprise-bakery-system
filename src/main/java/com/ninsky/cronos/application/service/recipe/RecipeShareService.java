@@ -13,6 +13,7 @@ import com.ninsky.cronos.domain.port.recipe.RecipeShareRepositoryPort;
 import com.ninsky.cronos.iam.shared.ActorProvider;
 import com.ninsky.cronos.infrastructure.exception.ApiException;
 import com.ninsky.cronos.infrastructure.exception.BusinessException;
+import com.ninsky.cronos.infrastructure.persistence.recipe.adapter.RecipeShareCustomRepository;
 import com.ninsky.cronos.kitchen.ingredient.IngredientQueryCustomRepository;
 import com.ninsky.cronos.kitchen.recipe.RecipeAggregate;
 import com.ninsky.cronos.kitchen.recipe.RecipeCustomRepository;
@@ -49,15 +50,18 @@ public class RecipeShareService {
     private final IngredientQueryCustomRepository ingredientQueries;
     private final UnitCatalog unitCatalog;
 
+    private final RecipeShareCustomRepository shareQueries;
     private final String frontendUrlSharePublicRecipe;
 
     public RecipeShareService(RecipeShareRepositoryPort shareRepository, RecipeShareAccessLogRepositoryPort accessLogRepository,
+                              RecipeShareCustomRepository shareQueries,
                               RecipeCustomRepository recipeStore, RecipeFileCustomRepository recipeFileStore,
                               RecipeFileService recipeFileService, ActorProvider actors, UserProfileRepositoryPort userProfileRepository,
                               DomainEventPublisher events, IngredientQueryCustomRepository ingredientQueries, UnitCatalog unitCatalog,
                               @Value("${app.frontend.urlSharePublicRecipe}") String frontendUrlSharePublicRecipe) {
         this.shareRepository = shareRepository;
         this.accessLogRepository = accessLogRepository;
+        this.shareQueries = shareQueries;
         this.recipeStore = recipeStore;
         this.recipeFileStore = recipeFileStore;
         this.recipeFileService = recipeFileService;
@@ -75,10 +79,14 @@ public class RecipeShareService {
      */
     @Transactional(readOnly = true)
     public List<RecipeShareResponse> getSharesByRecipeId(UUID recipeId) {
+        // Visibility and the links in one statement (no recipe aggregate is loaded).
         UUID userId = actors.require().id();
-        visible(recipeId, userId);
-        return shareRepository.findByRecipeIdAndUserIdOrderByCreatedAtDesc(recipeId, userId).stream()
-                .map(this::mapToResponse).toList();
+        return shareQueries.sharesOfVisibleRecipe(recipeId, userId)
+                .orElseThrow(() -> ApiException.notFound("kitchen.recipe.notFound")).stream()
+                .map(row -> RecipeShareResponse.builder().id(row.id()).shareUrl(frontendUrlSharePublicRecipe + row.shareToken())
+                        .expiresAt(row.expiresAt()).viewsCount(row.viewsCount()).isRevoked(row.revoked()).createdAt(row.createdAt())
+                        .build())
+                .toList();
     }
 
     @Transactional
@@ -160,11 +168,9 @@ public class RecipeShareService {
     /** Access log of one of the caller's links. */
     @Transactional(readOnly = true)
     public List<RecipeShareAccessLogResponse> getShareAnalytics(UUID recipeId, UUID shareId) {
-        RecipeShare share = ownShare(recipeId, shareId);
-        return accessLogRepository.findByRecipeShareIdOrderByAccessedAtDesc(share.getId()).stream()
-                .map(log -> RecipeShareAccessLogResponse.builder().id(log.getId()).accessedAt(log.getAccessedAt())
-                        .ipAddress(log.getIpAddress()).userAgent(log.getUserAgent()).build())
-                .toList();
+        // Ownership and the log in one statement.
+        return shareQueries.accessLog(recipeId, shareId, actors.require().id())
+                .orElseThrow(() -> ApiException.notFound("kitchen.share.notFound"));
     }
 
     /** A live recipe the user may share: own or SYSTEM library; anything else is 404 (K8). */

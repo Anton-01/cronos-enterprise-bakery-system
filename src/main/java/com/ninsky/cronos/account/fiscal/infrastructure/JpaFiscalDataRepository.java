@@ -16,10 +16,12 @@ public class JpaFiscalDataRepository implements FiscalDataRepository {
 
     private final UserFiscalDataJpaRepository jpaRepository;
     private final FiscalDataMapper mapper;
+    private final FiscalDataCustomRepository reads;
 
+    /** Read path: one SQL statement, no JPA entity. */
     @Override
     public Optional<FiscalData> findByUserId(UUID userId) {
-        return jpaRepository.findById(userId).map(mapper::toDomain);
+        return reads.findByUserId(userId);
     }
 
     /**

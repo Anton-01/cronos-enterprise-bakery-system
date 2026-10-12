@@ -144,14 +144,14 @@ public class QuoteService {
     @Transactional
     public Warned<InternalQuoteResponse> createQuote(String username, CreateQuoteRequest request) {
         log.info("Initiating quote creation for client: {}", request.clientName());
-        User user = userRepository.findByUsername(username).orElseThrow();
+        UUID ownerId = actors.require().id();
         if (request.eventDate() != null && request.eventDate().isBefore(TenantTime.today(clock))) {
             throw ApiException.invalid("eventDate", "quote.eventDate.past");
         }
         LocalDateTime now = TenantTime.nowLocal(clock);
         PricingSnapshot snapshot = pricingSnapshots.forNewDocument(pricingInput(request));
 
-        Quote quote = Quote.builder().quoteNumber(QuoteNumbers.next(user.getId(), now)).userId(user.getId()).clientName(request.clientName())
+        Quote quote = Quote.builder().quoteNumber(QuoteNumbers.next(ownerId, now)).userId(ownerId).clientName(request.clientName())
                 .clientEmail(request.clientEmail()).clientPhone(request.clientPhone())
                 .clientAddress(request.clientAddress()).notes(request.notes())
                 .status(QuoteStatus.DRAFT).validUntil(now.plusDays(request.validDays()))
@@ -161,7 +161,7 @@ public class QuoteService {
 
         Priced priced = price(quote, snapshot, request, actors.require());
         Quote savedQuote = quoteRepository.save(quote);
-        history.append(savedQuote.getId(), QuoteStatus.DRAFT, QuoteActorType.BAKER, user.getId(), null, "CREATED", null,
+        history.append(savedQuote.getId(), QuoteStatus.DRAFT, QuoteActorType.BAKER, ownerId, null, "CREATED", null,
                 TenantTime.now(clock), MDC.get(TraceContexts.MDC_TRACE_ID));
         auditBelowCost(savedQuote, request, priced.belowCostApproved());
         events.publish(new QuoteEvents.QuoteCreated(savedQuote.getId(), savedQuote.getQuoteNumber(), savedQuote.getUserId()));
@@ -355,8 +355,8 @@ public class QuoteService {
     }
 
     private Quote owned(String username, UUID quoteId) {
-        User user = userRepository.findByUsername(username).orElseThrow();
-        return quoteRepository.findByIdAndUserId(quoteId, user.getId()).filter(quote -> quote.getDeletedAt() == null)
+        // The owner is the authenticated actor: no user row (and no email decryption) per request.
+        return quoteRepository.findByIdAndUserId(quoteId, actors.require().id()).filter(quote -> quote.getDeletedAt() == null)
                 .orElseThrow(() -> new ResourceNotFoundException("Cotización no encontrada"));
     }
 

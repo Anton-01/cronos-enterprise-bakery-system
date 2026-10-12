@@ -18,6 +18,7 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import com.ninsky.cronos.account.avatar.infrastructure.AvatarObjectCleanupListener;
 import com.ninsky.cronos.account.avatar.infrastructure.AvatarUrlMapping;
 import com.ninsky.cronos.account.avatar.infrastructure.InMemoryAvatarStorage;
+import com.ninsky.cronos.account.fiscal.infrastructure.FiscalDataCustomRepository;
 import com.ninsky.cronos.account.fiscal.infrastructure.FiscalDataMapperImpl;
 import com.ninsky.cronos.account.fiscal.infrastructure.JpaFiscalDataRepository;
 import com.ninsky.cronos.account.profile.infrastructure.JpaUserAccountRepository;
@@ -74,7 +75,7 @@ import static org.mockito.Mockito.when;
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 @Import({JpaAuditingConfig.class, EncryptedStringConverter.class, EncryptedLocalDateConverter.class,
         JacksonAutoConfiguration.class,
-        JpaFiscalDataRepository.class, FiscalDataMapperImpl.class,
+        JpaFiscalDataRepository.class, FiscalDataCustomRepository.class, FiscalDataMapperImpl.class,
         JpaUserAccountRepository.class, UserAccountCustomRepository.class, UserProfileMapperImpl.class, AvatarUrlMapping.class, AvatarObjectCleanupListener.class,
         SpringEventAuditTrail.class, AuditLogWriter.class, AuditLogRepositoryAdapter.class, AuditLogMapper.class,
         AuditEntries.class, AuditEntryWriter.class,
