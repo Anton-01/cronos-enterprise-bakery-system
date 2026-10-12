@@ -81,9 +81,9 @@ public class NotificationInboxService {
             throw ApiException.invalid("size", "api.validation.range", 1, PAGE_MAX);
         }
         Set<NotificationCategory> filter = categories == null ? Set.of() : Set.copyOf(categories);
-        long total = inbox.count(user, unreadOnly, filter);
-        List<AppNotification> content = inbox.page(user, unreadOnly, filter, pageSize, (long) pageNumber * pageSize).stream()
-                .map(NotificationInboxService::view).toList();
+        var rows = inbox.pageWithTotal(user, unreadOnly, filter, pageSize, (long) pageNumber * pageSize);
+        long total = rows.total();
+        List<AppNotification> content = rows.rows().stream().map(NotificationInboxService::view).toList();
         int totalPages = (int) ((total + pageSize - 1) / pageSize);
         return new CatalogPage<>(content, pageNumber, pageSize, total, totalPages, pageNumber + 1 >= totalPages);
     }

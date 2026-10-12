@@ -4,6 +4,7 @@ import com.ninsky.cronos.infrastructure.web.paging.CatalogPage;
 import com.ninsky.cronos.infrastructure.web.paging.PageQuery;
 import com.ninsky.cronos.kitchen.shared.Scope;
 import com.ninsky.cronos.kitchen.shared.Sql;
+import com.ninsky.cronos.infrastructure.persistence.jdbc.JdbcPages;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -37,10 +38,9 @@ public class RecipeQueryCustomRepository {
     private final NamedParameterJdbcTemplate jdbc;
     private final RecipeCustomRepository store;
 
-    /** Page of recipe ids in order; heads are loaded by the store. */
-    public CatalogPage<UUID> page(UUID tenant, RecipeFilter filter, PageQuery query) {
-        MapSqlParameterSource params = new MapSqlParameterSource().addValue("tenant", tenant)
-                .addValue("limit", query.size()).addValue("offset", query.offset());
+    /** Page of list rows in order (head, category name, cover key) and the total, in one statement. */
+    public CatalogPage<RecipeCustomRepository.ListRow> page(UUID tenant, RecipeFilter filter, PageQuery query) {
+        MapSqlParameterSource params = new MapSqlParameterSource().addValue("tenant", tenant);
         StringBuilder where = new StringBuilder(" WHERE r.deleted_at IS NULL");
         where.append(filter.scope() == null ? " AND (r.owner_id IS NULL OR r.owner_id = :tenant)"
                 : filter.scope() == Scope.SYSTEM ? " AND r.owner_id IS NULL" : " AND r.owner_id = :tenant");
@@ -64,10 +64,9 @@ public class RecipeQueryCustomRepository {
             params.addValue("costStatus", filter.costStatus().name());
             where.append(" AND r.cost_status = :costStatus");
         }
-        Long total = jdbc.queryForObject("SELECT count(*) FROM recipes r" + where, params, Long.class);
-        List<UUID> ids = jdbc.queryForList("SELECT r.id FROM recipes r" + where + " ORDER BY " + query.orderBySql()
-                + ", r.id LIMIT :limit OFFSET :offset", params, UUID.class);
-        return CatalogPage.of(ids, query, total == null ? 0 : total);
+        JdbcPages.Rows<RecipeCustomRepository.ListRow> rows = store.listPage(where.toString(), params, query.orderBySql(), query.size(),
+                query.offset());
+        return CatalogPage.of(rows.rows(), query, rows.total());
     }
 
     /** Contained allergen ids (required lines; ingredient-declared ∪ line extras) per recipe. */

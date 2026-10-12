@@ -34,6 +34,8 @@ import com.ninsky.cronos.quote.infrastructure.QuoteQueryCustomRepository;
 import com.ninsky.cronos.finance.settings.PricingSnapshotResolver;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
@@ -68,6 +70,8 @@ public class QuoteLifecycleService {
     static final Duration VIEW_NOTIFICATION_BUCKET = Duration.ofHours(6);
     static final Duration EXPIRING_WINDOW = Duration.ofDays(2);
     static final int COMMENT_MAX = 500;
+    /** Per-owner cache of the stats figures ({@code CacheConfig}: 30 s), evicted by {@code QuoteStatsInvalidation}. */
+    public static final String STATS_CACHE = "quoteStats";
 
     private final QuoteRepositoryPort quotes;
     private final QuoteHistoryCustomRepository history;
@@ -79,12 +83,14 @@ public class QuoteLifecycleService {
     private final DomainEventPublisher events;
     private final PricingSnapshotResolver pricing;
     private final TransactionTemplate perQuote;
+    private final CacheManager cacheManager;
     private final Clock clock;
 
     public QuoteLifecycleService(QuoteRepositoryPort quotes, QuoteHistoryCustomRepository history, QuoteQueryCustomRepository queries,
                                  OrderScheduling scheduling, ActorProvider actors, UserDirectory users, AuditRecorder audit,
                                  DomainEventPublisher events, PricingSnapshotResolver pricing, PlatformTransactionManager transactions,
-                                 Clock clock) {
+                                 CacheManager cacheManager, Clock clock) {
+        this.cacheManager = cacheManager;
         this.quotes = quotes;
         this.history = history;
         this.queries = queries;
@@ -224,32 +230,33 @@ public class QuoteLifecycleService {
         events.publish(new QuoteEvents.QuoteDeleted(saved.getId(), saved.getQuoteNumber(), saved.getUserId()));
     }
 
-    /** Figures of the caller's quotes (§4.5). */
-    @Transactional(readOnly = true)
+    /**
+     * Figures of the caller's quotes (§4.5): one aggregate statement, cached 30 s per owner and evicted by every quote
+     * event of that owner (performance-latency P1-5).
+     */
     public QuoteStats stats() {
         UUID owner = actors.require().id();
+        Cache cache = cacheManager.getCache(STATS_CACHE);
+        return cache == null ? computeStats(owner) : cache.get(owner, () -> computeStats(owner));
+    }
+
+    private QuoteStats computeStats(UUID owner) {
         String currency = pricing.forNewDocument(new PricingSnapshotResolver.PricingInput(null, null, null)).currencyCode();
-        Map<QuoteStatus, Long> byStatus = queries.statusCounts(owner).stream()
-                .collect(Collectors.groupingBy(QuoteQueryCustomRepository.StatusCount::status, () -> new EnumMap<>(QuoteStatus.class),
-                        Collectors.summingLong(QuoteQueryCustomRepository.StatusCount::count)));
-        EnumSet.allOf(QuoteStatus.class).forEach(status -> byStatus.putIfAbsent(status, 0L));
-        BigDecimal openValue = queries.statusCounts(owner).stream()
-                .filter(count -> count.status().open() && currency.equalsIgnoreCase(count.currency()))
-                .map(QuoteQueryCustomRepository.StatusCount::total)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
         Instant now = TenantTime.now(clock);
-        BigDecimal accepted30 = queries.acceptedSince(owner, now.minus(Duration.ofDays(30))).entrySet().stream()
-                .filter(entry -> currency.equalsIgnoreCase(entry.getKey()))
+        LocalDateTime nowLocal = TenantTime.toLocal(now);
+        QuoteQueryCustomRepository.Stats stats = queries.stats(owner, currency, now.minus(Duration.ofDays(30)), now.minus(Duration.ofDays(90)),
+                TenantTime.toLocal(now.minus(Duration.ofDays(90))), nowLocal, nowLocal.plusDays(3));
+        Map<QuoteStatus, Long> byStatus = new EnumMap<>(QuoteStatus.class);
+        EnumSet.allOf(QuoteStatus.class).forEach(status -> byStatus.put(status, stats.counts().getOrDefault(status, 0L)));
+        BigDecimal openValue = stats.totalsInCurrency().entrySet().stream()
+                .filter(entry -> entry.getKey().open())
                 .map(Map.Entry::getValue)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-        QuoteQueryCustomRepository.Decisions decisions = queries.decisionsSince(owner, now.minus(Duration.ofDays(90)),
-                TenantTime.toLocal(now.minus(Duration.ofDays(90))));
+        QuoteQueryCustomRepository.Decisions decisions = stats.decisions();
         long decided = decisions.accepted() + decisions.rejected() + decisions.expired();
         Double conversion = decided == 0 ? null
                 : BigDecimal.valueOf(decisions.accepted()).divide(BigDecimal.valueOf(decided), 4, RoundingMode.HALF_UP).doubleValue();
-        LocalDateTime nowLocal = TenantTime.toLocal(now);
-        long expiringSoon = queries.expiringBefore(owner, nowLocal, nowLocal.plusDays(3));
-        return new QuoteStats(Map.copyOf(byStatus), openValue, accepted30, conversion, expiringSoon, currency);
+        return new QuoteStats(Map.copyOf(byStatus), openValue, stats.acceptedInWindow(), conversion, stats.expiringSoon(), currency);
     }
 
     // ─── public link ───────────────────────────────────────────────────────────────────

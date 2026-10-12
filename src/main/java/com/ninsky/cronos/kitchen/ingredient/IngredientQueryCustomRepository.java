@@ -11,6 +11,7 @@ import com.ninsky.cronos.kitchen.shared.Dimension;
 import com.ninsky.cronos.kitchen.shared.KitchenStatus;
 import com.ninsky.cronos.kitchen.shared.Scope;
 import com.ninsky.cronos.kitchen.shared.Sql;
+import com.ninsky.cronos.infrastructure.persistence.jdbc.JdbcPages;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -101,10 +102,9 @@ public class IngredientQueryCustomRepository {
             params.addValue("status", filter.status().name());
             where.append(" AND i.status = :status");
         }
-        Long total = jdbc.queryForObject("SELECT count(*)" + FROM + where, params, Long.class);
-        List<Row> rows = jdbc.query(COLUMNS + FROM + where + " ORDER BY " + query.orderBySql() + ", i.id LIMIT :limit OFFSET :offset",
-                params, (rs, i) -> row(rs));
-        return CatalogPage.of(rows, query, total == null ? 0 : total);
+        // Page and total in one statement (performance-latency P1-3): the laterals run once, not once per query.
+        return JdbcPages.catalogPage(jdbc, COLUMNS + ", " + JdbcPages.TOTAL_COLUMN + FROM + where + " ORDER BY " + query.orderBySql()
+                + ", i.id LIMIT :limit OFFSET :offset", params, query, (rs, i) -> row(rs), "SELECT count(*)" + FROM + where);
     }
 
     public Optional<Row> find(UUID tenant, String language, UUID id) {
@@ -182,15 +182,15 @@ public class IngredientQueryCustomRepository {
         MapSqlParameterSource params = new MapSqlParameterSource().addValue("id", id).addValue("tenant", tenant)
                 .addValue("limit", query.size()).addValue("offset", query.offset());
         String where = " WHERE p.ingredient_id = :id AND (p.owner_id IS NULL OR p.owner_id = :tenant)";
-        Long total = jdbc.queryForObject("SELECT count(*) FROM ingredient_prices p" + where, params, Long.class);
         // The window runs over the whole series before paging, so the oldest row of a page still compares with its predecessor.
-        List<PriceHistoryEntry> content = jdbc.query("SELECT p.id, p.purchase_quantity, p.purchase_unit_id, mu.code_identity, "
+        // Page and total in one statement (count(*) OVER ()).
+        return JdbcPages.catalogPage(jdbc, "SELECT " + JdbcPages.TOTAL_COLUMN + ", p.id, p.purchase_quantity, p.purchase_unit_id, mu.code_identity, "
                         + "p.price, p.currency, p.supplier, p.priced_at, p.cost_per_base_unit, p.previous_cost, p.recorded_at, "
                         + UserRefCustomRepository.columns("p.recorded_by")
                         + " FROM (SELECT p.*, lag(p.cost_per_base_unit) OVER (PARTITION BY p.owner_id IS NULL"
                         + " ORDER BY p.priced_at, p.recorded_at, p.id) AS previous_cost FROM ingredient_prices p" + where + ") p"
                         + " JOIN measurement_units mu ON mu.id = p.purchase_unit_id" + UserRefCustomRepository.join("p.recorded_by")
-                        + " ORDER BY p.priced_at DESC, p.recorded_at DESC, p.id DESC LIMIT :limit OFFSET :offset", params,
+                        + " ORDER BY p.priced_at DESC, p.recorded_at DESC, p.id DESC LIMIT :limit OFFSET :offset", params, query,
                 (rs, i) -> {
                     BigDecimal cost = rs.getBigDecimal("cost_per_base_unit");
                     return new PriceHistoryEntry(rs.getObject("id", UUID.class),
@@ -198,8 +198,7 @@ public class IngredientQueryCustomRepository {
                                     rs.getString("code_identity"), rs.getBigDecimal("price"), rs.getString("currency"),
                                     rs.getString("supplier"), rs.getObject("priced_at", LocalDate.class)),
                             cost, changePercent(rs.getBigDecimal("previous_cost"), cost), Sql.instant(rs, "recorded_at"), userRefs.map(rs));
-                });
-        return CatalogPage.of(content, query, total == null ? 0 : total);
+                }, "SELECT count(*) FROM ingredient_prices p" + where);
     }
 
     /** % change vs the previous cost of the series (§5.5: scale 10 HALF_EVEN internally, 2 decimals shown); null without one. */
