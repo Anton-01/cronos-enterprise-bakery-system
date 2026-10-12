@@ -21,6 +21,7 @@ import com.ninsky.cronos.account.avatar.infrastructure.InMemoryAvatarStorage;
 import com.ninsky.cronos.account.fiscal.infrastructure.FiscalDataMapperImpl;
 import com.ninsky.cronos.account.fiscal.infrastructure.JpaFiscalDataRepository;
 import com.ninsky.cronos.account.profile.infrastructure.JpaUserAccountRepository;
+import com.ninsky.cronos.account.profile.infrastructure.UserAccountCustomRepository;
 import com.ninsky.cronos.account.profile.infrastructure.UserProfileMapperImpl;
 import com.ninsky.cronos.account.shared.domain.PiiMasker;
 import com.ninsky.cronos.account.shared.infrastructure.audit.AuditLogWriter;
@@ -74,7 +75,7 @@ import static org.mockito.Mockito.when;
 @Import({JpaAuditingConfig.class, EncryptedStringConverter.class, EncryptedLocalDateConverter.class,
         JacksonAutoConfiguration.class,
         JpaFiscalDataRepository.class, FiscalDataMapperImpl.class,
-        JpaUserAccountRepository.class, UserProfileMapperImpl.class, AvatarUrlMapping.class, AvatarObjectCleanupListener.class,
+        JpaUserAccountRepository.class, UserAccountCustomRepository.class, UserProfileMapperImpl.class, AvatarUrlMapping.class, AvatarObjectCleanupListener.class,
         SpringEventAuditTrail.class, AuditLogWriter.class, AuditLogRepositoryAdapter.class, AuditLogMapper.class,
         AuditEntries.class, AuditEntryWriter.class,
         OutboxCustomRepository.class, OutboxDomainEventPublisher.class, SensitivePayloadCodec.class, OutboxSignal.class,

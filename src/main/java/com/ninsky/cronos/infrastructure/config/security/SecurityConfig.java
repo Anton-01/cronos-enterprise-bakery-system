@@ -88,9 +88,13 @@ public class SecurityConfig {
         return config.getAuthenticationManager();
     }
 
+    /**
+     * bcrypt cost 11 (≈ 150 ms on the container CPU; performance-latency P0-5 asks for 10–12). Hashes stored with another
+     * cost are rehashed on the next successful sign-in.
+     */
     @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder(12);
+    public PasswordEncoder passwordEncoder(@Value("${security.password.bcrypt-cost:11}") int cost) {
+        return new BCryptPasswordEncoder(cost);
     }
 
     @Bean

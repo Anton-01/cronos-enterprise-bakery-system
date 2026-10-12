@@ -38,11 +38,12 @@ public class JpaUserAccountRepository implements UserAccountRepository {
     private final UserJpaRepository userJpaRepository;
     private final UserProfileJpaRepository userProfileJpaRepository;
     private final UserProfileMapper userProfileMapper;
+    private final UserAccountCustomRepository accounts;
 
+    /** Read path: one SQL statement (user + profile + role codes), no JPA entity graph. */
     @Override
     public Optional<UserAccount> findById(UUID userId) {
-        return userJpaRepository.findById(userId)
-                .map(user -> toAccount(user, userProfileJpaRepository.findByUserId(userId).orElse(null)));
+        return accounts.findById(userId);
     }
 
     @Override
