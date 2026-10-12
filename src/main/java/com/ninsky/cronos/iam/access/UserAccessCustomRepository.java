@@ -1,6 +1,7 @@
 package com.ninsky.cronos.iam.access;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -9,6 +10,7 @@ import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 import java.util.Set;
 import java.util.UUID;
 
@@ -49,9 +51,13 @@ public class UserAccessCustomRepository {
         return rows.isEmpty() ? -1 : rows.getFirst();
     }
 
-    public void bumpAccessVersions(Collection<UUID> userIds) {
-        jdbc.update("UPDATE users SET access_version = access_version + 1 WHERE id IN (:ids)",
-                new MapSqlParameterSource("ids", Set.copyOf(userIds)));
+    /** Bumps the access version of every listed user and returns the new versions. */
+    public Map<UUID, Long> bumpAccessVersions(Collection<UUID> userIds) {
+        Map<UUID, Long> versions = new HashMap<>();
+        jdbc.query("UPDATE users SET access_version = access_version + 1 WHERE id IN (:ids) RETURNING id, access_version",
+                new MapSqlParameterSource("ids", Set.copyOf(userIds)),
+                (RowCallbackHandler) rs -> versions.put(rs.getObject("id", UUID.class), rs.getLong("access_version")));
+        return versions;
     }
 
     /** Users holding any of the roles (any status). */

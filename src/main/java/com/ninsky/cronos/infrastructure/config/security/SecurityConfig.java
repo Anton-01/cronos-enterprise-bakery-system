@@ -3,7 +3,6 @@ package com.ninsky.cronos.infrastructure.config.security;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ninsky.cronos.iam.policy.TwoFactorRequirement;
 import com.ninsky.cronos.iam.signin.TwoFactorGateFilter;
-import com.ninsky.cronos.identity.infrastructure.SessionLockCustomRepository;
 import com.ninsky.cronos.identity.infrastructure.SessionLockGateFilter;
 import com.ninsky.cronos.infrastructure.exception.StrictContractResponder;
 import com.ninsky.cronos.infrastructure.security.CustomAuthenticationEntryPoint;
@@ -42,11 +41,10 @@ public class SecurityConfig {
     public SecurityConfig(JwtAuthenticationFilter jwtAuthFilter,
                           CustomAuthenticationEntryPoint customAuthenticationEntryPoint, TwoFactorRequirement twoFactorRequirement,
                           StrictContractResponder strictContractResponder, ObjectMapper objectMapper,
-                          SessionLockCustomRepository sessionLocks,
                           @Value("${app.security.two-factor-gate.enabled:true}") boolean twoFactorGateEnabled) {
         this.jwtAuthFilter = jwtAuthFilter;
         this.customAuthenticationEntryPoint = customAuthenticationEntryPoint;
-        this.sessionLockGate = new SessionLockGateFilter(sessionLocks, strictContractResponder, objectMapper);
+        this.sessionLockGate = new SessionLockGateFilter(strictContractResponder, objectMapper);
         this.twoFactorGate = twoFactorGateEnabled ? new TwoFactorGateFilter(twoFactorRequirement, strictContractResponder, objectMapper) : null;
     }
 

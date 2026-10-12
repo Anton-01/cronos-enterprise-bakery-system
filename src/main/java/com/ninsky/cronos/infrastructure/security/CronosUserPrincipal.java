@@ -42,6 +42,20 @@ public class CronosUserPrincipal implements UserDetails {
         this.superAdmin = superAdmin;
     }
 
+    /**
+     * Principal of a verified access token: identity, roles and permissions come from its claims, so authenticating a
+     * request needs no database read. Account state (locks, suspensions, access changes) reaches live tokens through
+     * the session-state checks of the authentication filter, never through this object.
+     */
+    public static CronosUserPrincipal fromAccessToken(UUID userId, String username, String email, boolean twoFactorEnabled,
+                                                      long accessVersion, Collection<String> roleCodes, Collection<String> permissions) {
+        AuthUserProjection projection = new AuthUserProjection(userId, username, email, null, true, true, true, true,
+                twoFactorEnabled, null, Set.copyOf(roleCodes), Set.copyOf(permissions), AuthUserProjection.STATUS_ACTIVE,
+                accessVersion, false);
+        boolean superAdmin = roleCodes.stream().anyMatch(EffectivePermissions.SUPER_ADMIN_ROLE::equalsIgnoreCase);
+        return new CronosUserPrincipal(projection, roleCodes, permissions, superAdmin);
+    }
+
     public UUID getId() {
         return projection.id();
     }

@@ -133,6 +133,16 @@ public class JwtService {
         return cnf != null ? (String) cnf.get("jkt") : null;
     }
 
+    /**
+     * Verifies the signature and expiry of {@code token} once and returns its claims, so callers that need several
+     * claims (the authentication filter) do not verify the same token repeatedly.
+     *
+     * @throws io.jsonwebtoken.JwtException for a malformed, tampered or expired token
+     */
+    public Claims parse(String token) {
+        return extractAllClaims(token);
+    }
+
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
         final Claims claims = extractAllClaims(token);
         return claimsResolver.apply(claims);

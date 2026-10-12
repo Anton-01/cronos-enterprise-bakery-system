@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -28,8 +29,8 @@ public class AccessVersions {
         if (userIds.isEmpty()) {
             return;
         }
-        repository.bumpAccessVersions(userIds);
-        events.publishEvent(new AccessChanged(Set.copyOf(userIds)));
+        Map<UUID, Long> versions = repository.bumpAccessVersions(userIds);
+        events.publishEvent(new AccessChanged(Set.copyOf(userIds), versions));
     }
 
     /** Users holding a role (any status), for role-wide bumps. */

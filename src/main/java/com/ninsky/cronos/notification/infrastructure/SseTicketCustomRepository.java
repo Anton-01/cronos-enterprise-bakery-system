@@ -1,42 +1,56 @@
 package com.ninsky.cronos.notification.infrastructure;
 
-import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Repository;
 
-import java.sql.Timestamp;
-import java.time.Instant;
+import java.time.Duration;
 import java.util.Optional;
 import java.util.UUID;
 
-/** SQL of {@code sse_tickets}: hashed, single-use, short-lived. */
+/**
+ * Stream tickets in Redis (performance-latency P1-7): {@code SET stream-ticket:{sha256} {userId}:{sessionId} NX EX ttl}
+ * when issued and {@code GETDEL} when the stream opens, so a ticket works once and the whole exchange never touches
+ * PostgreSQL. Only the SHA-256 of the ticket is stored. (The {@code sse_tickets} table is no longer written; the token
+ * clean-up job still empties it.)
+ */
 @Repository
 public class SseTicketCustomRepository {
+
+    static final String PREFIX = "stream-ticket:";
+    private static final String NO_SESSION = "-";
 
     /** Who a consumed ticket authenticates. */
     public record Ticket(UUID userId, UUID sessionId) {
     }
 
-    private final NamedParameterJdbcTemplate jdbc;
+    private final StringRedisTemplate redis;
 
-    public SseTicketCustomRepository(NamedParameterJdbcTemplate jdbc) {
-        this.jdbc = jdbc;
+    public SseTicketCustomRepository(StringRedisTemplate redis) {
+        this.redis = redis;
     }
 
-    public void insert(String ticketHash, UUID userId, UUID sessionId, Instant expiresAt) {
-        jdbc.update("INSERT INTO sse_tickets (ticket_hash, user_id, session_id, expires_at) VALUES (:hash, :user, :session, :expires)",
-                new MapSqlParameterSource("hash", ticketHash).addValue("user", userId).addValue("session", sessionId)
-                        .addValue("expires", Timestamp.from(expiresAt)));
+    /** Stores a new ticket for {@code ttl}; false only on a (practically impossible) hash collision. */
+    public boolean insert(String ticketHash, UUID userId, UUID sessionId, Duration ttl) {
+        String value = userId + ":" + (sessionId == null ? NO_SESSION : sessionId.toString());
+        return Boolean.TRUE.equals(redis.opsForValue().setIfAbsent(PREFIX + ticketHash, value, ttl));
     }
 
-    /** Deletes the ticket and returns it when it was still valid (delete-on-read: a ticket works once). */
-    public Optional<Ticket> consume(String ticketHash, Instant now) {
-        return jdbc.query("""
-                                DELETE FROM sse_tickets WHERE ticket_hash = :hash
-                                RETURNING user_id, session_id, expires_at > :now AS valid""",
-                        new MapSqlParameterSource("hash", ticketHash).addValue("now", Timestamp.from(now)),
-                        (rs, n) -> rs.getBoolean("valid") ? new Ticket(rs.getObject("user_id", UUID.class), rs.getObject("session_id", UUID.class))
-                                : null)
-                .stream().filter(java.util.Objects::nonNull).findFirst();
+    /** Deletes the ticket and returns its owner when it still existed (expired tickets are gone already). */
+    public Optional<Ticket> consume(String ticketHash) {
+        String value = redis.opsForValue().getAndDelete(PREFIX + ticketHash);
+        if (value == null) {
+            return Optional.empty();
+        }
+        int separator = value.indexOf(':');
+        if (separator < 0) {
+            return Optional.empty();
+        }
+        String session = value.substring(separator + 1);
+        try {
+            return Optional.of(new Ticket(UUID.fromString(value.substring(0, separator)),
+                    NO_SESSION.equals(session) ? null : UUID.fromString(session)));
+        } catch (IllegalArgumentException malformed) {
+            return Optional.empty();
+        }
     }
 }

@@ -26,11 +26,28 @@
         </encoder>
     </appender>
 
+    <!-- Request threads hand log events to a queue instead of encoding JSON and writing the file
+         themselves. neverBlock drops events only if the 8192-entry queue is full; WARN and ERROR
+         are never discarded (discardingThreshold 0). -->
+    <appender name="ASYNC_CONSOLE" class="ch.qos.logback.classic.AsyncAppender">
+        <queueSize>8192</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <neverBlock>true</neverBlock>
+        <appender-ref ref="CONSOLE_JSON"/>
+    </appender>
+
+    <appender name="ASYNC_FILE" class="ch.qos.logback.classic.AsyncAppender">
+        <queueSize>8192</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <neverBlock>true</neverBlock>
+        <appender-ref ref="FILE_JSON"/>
+    </appender>
+
     <!-- Per-logger levels are driven by logging.level.* in application.yml (Spring Boot applies
          them to these same appenders); this file owns encoding/rolling only. -->
     <root level="INFO">
-        <appender-ref ref="CONSOLE_JSON"/>
-        <appender-ref ref="FILE_JSON"/>
+        <appender-ref ref="ASYNC_CONSOLE"/>
+        <appender-ref ref="ASYNC_FILE"/>
     </root>
 
 </configuration>

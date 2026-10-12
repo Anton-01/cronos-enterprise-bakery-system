@@ -42,7 +42,9 @@ public class TwoFactorGateFilter extends OncePerRequestFilter {
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response,
                                     @NonNull FilterChain chain) throws ServletException, IOException {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        // An access token minted with 2FA enabled can never need enrolment: no lookup for those users.
         if (authentication != null && authentication.getPrincipal() instanceof CronosUserPrincipal principal
+                && !principal.isTwoFactorEnabled()
                 && !TwoFactorGateAllowlist.ALL.matches(request) && requirement.mustEnrol(principal.getId())) {
             reject(request, response);
             return;
