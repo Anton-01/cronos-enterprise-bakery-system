@@ -244,6 +244,11 @@ management:
       show-details: never
       probes:
         enabled: true
+      # Readiness fails when the database does not answer (Hikari validation-timeout 1 s): the load balancer stops sending
+      # traffic instead of letting requests queue on the pool.
+      group:
+        readiness:
+          include: readinessState,db
   metrics:
     tags:
       application: ${spring.application.name}

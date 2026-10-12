@@ -1,6 +1,9 @@
 global:
   scrape_interval: 15s
 
+rule_files:
+  - /etc/prometheus/alerts.yml
+
 scrape_configs:
   # Actuator lives on its own internal port (management.server.port=9192), not published to the
   # host and outside server.servlet.context-path — see application.yml.

@@ -9,6 +9,8 @@ import com.tngtech.archunit.lang.ArchRule;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import jakarta.servlet.Filter;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -88,4 +90,29 @@ class ArchitectureRulesTest {
             .and().doNotHaveSimpleName("PushService")
             .should().dependOnClassesThat().haveSimpleNameEndingWith("Gateway")
             .because("mail and push gateways are called by outbox consumers only (the push test send is the documented exception)");
+
+    /** performance-latency §4: a controller never holds a transaction (and its connection) across serialisation. */
+    @ArchTest
+    static final ArchRule controllersAreNotTransactional = noMethods().that().areDeclaredInClassesThat().areAnnotatedWith(RestController.class)
+            .should().beAnnotatedWith(Transactional.class)
+            .because("transactions belong to application services; a controller-level one spans JSON serialisation");
+
+    @ArchTest
+    static final ArchRule controllerClassesAreNotTransactional = noClasses().that().areAnnotatedWith(RestController.class)
+            .should().beAnnotatedWith(Transactional.class)
+            .because("transactions belong to application services; a controller-level one spans JSON serialisation");
+
+    /**
+     * performance-latency §4 / P0-4: the authentication filter authenticates from the token; per-session state is read
+     * through the Redis session-state port only, never through a repository or the user-loading service.
+     */
+    @ArchTest
+    static final ArchRule securityFiltersDoNoDatabaseIo = noClasses().that().resideInAPackage("..infrastructure.security..")
+            .and().areAssignableTo(Filter.class)
+            .should().dependOnClassesThat().haveSimpleNameEndingWith("Repository")
+            .orShould().dependOnClassesThat().haveSimpleNameEndingWith("RepositoryPort")
+            .orShould().dependOnClassesThat().haveSimpleNameEndingWith("JdbcTemplate")
+            .orShould().dependOnClassesThat().haveSimpleName("CustomUserDetailsService")
+            .orShould().dependOnClassesThat().haveSimpleName("UserAccessService")
+            .because("a valid JWT is enough to authenticate; session state lives in Redis (SessionStateStore)");
 }

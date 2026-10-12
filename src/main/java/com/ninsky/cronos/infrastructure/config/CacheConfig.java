@@ -51,7 +51,6 @@ public class CacheConfig {
         cacheManager.registerCustomCache("recipeSections", shortLived(Duration.ofSeconds(60), 5_000));
         cacheManager.registerCustomCache("dashboardSummary", shortLived(Duration.ofSeconds(30), 10_000));
         cacheManager.registerCustomCache("quoteStats", shortLived(Duration.ofSeconds(30), 10_000));
-        cacheManager.registerCustomCache("myAccount", shortLived(Duration.ofSeconds(30), 10_000));
         return cacheManager;
     }
 
