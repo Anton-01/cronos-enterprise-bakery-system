@@ -10,19 +10,21 @@ import java.util.stream.Collectors;
 /**
  * One entry of the email catalog (§7.1).
  *
+ * @param category      the key prefix ({@code auth}, {@code admin}, {@code quote}, {@code calendar}, {@code recipe}); groups
+ *                      the catalog screen
  * @param transactional true for mail the user must receive (account, security, a client's own quote); those
  *                      ignore the EMAIL preference and carry no {@code List-Unsubscribe}
  * @param trigger       the domain event that sends it (documentation for the catalog screen)
- * @param locales       {@code es-MX} and {@code en}
+ * @param content       by language: {@code es} and {@code en}
  */
-public record EmailTemplate(String key, MailAudience audience, boolean transactional, String trigger, String description,
-                            List<TemplateVariable> variables, Map<String, LocalizedEmail> locales) {
+public record EmailTemplate(String key, String category, MailAudience audience, boolean transactional, String trigger,
+                            String description, List<TemplateVariable> variables, Map<String, LocalizedEmail> content) {
 
     public EmailTemplate {
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(audience, "audience");
         variables = variables == null ? List.of() : List.copyOf(variables);
-        locales = locales == null ? Map.of() : Map.copyOf(locales);
+        content = content == null ? Map.of() : Map.copyOf(content);
     }
 
     /** Names of the declared variables. */
@@ -38,8 +40,8 @@ public record EmailTemplate(String key, MailAudience audience, boolean transacti
 
     /** The content of {@code locale}, falling back to Spanish (the tenant language). */
     public LocalizedEmail content(String locale) {
-        return Optional.ofNullable(locales.get(MailLocales.normalize(locale)))
-                .or(() -> Optional.ofNullable(locales.get(MailLocales.SPANISH)))
+        return Optional.ofNullable(content.get(MailLocales.contentKey(locale)))
+                .or(() -> Optional.ofNullable(content.get(MailLocales.SPANISH_CONTENT)))
                 .orElseThrow(() -> new IllegalStateException("Template " + key + " has no content"));
     }
 
