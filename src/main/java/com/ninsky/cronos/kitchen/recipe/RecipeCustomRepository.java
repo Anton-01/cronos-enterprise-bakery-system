@@ -33,13 +33,13 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class RecipeCustomRepository {
 
-    private static final String HEAD = """
+    private static final String HEAD_COLUMNS = """
             SELECT r.id, r.code, r.owner_id, r.name, r.category_id, r.difficulty, r.description, r.process_html, r.storage_instructions,
                    r.shelf_life_days, r.prep_minutes, r.bake_minutes, r.cool_minutes, r.oven_temperature_c, r.yield_quantity, r.yield_unit,
                    r.status, r.target_margin_percent, r.pricing_method, r.waste_percent, r.ingredients_cost, r.waste_cost, r.fixed_costs, r.total_cost,
                    r.cost_per_unit, r.suggested_unit_price, r.unpriced_lines, r.cost_status, r.cost_calculated_at, r.created_at,
-                   r.created_by_id, r.updated_at, r.updated_by_id, r.version
-            FROM recipes r""";
+                   r.created_by_id, r.updated_at, r.updated_by_id, r.version""";
+    private static final String HEAD = HEAD_COLUMNS + " FROM recipes r";
 
     private final NamedParameterJdbcTemplate jdbc;
 
@@ -87,10 +87,10 @@ public class RecipeCustomRepository {
         params.addValue("limit", limit).addValue("offset", offset);
         String sql = "WITH page AS (SELECT r.id, " + JdbcPages.TOTAL_COLUMN + ", row_number() OVER (ORDER BY " + orderBy + ", r.id) AS pos"
                 + " FROM recipes r" + where + " ORDER BY " + orderBy + ", r.id LIMIT :limit OFFSET :offset) "
-                + HEAD.replace(" FROM recipes r", ", cat.name AS category_name, cover.k AS cover_key, page.total_count"
+                + HEAD_COLUMNS + ", cat.name AS category_name, cover.k AS cover_key, page.total_count"
                 + " FROM page JOIN recipes r ON r.id = page.id LEFT JOIN categories cat ON cat.id = r.category_id"
                 + " LEFT JOIN LATERAL (SELECT coalesce(f.card_storage_key, f.thumbnail_key, f.storage_key) AS k FROM recipe_files f"
-                + " WHERE f.recipe_id = r.id AND f.is_cover LIMIT 1) cover ON TRUE")
+                + " WHERE f.recipe_id = r.id AND f.is_cover LIMIT 1) cover ON TRUE"
                 + " ORDER BY page.pos";
         return JdbcPages.rows(jdbc, sql, params, offset,
                 (rs, row) -> new ListRow(head(rs, row), rs.getString("category_name"), rs.getString("cover_key")),
