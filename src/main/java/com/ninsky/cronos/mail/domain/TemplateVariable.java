@@ -5,9 +5,10 @@ import java.util.Objects;
 /**
  * A variable a template declares; senders must supply every declared variable.
  *
- * @param sample value used by previews and by the "every template renders" test
+ * @param description what the value is, in both content locales (shown by the catalog screen)
+ * @param sample      value used by previews and by the "every template renders" test
  */
-public record TemplateVariable(String name, String description, String sample, VariableKind kind) {
+public record TemplateVariable(String name, LocalizedText description, String sample, VariableKind kind) {
 
     public TemplateVariable {
         Objects.requireNonNull(name, "name");

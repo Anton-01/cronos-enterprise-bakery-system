@@ -3,6 +3,7 @@
   "templates": [
     {
       "key": "auth.registration-received",
+      "category": "auth",
       "audience": "USER",
       "transactional": true,
       "trigger": "RegistrationSubmittedEvent",
@@ -10,19 +11,25 @@
       "variables": [
         {
           "name": "displayName",
-          "description": "Recipient's display name",
+          "description": {
+            "es": "Nombre visible del destinatario",
+            "en": "Recipient's display name"
+          },
           "sample": "Ana López",
           "kind": "text"
         },
         {
           "name": "reference",
-          "description": "Registration reference",
+          "description": {
+            "es": "Referencia del registro",
+            "en": "Registration reference"
+          },
           "sample": "REG-2026-000042",
           "kind": "text"
         }
       ],
-      "locales": {
-        "es-MX": {
+      "content": {
+        "es": {
           "subject": "Recibimos tu solicitud de registro",
           "preheader": "Un administrador la revisará pronto.",
           "blocks": [
@@ -98,6 +105,7 @@
     },
     {
       "key": "auth.email-verification",
+      "category": "auth",
       "audience": "USER",
       "transactional": true,
       "trigger": "EmailVerificationRequestedEvent",
@@ -105,25 +113,34 @@
       "variables": [
         {
           "name": "displayName",
-          "description": "Recipient's display name",
+          "description": {
+            "es": "Nombre visible del destinatario",
+            "en": "Recipient's display name"
+          },
           "sample": "Ana López",
           "kind": "text"
         },
         {
           "name": "verifyUrl",
-          "description": "Verification link",
+          "description": {
+            "es": "Enlace de verificación",
+            "en": "Verification link"
+          },
           "sample": "https://app.cronos.mx/auth/verify-email?token=sample",
           "kind": "url"
         },
         {
           "name": "expiresAt",
-          "description": "Link expiry, formatted",
+          "description": {
+            "es": "Vencimiento del enlace, con formato",
+            "en": "Link expiry, formatted"
+          },
           "sample": "11 de octubre de 2026, 10:00",
           "kind": "text"
         }
       ],
-      "locales": {
-        "es-MX": {
+      "content": {
+        "es": {
           "subject": "Confirma tu correo electrónico",
           "preheader": "Un clic y listo.",
           "blocks": [
@@ -207,6 +224,7 @@
     },
     {
       "key": "admin.registration-pending",
+      "category": "admin",
       "audience": "ADMIN",
       "transactional": false,
       "trigger": "RegistrationSubmittedEvent",
@@ -214,31 +232,43 @@
       "variables": [
         {
           "name": "applicantName",
-          "description": "Applicant's name",
+          "description": {
+            "es": "Nombre del solicitante",
+            "en": "Applicant's name"
+          },
           "sample": "Ana López",
           "kind": "text"
         },
         {
           "name": "applicantEmail",
-          "description": "Applicant's email, masked",
+          "description": {
+            "es": "Correo del solicitante, enmascarado",
+            "en": "Applicant's email, masked"
+          },
           "sample": "a***@cronos.mx",
           "kind": "text"
         },
         {
           "name": "reference",
-          "description": "Registration reference",
+          "description": {
+            "es": "Referencia del registro",
+            "en": "Registration reference"
+          },
           "sample": "REG-2026-000042",
           "kind": "text"
         },
         {
           "name": "reviewUrl",
-          "description": "Review queue link",
+          "description": {
+            "es": "Enlace a la cola de revisión",
+            "en": "Review queue link"
+          },
           "sample": "https://app.cronos.mx/cronos/admin/solicitudes-registro",
           "kind": "url"
         }
       ],
-      "locales": {
-        "es-MX": {
+      "content": {
+        "es": {
           "subject": "Nueva solicitud de registro: {{ applicantName }}",
           "preheader": "Hay una cuenta esperando tu revisión.",
           "blocks": [
@@ -322,6 +352,7 @@
     },
     {
       "key": "auth.account-approved",
+      "category": "auth",
       "audience": "USER",
       "transactional": true,
       "trigger": "RegistrationApprovedEvent",
@@ -329,19 +360,25 @@
       "variables": [
         {
           "name": "displayName",
-          "description": "Recipient's display name",
+          "description": {
+            "es": "Nombre visible del destinatario",
+            "en": "Recipient's display name"
+          },
           "sample": "Ana López",
           "kind": "text"
         },
         {
           "name": "signInUrl",
-          "description": "Sign-in link",
+          "description": {
+            "es": "Enlace de inicio de sesión",
+            "en": "Sign-in link"
+          },
           "sample": "https://app.cronos.mx/auth/login",
           "kind": "url"
         }
       ],
-      "locales": {
-        "es-MX": {
+      "content": {
+        "es": {
           "subject": "¡Tu cuenta fue aprobada!",
           "preheader": "Ya puedes iniciar sesión.",
           "blocks": [
@@ -399,6 +436,7 @@
     },
     {
       "key": "auth.account-rejected",
+      "category": "auth",
       "audience": "USER",
       "transactional": true,
       "trigger": "RegistrationRejectedEvent",
@@ -406,25 +444,34 @@
       "variables": [
         {
           "name": "displayName",
-          "description": "Recipient's display name",
+          "description": {
+            "es": "Nombre visible del destinatario",
+            "en": "Recipient's display name"
+          },
           "sample": "Ana López",
           "kind": "text"
         },
         {
           "name": "reason",
-          "description": "Localised rejection reason",
+          "description": {
+            "es": "Motivo del rechazo, traducido",
+            "en": "Localised rejection reason"
+          },
           "sample": "Información incompleta",
           "kind": "text"
         },
         {
           "name": "comment",
-          "description": "Reviewer's comment (may be empty)",
+          "description": {
+            "es": "Comentario del revisor (puede estar vacío)",
+            "en": "Reviewer's comment (may be empty)"
+          },
           "sample": "Falta el nombre del negocio.",
           "kind": "text"
         }
       ],
-      "locales": {
-        "es-MX": {
+      "content": {
+        "es": {
           "subject": "Sobre tu solicitud de registro",
           "preheader": "No pudimos aprobar tu cuenta.",
           "blocks": [
@@ -506,6 +553,7 @@
     },
     {
       "key": "auth.password-reset",
+      "category": "auth",
       "audience": "USER",
       "transactional": true,
       "trigger": "PasswordResetRequestedEvent",
@@ -513,25 +561,34 @@
       "variables": [
         {
           "name": "displayName",
-          "description": "Recipient's display name",
+          "description": {
+            "es": "Nombre visible del destinatario",
+            "en": "Recipient's display name"
+          },
           "sample": "Ana López",
           "kind": "text"
         },
         {
           "name": "resetUrl",
-          "description": "Reset link",
+          "description": {
+            "es": "Enlace de restablecimiento",
+            "en": "Reset link"
+          },
           "sample": "https://app.cronos.mx/auth/reset-password?token=sample",
           "kind": "url"
         },
         {
           "name": "expiresAt",
-          "description": "Link expiry, formatted",
+          "description": {
+            "es": "Vencimiento del enlace, con formato",
+            "en": "Link expiry, formatted"
+          },
           "sample": "10 de octubre de 2026, 18:30",
           "kind": "text"
         }
       ],
-      "locales": {
-        "es-MX": {
+      "content": {
+        "es": {
           "subject": "Restablece tu contraseña",
           "preheader": "El enlace vence pronto.",
           "blocks": [
@@ -615,6 +672,7 @@
     },
     {
       "key": "auth.password-changed",
+      "category": "auth",
       "audience": "USER",
       "transactional": true,
       "trigger": "PasswordChangedEvent",
@@ -622,19 +680,25 @@
       "variables": [
         {
           "name": "displayName",
-          "description": "Recipient's display name",
+          "description": {
+            "es": "Nombre visible del destinatario",
+            "en": "Recipient's display name"
+          },
           "sample": "Ana López",
           "kind": "text"
         },
         {
           "name": "changedAt",
-          "description": "When it changed, formatted",
+          "description": {
+            "es": "Cuándo cambió, con formato",
+            "en": "When it changed, formatted"
+          },
           "sample": "10 de octubre de 2026, 18:05",
           "kind": "text"
         }
       ],
-      "locales": {
-        "es-MX": {
+      "content": {
+        "es": {
           "subject": "Tu contraseña cambió",
           "preheader": "Aviso de seguridad.",
           "blocks": [
@@ -692,6 +756,7 @@
     },
     {
       "key": "auth.account-locked",
+      "category": "auth",
       "audience": "USER",
       "transactional": true,
       "trigger": "AccountLockedEvent",
@@ -699,25 +764,34 @@
       "variables": [
         {
           "name": "displayName",
-          "description": "Recipient's display name",
+          "description": {
+            "es": "Nombre visible del destinatario",
+            "en": "Recipient's display name"
+          },
           "sample": "Ana López",
           "kind": "text"
         },
         {
           "name": "lockedUntil",
-          "description": "End of the lock, formatted",
+          "description": {
+            "es": "Fin del bloqueo, con formato",
+            "en": "End of the lock, formatted"
+          },
           "sample": "10 de octubre de 2026, 18:45",
           "kind": "text"
         },
         {
           "name": "resetUrl",
-          "description": "Forgot-password page",
+          "description": {
+            "es": "Página de contraseña olvidada",
+            "en": "Forgot-password page"
+          },
           "sample": "https://app.cronos.mx/auth/forgot-password",
           "kind": "url"
         }
       ],
-      "locales": {
-        "es-MX": {
+      "content": {
+        "es": {
           "subject": "Bloqueamos temporalmente tu cuenta",
           "preheader": "Demasiados intentos fallidos.",
           "blocks": [
@@ -793,6 +867,7 @@
     },
     {
       "key": "auth.new-sign-in",
+      "category": "auth",
       "audience": "USER",
       "transactional": false,
       "trigger": "NewDeviceSignInEvent",
@@ -800,43 +875,61 @@
       "variables": [
         {
           "name": "displayName",
-          "description": "Recipient's display name",
+          "description": {
+            "es": "Nombre visible del destinatario",
+            "en": "Recipient's display name"
+          },
           "sample": "Ana López",
           "kind": "text"
         },
         {
           "name": "device",
-          "description": "Browser and operating system",
+          "description": {
+            "es": "Navegador y sistema operativo",
+            "en": "Browser and operating system"
+          },
           "sample": "Chrome en Windows",
           "kind": "text"
         },
         {
           "name": "location",
-          "description": "Approximate location",
+          "description": {
+            "es": "Ubicación aproximada",
+            "en": "Approximate location"
+          },
           "sample": "Ciudad de México",
           "kind": "text"
         },
         {
           "name": "ipAddress",
-          "description": "IP address",
+          "description": {
+            "es": "Dirección IP",
+            "en": "IP address"
+          },
           "sample": "201.141.0.10",
           "kind": "text"
         },
         {
           "name": "signedInAt",
-          "description": "When, formatted",
+          "description": {
+            "es": "Cuándo, con formato",
+            "en": "When, formatted"
+          },
           "sample": "10 de octubre de 2026, 18:00",
           "kind": "text"
         },
         {
           "name": "securityUrl",
-          "description": "Sessions page",
+          "description": {
+            "es": "Página de sesiones",
+            "en": "Sessions page"
+          },
           "sample": "https://app.cronos.mx/cronos/cuenta/seguridad",
           "kind": "url"
         }
       ],
-      "locales": {
-        "es-MX": {
+      "content": {
+        "es": {
           "subject": "Nuevo inicio de sesión en tu cuenta",
           "preheader": "¿Fuiste tú?",
           "blocks": [
@@ -946,6 +1039,7 @@
     },
     {
       "key": "quote.sent-to-client",
+      "category": "quote",
       "audience": "CLIENT",
       "transactional": true,
       "trigger": "QuoteSentEvent(channel=EMAIL)",
@@ -953,43 +1047,61 @@
       "variables": [
         {
           "name": "clientName",
-          "description": "Client's name",
+          "description": {
+            "es": "Nombre del cliente",
+            "en": "Client's name"
+          },
           "sample": "María Pérez",
           "kind": "text"
         },
         {
           "name": "bakerName",
-          "description": "Baker or business name",
+          "description": {
+            "es": "Nombre del repostero o del negocio",
+            "en": "Baker or business name"
+          },
           "sample": "Pastelería Luna",
           "kind": "text"
         },
         {
           "name": "quoteNumber",
-          "description": "Quote number",
+          "description": {
+            "es": "Número de cotización",
+            "en": "Quote number"
+          },
           "sample": "CR-1A2B-202610101800",
           "kind": "text"
         },
         {
           "name": "total",
-          "description": "Total with currency",
+          "description": {
+            "es": "Total con moneda",
+            "en": "Total with currency"
+          },
           "sample": "$2,450.00 MXN",
           "kind": "text"
         },
         {
           "name": "validUntil",
-          "description": "Valid until, formatted",
+          "description": {
+            "es": "Vigente hasta, con formato",
+            "en": "Valid until, formatted"
+          },
           "sample": "24 de octubre de 2026",
           "kind": "text"
         },
         {
           "name": "quoteUrl",
-          "description": "Public quote link",
+          "description": {
+            "es": "Enlace público de la cotización",
+            "en": "Public quote link"
+          },
           "sample": "https://app.cronos.mx/cronos/cotizaciones/ver/sample",
           "kind": "url"
         }
       ],
-      "locales": {
-        "es-MX": {
+      "content": {
+        "es": {
           "subject": "{{ bakerName }} te envió la cotización {{ quoteNumber }}",
           "preheader": "Revísala y respóndela en línea.",
           "blocks": [
@@ -1089,6 +1201,7 @@
     },
     {
       "key": "quote.accepted-baker",
+      "category": "quote",
       "audience": "USER",
       "transactional": false,
       "trigger": "QuoteAcceptedEvent(actor=CLIENT)",
@@ -1096,43 +1209,61 @@
       "variables": [
         {
           "name": "bakerName",
-          "description": "Baker's display name",
+          "description": {
+            "es": "Nombre visible del repostero",
+            "en": "Baker's display name"
+          },
           "sample": "Ana López",
           "kind": "text"
         },
         {
           "name": "clientName",
-          "description": "Client's name",
+          "description": {
+            "es": "Nombre del cliente",
+            "en": "Client's name"
+          },
           "sample": "María Pérez",
           "kind": "text"
         },
         {
           "name": "quoteNumber",
-          "description": "Quote number",
+          "description": {
+            "es": "Número de cotización",
+            "en": "Quote number"
+          },
           "sample": "CR-1A2B-202610101800",
           "kind": "text"
         },
         {
           "name": "total",
-          "description": "Total with currency",
+          "description": {
+            "es": "Total con moneda",
+            "en": "Total with currency"
+          },
           "sample": "$2,450.00 MXN",
           "kind": "text"
         },
         {
           "name": "comment",
-          "description": "Client's comment (may be empty)",
+          "description": {
+            "es": "Comentario del cliente (puede estar vacío)",
+            "en": "Client's comment (may be empty)"
+          },
           "sample": "¿Pueden entregar a las 4 pm?",
           "kind": "text"
         },
         {
           "name": "scheduleUrl",
-          "description": "Link to schedule the order",
+          "description": {
+            "es": "Enlace para agendar el pedido",
+            "en": "Link to schedule the order"
+          },
           "sample": "https://app.cronos.mx/cronos/cotizaciones/detalles/sample?schedule=1",
           "kind": "url"
         }
       ],
-      "locales": {
-        "es-MX": {
+      "content": {
+        "es": {
           "subject": "{{ clientName }} aceptó la cotización {{ quoteNumber }}",
           "preheader": "Agenda el pedido en tu calendario.",
           "blocks": [
@@ -1224,6 +1355,7 @@
     },
     {
       "key": "quote.accepted-client",
+      "category": "quote",
       "audience": "CLIENT",
       "transactional": true,
       "trigger": "QuoteAcceptedEvent (client has email)",
@@ -1231,37 +1363,52 @@
       "variables": [
         {
           "name": "clientName",
-          "description": "Client's name",
+          "description": {
+            "es": "Nombre del cliente",
+            "en": "Client's name"
+          },
           "sample": "María Pérez",
           "kind": "text"
         },
         {
           "name": "bakerName",
-          "description": "Baker or business name",
+          "description": {
+            "es": "Nombre del repostero o del negocio",
+            "en": "Baker or business name"
+          },
           "sample": "Pastelería Luna",
           "kind": "text"
         },
         {
           "name": "quoteNumber",
-          "description": "Quote number",
+          "description": {
+            "es": "Número de cotización",
+            "en": "Quote number"
+          },
           "sample": "CR-1A2B-202610101800",
           "kind": "text"
         },
         {
           "name": "total",
-          "description": "Total with currency",
+          "description": {
+            "es": "Total con moneda",
+            "en": "Total with currency"
+          },
           "sample": "$2,450.00 MXN",
           "kind": "text"
         },
         {
           "name": "eventDate",
-          "description": "Event date, formatted (may be empty)",
+          "description": {
+            "es": "Fecha del evento, con formato (puede estar vacía)",
+            "en": "Event date, formatted (may be empty)"
+          },
           "sample": "24 de octubre de 2026",
           "kind": "text"
         }
       ],
-      "locales": {
-        "es-MX": {
+      "content": {
+        "es": {
           "subject": "Confirmación de tu cotización {{ quoteNumber }}",
           "preheader": "Tu pedido está confirmado.",
           "blocks": [
@@ -1343,6 +1490,7 @@
     },
     {
       "key": "quote.expiring-reminder",
+      "category": "quote",
       "audience": "USER",
       "transactional": false,
       "trigger": "QuoteExpiringEvent",
@@ -1350,37 +1498,52 @@
       "variables": [
         {
           "name": "bakerName",
-          "description": "Baker's display name",
+          "description": {
+            "es": "Nombre visible del repostero",
+            "en": "Baker's display name"
+          },
           "sample": "Ana López",
           "kind": "text"
         },
         {
           "name": "clientName",
-          "description": "Client's name",
+          "description": {
+            "es": "Nombre del cliente",
+            "en": "Client's name"
+          },
           "sample": "María Pérez",
           "kind": "text"
         },
         {
           "name": "quoteNumber",
-          "description": "Quote number",
+          "description": {
+            "es": "Número de cotización",
+            "en": "Quote number"
+          },
           "sample": "CR-1A2B-202610101800",
           "kind": "text"
         },
         {
           "name": "validUntil",
-          "description": "Expiry, formatted",
+          "description": {
+            "es": "Vencimiento, con formato",
+            "en": "Expiry, formatted"
+          },
           "sample": "12 de octubre de 2026",
           "kind": "text"
         },
         {
           "name": "quoteUrl",
-          "description": "Quote detail link",
+          "description": {
+            "es": "Enlace al detalle de la cotización",
+            "en": "Quote detail link"
+          },
           "sample": "https://app.cronos.mx/cronos/cotizaciones/detalles/sample",
           "kind": "url"
         }
       ],
-      "locales": {
-        "es-MX": {
+      "content": {
+        "es": {
           "subject": "La cotización {{ quoteNumber }} está por vencer",
           "preheader": "Dale seguimiento a {{ clientName }}.",
           "blocks": [
@@ -1438,6 +1601,7 @@
     },
     {
       "key": "calendar.order-reminder",
+      "category": "calendar",
       "audience": "USER",
       "transactional": false,
       "trigger": "CalendarReminderDueEvent",
@@ -1445,43 +1609,61 @@
       "variables": [
         {
           "name": "displayName",
-          "description": "Recipient's display name",
+          "description": {
+            "es": "Nombre visible del destinatario",
+            "en": "Recipient's display name"
+          },
           "sample": "Ana López",
           "kind": "text"
         },
         {
           "name": "title",
-          "description": "Event title",
+          "description": {
+            "es": "Título del evento",
+            "en": "Event title"
+          },
           "sample": "CR-1A2B · María Pérez",
           "kind": "text"
         },
         {
           "name": "startsAt",
-          "description": "Start, formatted",
+          "description": {
+            "es": "Inicio, con formato",
+            "en": "Start, formatted"
+          },
           "sample": "24 de octubre de 2026, 16:00",
           "kind": "text"
         },
         {
           "name": "location",
-          "description": "Location (may be empty)",
+          "description": {
+            "es": "Ubicación (puede estar vacía)",
+            "en": "Location (may be empty)"
+          },
           "sample": "Av. Reforma 100, CDMX",
           "kind": "text"
         },
         {
           "name": "clientName",
-          "description": "Client (may be empty)",
+          "description": {
+            "es": "Cliente (puede estar vacío)",
+            "en": "Client (may be empty)"
+          },
           "sample": "María Pérez",
           "kind": "text"
         },
         {
           "name": "productionUrl",
-          "description": "Production sheet link",
+          "description": {
+            "es": "Enlace a la hoja de producción",
+            "en": "Production sheet link"
+          },
           "sample": "https://app.cronos.mx/cronos/calendario/eventos/sample/produccion",
           "kind": "url"
         }
       ],
-      "locales": {
-        "es-MX": {
+      "content": {
+        "es": {
           "subject": "Recordatorio: {{ title }}",
           "preheader": "{{ startsAt }}",
           "blocks": [
@@ -1573,6 +1755,7 @@
     },
     {
       "key": "calendar.order-scheduled-client",
+      "category": "calendar",
       "audience": "CLIENT",
       "transactional": true,
       "trigger": "OrderScheduledEvent (client has email)",
@@ -1580,43 +1763,61 @@
       "variables": [
         {
           "name": "clientName",
-          "description": "Client's name",
+          "description": {
+            "es": "Nombre del cliente",
+            "en": "Client's name"
+          },
           "sample": "María Pérez",
           "kind": "text"
         },
         {
           "name": "bakerName",
-          "description": "Baker or business name",
+          "description": {
+            "es": "Nombre del repostero o del negocio",
+            "en": "Baker or business name"
+          },
           "sample": "Pastelería Luna",
           "kind": "text"
         },
         {
           "name": "quoteNumber",
-          "description": "Quote number (may be empty)",
+          "description": {
+            "es": "Número de cotización (puede estar vacío)",
+            "en": "Quote number (may be empty)"
+          },
           "sample": "CR-1A2B-202610101800",
           "kind": "text"
         },
         {
           "name": "startsAt",
-          "description": "Delivery or pickup, formatted",
+          "description": {
+            "es": "Entrega o recolección, con formato",
+            "en": "Delivery or pickup, formatted"
+          },
           "sample": "24 de octubre de 2026, 16:00",
           "kind": "text"
         },
         {
           "name": "location",
-          "description": "Location (may be empty)",
+          "description": {
+            "es": "Ubicación (puede estar vacía)",
+            "en": "Location (may be empty)"
+          },
           "sample": "Av. Reforma 100, CDMX",
           "kind": "text"
         },
         {
           "name": "kind",
-          "description": "Delivery or pickup, localised",
+          "description": {
+            "es": "Entrega o recolección, traducido",
+            "en": "Delivery or pickup, localised"
+          },
           "sample": "Entrega a domicilio",
           "kind": "text"
         }
       ],
-      "locales": {
-        "es-MX": {
+      "content": {
+        "es": {
           "subject": "Tu pedido quedó agendado",
           "preheader": "{{ startsAt }}",
           "blocks": [
@@ -1706,6 +1907,7 @@
     },
     {
       "key": "auth.invitation",
+      "category": "auth",
       "audience": "USER",
       "transactional": true,
       "trigger": "UserInvitedEvent",
@@ -1713,25 +1915,34 @@
       "variables": [
         {
           "name": "displayName",
-          "description": "Recipient's display name",
+          "description": {
+            "es": "Nombre visible del destinatario",
+            "en": "Recipient's display name"
+          },
           "sample": "Ana López",
           "kind": "text"
         },
         {
           "name": "activationUrl",
-          "description": "Activation link",
+          "description": {
+            "es": "Enlace de activación",
+            "en": "Activation link"
+          },
           "sample": "https://app.cronos.mx/auth/activate?token=sample",
           "kind": "url"
         },
         {
           "name": "expiresAt",
-          "description": "Link expiry, formatted",
+          "description": {
+            "es": "Vencimiento del enlace, con formato",
+            "en": "Link expiry, formatted"
+          },
           "sample": "13 de octubre de 2026, 18:00",
           "kind": "text"
         }
       ],
-      "locales": {
-        "es-MX": {
+      "content": {
+        "es": {
           "subject": "Te invitaron a {{ brandName }}",
           "preheader": "Activa tu cuenta.",
           "blocks": [
@@ -1807,6 +2018,7 @@
     },
     {
       "key": "auth.temporary-password",
+      "category": "auth",
       "audience": "USER",
       "transactional": true,
       "trigger": "TemporaryPasswordIssuedEvent",
@@ -1814,25 +2026,34 @@
       "variables": [
         {
           "name": "displayName",
-          "description": "Recipient's display name",
+          "description": {
+            "es": "Nombre visible del destinatario",
+            "en": "Recipient's display name"
+          },
           "sample": "Ana López",
           "kind": "text"
         },
         {
           "name": "temporaryPassword",
-          "description": "The temporary password",
+          "description": {
+            "es": "La contraseña temporal",
+            "en": "The temporary password"
+          },
           "sample": "Tmp-7g4K-92q",
           "kind": "text"
         },
         {
           "name": "signInUrl",
-          "description": "Sign-in link",
+          "description": {
+            "es": "Enlace de inicio de sesión",
+            "en": "Sign-in link"
+          },
           "sample": "https://app.cronos.mx/auth/login",
           "kind": "url"
         }
       ],
-      "locales": {
-        "es-MX": {
+      "content": {
+        "es": {
           "subject": "Tu contraseña temporal de {{ brandName }}",
           "preheader": "Cámbiala al iniciar sesión.",
           "blocks": [
@@ -1906,6 +2127,7 @@
     },
     {
       "key": "auth.email-changed",
+      "category": "auth",
       "audience": "USER",
       "transactional": true,
       "trigger": "EmailChangedEvent",
@@ -1913,19 +2135,25 @@
       "variables": [
         {
           "name": "displayName",
-          "description": "Recipient's display name",
+          "description": {
+            "es": "Nombre visible del destinatario",
+            "en": "Recipient's display name"
+          },
           "sample": "Ana López",
           "kind": "text"
         },
         {
           "name": "newEmail",
-          "description": "New address, masked",
+          "description": {
+            "es": "Nueva dirección, enmascarada",
+            "en": "New address, masked"
+          },
           "sample": "a***@cronos.mx",
           "kind": "text"
         }
       ],
-      "locales": {
-        "es-MX": {
+      "content": {
+        "es": {
           "subject": "Tu correo electrónico cambió",
           "preheader": "Aviso de seguridad.",
           "blocks": [
@@ -1983,6 +2211,7 @@
     },
     {
       "key": "auth.two-factor-disabled",
+      "category": "auth",
       "audience": "USER",
       "transactional": true,
       "trigger": "TwoFactorDisabledEvent",
@@ -1990,13 +2219,16 @@
       "variables": [
         {
           "name": "displayName",
-          "description": "Recipient's display name",
+          "description": {
+            "es": "Nombre visible del destinatario",
+            "en": "Recipient's display name"
+          },
           "sample": "Ana López",
           "kind": "text"
         }
       ],
-      "locales": {
-        "es-MX": {
+      "content": {
+        "es": {
           "subject": "Desactivaste la verificación en dos pasos",
           "preheader": "Aviso de seguridad.",
           "blocks": [
@@ -2054,6 +2286,7 @@
     },
     {
       "key": "auth.recovery-code-used",
+      "category": "auth",
       "audience": "USER",
       "transactional": true,
       "trigger": "RecoveryCodeUsedEvent",
@@ -2061,19 +2294,25 @@
       "variables": [
         {
           "name": "displayName",
-          "description": "Recipient's display name",
+          "description": {
+            "es": "Nombre visible del destinatario",
+            "en": "Recipient's display name"
+          },
           "sample": "Ana López",
           "kind": "text"
         },
         {
           "name": "remainingCodes",
-          "description": "Recovery codes left",
+          "description": {
+            "es": "Códigos de respaldo restantes",
+            "en": "Recovery codes left"
+          },
           "sample": "7",
           "kind": "text"
         }
       ],
-      "locales": {
-        "es-MX": {
+      "content": {
+        "es": {
           "subject": "Se usó un código de respaldo",
           "preheader": "Aviso de seguridad.",
           "blocks": [
@@ -2131,6 +2370,7 @@
     },
     {
       "key": "auth.registration-attempt",
+      "category": "auth",
       "audience": "USER",
       "transactional": true,
       "trigger": "RegistrationAttemptOnExistingEmailEvent",
@@ -2138,25 +2378,34 @@
       "variables": [
         {
           "name": "displayName",
-          "description": "Recipient's display name",
+          "description": {
+            "es": "Nombre visible del destinatario",
+            "en": "Recipient's display name"
+          },
           "sample": "Ana López",
           "kind": "text"
         },
         {
           "name": "signInUrl",
-          "description": "Sign-in link",
+          "description": {
+            "es": "Enlace de inicio de sesión",
+            "en": "Sign-in link"
+          },
           "sample": "https://app.cronos.mx/auth/login",
           "kind": "url"
         },
         {
           "name": "resetUrl",
-          "description": "Forgot-password page",
+          "description": {
+            "es": "Página de contraseña olvidada",
+            "en": "Forgot-password page"
+          },
           "sample": "https://app.cronos.mx/auth/forgot-password",
           "kind": "url"
         }
       ],
-      "locales": {
-        "es-MX": {
+      "content": {
+        "es": {
           "subject": "Alguien intentó registrarse con tu correo",
           "preheader": "Ya tienes una cuenta.",
           "blocks": [
@@ -2238,6 +2487,7 @@
     },
     {
       "key": "recipe.shared",
+      "category": "recipe",
       "audience": "CLIENT",
       "transactional": true,
       "trigger": "RecipeSharedEvent",
@@ -2245,31 +2495,43 @@
       "variables": [
         {
           "name": "senderName",
-          "description": "Who shared it",
+          "description": {
+            "es": "Quién la compartió",
+            "en": "Who shared it"
+          },
           "sample": "Ana López",
           "kind": "text"
         },
         {
           "name": "recipeName",
-          "description": "Recipe name",
+          "description": {
+            "es": "Nombre de la receta",
+            "en": "Recipe name"
+          },
           "sample": "Pastel de tres leches",
           "kind": "text"
         },
         {
           "name": "shareUrl",
-          "description": "Public recipe link",
+          "description": {
+            "es": "Enlace público de la receta",
+            "en": "Public recipe link"
+          },
           "sample": "https://app.cronos.mx/shared/recipe/sample",
           "kind": "url"
         },
         {
           "name": "expirationDays",
-          "description": "Days the link stays valid",
+          "description": {
+            "es": "Días que el enlace sigue vigente",
+            "en": "Days the link stays valid"
+          },
           "sample": "7",
           "kind": "text"
         }
       ],
-      "locales": {
-        "es-MX": {
+      "content": {
+        "es": {
           "subject": "{{ senderName }} compartió una receta contigo",
           "preheader": "{{ recipeName }}",
           "blocks": [

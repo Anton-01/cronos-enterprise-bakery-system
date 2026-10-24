@@ -8,8 +8,10 @@ import com.ninsky.cronos.mail.domain.EmailBlock;
 import com.ninsky.cronos.mail.domain.EmailTemplate;
 import com.ninsky.cronos.mail.domain.EmailTemplateCatalog;
 import com.ninsky.cronos.mail.domain.LocalizedEmail;
+import com.ninsky.cronos.mail.domain.LocalizedText;
 import com.ninsky.cronos.mail.domain.MailLocales;
 import com.ninsky.cronos.mail.domain.Placeholders;
+import com.ninsky.cronos.mail.domain.TemplateVariable;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -58,8 +60,13 @@ public class MailConfig {
             if (!keys.add(template.key())) {
                 problems.add("duplicate key " + template.key());
             }
-            for (String locale : MailLocales.ALL) {
-                LocalizedEmail content = template.locales().get(locale);
+            if (template.category() == null || !template.key().startsWith(template.category() + ".")) {
+                problems.add(template.key() + ": category must be the key prefix");
+            }
+            template.variables().stream().filter(variable -> !described(variable))
+                    .forEach(variable -> problems.add(template.key() + ": variable " + variable.name() + " needs es and en descriptions"));
+            for (String locale : MailLocales.CONTENT_KEYS) {
+                LocalizedEmail content = template.content().get(locale);
                 if (content == null) {
                     problems.add(template.key() + ": missing locale " + locale);
                     continue;
@@ -78,6 +85,12 @@ public class MailConfig {
         if (!problems.isEmpty()) {
             throw new IllegalStateException("Email catalog is invalid: " + String.join("; ", problems));
         }
+    }
+
+    private static boolean described(TemplateVariable variable) {
+        LocalizedText description = variable.description();
+        return description != null && description.es() != null && !description.es().isBlank()
+                && description.en() != null && !description.en().isBlank();
     }
 
     private static Stream<String> texts(EmailBlock block) {
