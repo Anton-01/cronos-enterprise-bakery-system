@@ -7,8 +7,59 @@ The UI keeps a copy at src/assets/email-templates/catalog.json; keep both in syn
 import json
 import pathlib
 
+# Spanish text of every variable description, keyed by the English one (the same name can mean different things).
+ES_DESCRIPTIONS = {
+    "Activation link": "Enlace de activación",
+    "Applicant's email, masked": "Correo del solicitante, enmascarado",
+    "Applicant's name": "Nombre del solicitante",
+    "Approximate location": "Ubicación aproximada",
+    "Baker or business name": "Nombre del repostero o del negocio",
+    "Baker's display name": "Nombre visible del repostero",
+    "Browser and operating system": "Navegador y sistema operativo",
+    "Client (may be empty)": "Cliente (puede estar vacío)",
+    "Client's comment (may be empty)": "Comentario del cliente (puede estar vacío)",
+    "Client's name": "Nombre del cliente",
+    "Days the link stays valid": "Días que el enlace sigue vigente",
+    "Delivery or pickup, formatted": "Entrega o recolección, con formato",
+    "Delivery or pickup, localised": "Entrega o recolección, traducido",
+    "End of the lock, formatted": "Fin del bloqueo, con formato",
+    "Event date, formatted (may be empty)": "Fecha del evento, con formato (puede estar vacía)",
+    "Event title": "Título del evento",
+    "Expiry, formatted": "Vencimiento, con formato",
+    "Forgot-password page": "Página de contraseña olvidada",
+    "IP address": "Dirección IP",
+    "Link expiry, formatted": "Vencimiento del enlace, con formato",
+    "Link to schedule the order": "Enlace para agendar el pedido",
+    "Localised rejection reason": "Motivo del rechazo, traducido",
+    "Location (may be empty)": "Ubicación (puede estar vacía)",
+    "New address, masked": "Nueva dirección, enmascarada",
+    "Production sheet link": "Enlace a la hoja de producción",
+    "Public quote link": "Enlace público de la cotización",
+    "Public recipe link": "Enlace público de la receta",
+    "Quote detail link": "Enlace al detalle de la cotización",
+    "Quote number": "Número de cotización",
+    "Quote number (may be empty)": "Número de cotización (puede estar vacío)",
+    "Recipe name": "Nombre de la receta",
+    "Recipient's display name": "Nombre visible del destinatario",
+    "Recovery codes left": "Códigos de respaldo restantes",
+    "Registration reference": "Referencia del registro",
+    "Reset link": "Enlace de restablecimiento",
+    "Review queue link": "Enlace a la cola de revisión",
+    "Reviewer's comment (may be empty)": "Comentario del revisor (puede estar vacío)",
+    "Sessions page": "Página de sesiones",
+    "Sign-in link": "Enlace de inicio de sesión",
+    "Start, formatted": "Inicio, con formato",
+    "The temporary password": "La contraseña temporal",
+    "Total with currency": "Total con moneda",
+    "Valid until, formatted": "Vigente hasta, con formato",
+    "Verification link": "Enlace de verificación",
+    "When it changed, formatted": "Cuándo cambió, con formato",
+    "When, formatted": "Cuándo, con formato",
+    "Who shared it": "Quién la compartió",
+}
+
 def v(name, description, sample, kind="text"):
-    return {"name": name, "description": description, "sample": sample, "kind": kind}
+    return {"name": name, "description": {"es": ES_DESCRIPTIONS[description], "en": description}, "sample": sample, "kind": kind}
 
 def heading(t): return {"type": "heading", "text": t}
 def p(t): return {"type": "paragraph", "text": t}
@@ -29,9 +80,9 @@ def fallback_es(var): return p("Si el botón no funciona, copia este enlace en t
 def fallback_en(var): return p("If the button does not work, paste this link into your browser: {{ " + var + " }}")
 
 def tpl(key, audience, transactional, trigger, description, variables, es, en):
-    return {"key": key, "audience": audience, "transactional": transactional, "trigger": trigger,
-            "description": description, "variables": variables,
-            "locales": {"es-MX": es, "en": en}}
+    return {"key": key, "category": key.split(".")[0], "audience": audience, "transactional": transactional,
+            "trigger": trigger, "description": description, "variables": variables,
+            "content": {"es": es, "en": en}}
 
 def content(subject, preheader, blocks):
     return {"subject": subject, "preheader": preheader, "blocks": blocks}

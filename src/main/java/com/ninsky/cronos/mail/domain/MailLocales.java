@@ -9,6 +9,9 @@ public final class MailLocales {
     public static final String SPANISH = "es-MX";
     public static final String ENGLISH = "en";
     public static final List<String> ALL = List.of(SPANISH, ENGLISH);
+    /** Keys of a template's {@code content}: the language only. */
+    public static final String SPANISH_CONTENT = "es";
+    public static final List<String> CONTENT_KEYS = List.of(SPANISH_CONTENT, ENGLISH);
 
     private MailLocales() {
     }
@@ -16,6 +19,11 @@ public final class MailLocales {
     /** {@code en}, {@code en-US}… → {@code en}; null and anything else → {@code es-MX}. */
     public static String normalize(String tag) {
         return tag != null && tag.toLowerCase(Locale.ROOT).startsWith("en") ? ENGLISH : SPANISH;
+    }
+
+    /** The {@code content} key of {@code tag}: {@code en} for any English tag, {@code es} otherwise. */
+    public static String contentKey(String tag) {
+        return ENGLISH.equals(normalize(tag)) ? ENGLISH : SPANISH_CONTENT;
     }
 
     /** The {@link Locale} used for formatting. */

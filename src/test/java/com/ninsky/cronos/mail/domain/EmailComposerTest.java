@@ -10,10 +10,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class EmailComposerTest {
 
-    private static final EmailTemplate TEMPLATE = new EmailTemplate("test.welcome", MailAudience.USER, true, "Test", "Test",
-            List.of(new TemplateVariable("name", "Name", "Ana", VariableKind.TEXT),
-                    new TemplateVariable("link", "Link", "https://x.mx", VariableKind.URL)),
-            Map.of("es-MX", new LocalizedEmail("Hola {{ name }}", "Pre {{name}}", List.of(
+    private static final EmailTemplate TEMPLATE = new EmailTemplate("test.welcome", "test", MailAudience.USER, true, "Test", "Test",
+            List.of(new TemplateVariable("name", new LocalizedText("Nombre", "Name"), "Ana", VariableKind.TEXT),
+                    new TemplateVariable("link", new LocalizedText("Enlace", "Link"), "https://x.mx", VariableKind.URL)),
+            Map.of("es", new LocalizedEmail("Hola {{ name }}", "Pre {{name}}", List.of(
                             new EmailBlock(BlockType.PARAGRAPH, "Hola, {{ name }}. Soporte: {{ supportEmail }}", null, null, null, null, null),
                             new EmailBlock(BlockType.BUTTON, null, "Abrir", "{{ link }}", null, null, null),
                             new EmailBlock(BlockType.DETAILS, null, null, null, null, null, List.of(new DetailRow("Nombre", "{{ name }}"))))),
