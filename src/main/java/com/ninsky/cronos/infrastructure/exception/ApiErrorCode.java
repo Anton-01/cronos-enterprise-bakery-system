@@ -46,6 +46,15 @@ public enum ApiErrorCode {
     /** 400 for links (reset, verification); thrown with a 401 override for sessions (unlock). */
     INVALID_TOKEN(HttpStatus.BAD_REQUEST),
     SESSION_LOCKED(HttpStatus.LOCKED),
+    // Email template customization (email-template-customization §4)
+    EMAIL_TEMPLATE_NOT_FOUND(HttpStatus.NOT_FOUND),
+    /** The revision the editor started from is no longer the stored one (or an override appeared meanwhile). */
+    STALE_REVISION(HttpStatus.CONFLICT),
+    UNKNOWN_VARIABLE(HttpStatus.BAD_REQUEST),
+    SENDER_DOMAIN_NOT_VERIFIED(HttpStatus.BAD_REQUEST),
+    ASSET_INVALID_TYPE(HttpStatus.BAD_REQUEST),
+    ASSET_TOO_LARGE(HttpStatus.BAD_REQUEST),
+    ASSET_DIMENSIONS(HttpStatus.BAD_REQUEST),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR);
 
     private final HttpStatus status;

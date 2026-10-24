@@ -18,6 +18,9 @@ public final class AuditTargets {
     public static final String GUIDE_PAN_SIZE = "GUIDE_PAN_SIZE";
     public static final String GUIDE_CONVERSION = "GUIDE_CONVERSION";
     public static final String ENDPOINT = "ENDPOINT";
+    public static final String EMAIL_TEMPLATE = "EMAIL_TEMPLATE";
+    public static final String EMAIL_SETTINGS = "EMAIL_SETTINGS";
+    public static final String EMAIL_ASSET = "EMAIL_ASSET";
 
     private AuditTargets() {
     }

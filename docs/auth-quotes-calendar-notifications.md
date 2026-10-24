@@ -129,4 +129,6 @@ Generate VAPID keys once (`npx web-push generate-vapid-keys`) and store them wit
 | `NOTIFICATION.BROADCAST.SEND` endpoint | permission seeded, no endpoint | reserved by the contract |
 
 The UI copy of the email catalog (`src/assets/email-templates/catalog.json` in `cronos-ui`) must be kept identical to
-`src/main/resources/mail/catalog.json`; `scripts/mail/build_catalog.py` regenerates the backend copy.
+`src/main/resources/mail/catalog.json`; `scripts/mail/build_catalog.py` regenerates the backend copy. Those files are the
+read-only defaults: administrators' edits (content per locale, brand, sender, images) are stored as overrides and
+rendered through the email caches, see `docs/email-template-customization.md`.

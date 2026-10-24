@@ -51,6 +51,11 @@ public class CacheConfig {
         cacheManager.registerCustomCache("recipeSections", shortLived(Duration.ofSeconds(60), 5_000));
         cacheManager.registerCustomCache("dashboardSummary", shortLived(Duration.ofSeconds(30), 10_000));
         cacheManager.registerCustomCache("quoteStats", shortLived(Duration.ofSeconds(30), 10_000));
+        // Email templates (email-template-customization §5): evicted after commit on every instance; 30 min is only a safety net.
+        cacheManager.registerCustomCache("email.effective", shortLived(Duration.ofMinutes(30), 2_000));
+        cacheManager.registerCustomCache("email.settings", shortLived(Duration.ofMinutes(30), 500));
+        cacheManager.registerCustomCache("email.catalog", shortLived(Duration.ofMinutes(30), 500));
+        cacheManager.registerCustomCache("email.compiled", shortLived(Duration.ofMinutes(30), 2_000));
         return cacheManager;
     }
 

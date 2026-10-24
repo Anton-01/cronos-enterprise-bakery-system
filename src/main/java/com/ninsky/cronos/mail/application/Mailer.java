@@ -3,8 +3,9 @@ package com.ninsky.cronos.mail.application;
 import com.ninsky.cronos.eventing.application.DomainEventPublisher;
 import com.ninsky.cronos.eventing.application.PublishOptions;
 import com.ninsky.cronos.eventing.domain.TimeOrderedIds;
-import com.ninsky.cronos.mail.domain.EmailTemplate;
-import com.ninsky.cronos.mail.domain.EmailTemplateCatalog;
+import com.ninsky.cronos.mail.domain.LocalizedEmail;
+import com.ninsky.cronos.mail.domain.TemplateDefaults;
+import com.ninsky.cronos.mail.domain.TemplateDefinition;
 import com.ninsky.cronos.mail.domain.MailLocales;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
@@ -25,12 +26,12 @@ import java.util.stream.Collectors;
 @Service
 public class Mailer {
 
-    private final EmailTemplateCatalog catalog;
+    private final TemplateDefaults catalog;
     private final DomainEventPublisher events;
     private final ObjectProvider<MailPreferences> preferences;
     private final Clock clock;
 
-    public Mailer(EmailTemplateCatalog catalog, DomainEventPublisher events, ObjectProvider<MailPreferences> preferences, Clock clock) {
+    public Mailer(TemplateDefaults catalog, DomainEventPublisher events, ObjectProvider<MailPreferences> preferences, Clock clock) {
         this.catalog = catalog;
         this.events = events;
         this.preferences = preferences;
@@ -49,14 +50,22 @@ public class Mailer {
         return enqueue(request, false);
     }
 
-    /** {@link #send} for administrator test sends (subject prefixed with {@code [TEST]}). */
+    /**
+     * {@link #send} for administrator test sends (subject prefixed with {@code [TEST]}).
+     *
+     * @param draft unsaved content to render instead of the effective one (validated by the caller), or null
+     */
     @Transactional(propagation = Propagation.MANDATORY)
-    public Optional<UUID> sendTest(MailRequest request) {
-        return enqueue(request, true);
+    public Optional<UUID> sendTest(MailRequest request, LocalizedEmail draft) {
+        return enqueue(request, true, draft);
     }
 
     private Optional<UUID> enqueue(MailRequest request, boolean test) {
-        EmailTemplate template = catalog.find(request.templateKey())
+        return enqueue(request, test, null);
+    }
+
+    private Optional<UUID> enqueue(MailRequest request, boolean test, LocalizedEmail draft) {
+        TemplateDefinition template = catalog.find(request.templateKey())
                 .orElseThrow(() -> new IllegalArgumentException("Unknown email template " + request.templateKey()));
         if (request.to() == null || request.to().isBlank()) {
             throw new IllegalArgumentException("Email " + request.templateKey() + " has no recipient");
@@ -73,7 +82,7 @@ public class Mailer {
         }
         UUID messageId = TimeOrderedIds.next(clock);
         MailRequested event = new MailRequested(messageId, template.key(), MailLocales.normalize(request.locale()),
-                request.to().trim(), request.variables(), request.recipientUserId(), test);
+                request.to().trim(), request.variables(), request.recipientUserId(), test, draft);
         boolean published = events.publish(event, request.dedupeKey() == null ? PublishOptions.NONE : PublishOptions.dedupe(request.dedupeKey()));
         return published ? Optional.of(messageId) : Optional.empty();
     }

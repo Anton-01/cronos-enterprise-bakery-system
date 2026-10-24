@@ -10,15 +10,17 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class EmailComposerTest {
 
-    private static final EmailTemplate TEMPLATE = new EmailTemplate("test.welcome", "test", MailAudience.USER, true, "Test", "Test",
+    private static final TemplateDefinition TEMPLATE = new TemplateDefinition("test.welcome", EmailCategory.ACCOUNT, MailAudience.USER, true,
+            "Test", new LocalizedText("Prueba", "Test"),
             List.of(new TemplateVariable("name", new LocalizedText("Nombre", "Name"), "Ana", VariableKind.TEXT),
                     new TemplateVariable("link", new LocalizedText("Enlace", "Link"), "https://x.mx", VariableKind.URL)),
-            Map.of("es", new LocalizedEmail("Hola {{ name }}", "Pre {{name}}", List.of(
-                            new EmailBlock(BlockType.PARAGRAPH, "Hola, {{ name }}. Soporte: {{ supportEmail }}", null, null, null, null, null),
-                            new EmailBlock(BlockType.BUTTON, null, "Abrir", "{{ link }}", null, null, null),
-                            new EmailBlock(BlockType.DETAILS, null, null, null, null, null, List.of(new DetailRow("Nombre", "{{ name }}"))))),
-                    "en", new LocalizedEmail("Hi {{ name }}", "", List.of(
-                            new EmailBlock(BlockType.PARAGRAPH, "Hi {{ name }}", null, null, null, null, null)))));
+            Map.of(EmailLocale.ES_MX, new LocalizedEmail("Hola {{ name }}", "Pre {{name}}", List.of(
+                            new EmailBlock.Paragraph("Hola, {{ name }}. Soporte: {{ supportEmail }}"),
+                            new EmailBlock.Button("Abrir", "{{ link }}"),
+                            new EmailBlock.Details(List.of(new DetailRow("Nombre", "{{ name }}"), new DetailRow("Vacío", ""))),
+                            new EmailBlock.Image("https://assets.cronos.mx/mail/a.png", "Pastel de {{ name }}", 200, "{{ link }}"),
+                            new EmailBlock.Code("ABC-123", "Vence pronto"))),
+                    EmailLocale.EN, new LocalizedEmail("Hi {{ name }}", "", List.of(new EmailBlock.Paragraph("Hi {{ name }}")))));
 
     private static final Map<String, String> IMPLICIT = Map.of("brandName", "Cronos", "supportEmail", "soporte@cronos.mx");
 
@@ -27,16 +29,29 @@ class EmailComposerTest {
         ComposedEmail email = EmailComposer.compose(TEMPLATE, "es-MX", Map.of("name", "Ana", "link", "https://app.cronos.mx/x"), IMPLICIT);
         assertThat(email.subject()).isEqualTo("Hola Ana");
         assertThat(email.preheader()).isEqualTo("Pre Ana");
-        assertThat(email.blocks().getFirst().text()).isEqualTo("Hola, Ana. Soporte: soporte@cronos.mx");
-        assertThat(email.blocks().get(1).url()).isEqualTo("https://app.cronos.mx/x");
-        assertThat(email.blocks().get(2).rows().getFirst().value()).isEqualTo("Ana");
-        assertThat(email.text()).contains("Hola, Ana.").contains("Abrir: https://app.cronos.mx/x").contains("Nombre: Ana");
+        assertThat(email.locale()).isEqualTo("es-MX");
+        assertThat(email.blocks().getFirst()).isEqualTo(new EmailBlock.Paragraph("Hola, Ana. Soporte: soporte@cronos.mx"));
+        assertThat(email.blocks().get(1)).isEqualTo(new EmailBlock.Button("Abrir", "https://app.cronos.mx/x"));
+        assertThat(((EmailBlock.Details) email.blocks().get(2)).rows().getFirst().value()).isEqualTo("Ana");
+        assertThat(email.blocks().get(3)).isEqualTo(new EmailBlock.Image("https://assets.cronos.mx/mail/a.png", "Pastel de Ana", 200,
+                "https://app.cronos.mx/x"));
+        assertThat(email.text()).contains("Hola, Ana.").contains("Abrir: https://app.cronos.mx/x").contains("Nombre: Ana")
+                .doesNotContain("Vacío").contains("[Pastel de Ana] (https://app.cronos.mx/x)").contains("    ABC-123\nVence pronto");
+    }
+
+    @Test
+    void composesTheGivenContentInsteadOfTheDefault() {
+        LocalizedEmail draft = new LocalizedEmail("Borrador {{ name }}", "", List.of(new EmailBlock.Heading("Hola {{ brandName }}")));
+        ComposedEmail email = EmailComposer.compose(TEMPLATE, EmailLocale.ES_MX, draft, Map.of("name", "Ana", "link", "https://x.mx"), IMPLICIT);
+        assertThat(email.subject()).isEqualTo("Borrador Ana");
+        assertThat(email.text()).startsWith("HOLA CRONOS");
     }
 
     @Test
     void neutralisesDangerousLinks() {
         ComposedEmail email = EmailComposer.compose(TEMPLATE, "es-MX", Map.of("name", "Ana", "link", "javascript:alert(1)"), IMPLICIT);
-        assertThat(email.blocks().get(1).url()).isEqualTo("#");
+        assertThat(((EmailBlock.Button) email.blocks().get(1)).url()).isEqualTo("#");
+        assertThat(((EmailBlock.Image) email.blocks().get(3)).href()).isEqualTo("#");
     }
 
     @Test
@@ -57,5 +72,17 @@ class EmailComposerTest {
     void placeholdersAreReplacedLiterally() {
         assertThat(Placeholders.apply("{{ a }} and {{b}}", Map.of("a", "$1 \\ x", "b", "y"))).isEqualTo("$1 \\ x and y");
         assertThat(Placeholders.referenced("{{ a }} {{ b_c }} { d }")).containsExactlyInAnyOrder("a", "b_c");
+        assertThat(Placeholders.referencedLoosely("{{ a }} {{ user name }}")).containsExactlyInAnyOrder("a", "user name");
+        assertThat(Placeholders.single(" {{ resetUrl }} ")).contains("resetUrl");
+        assertThat(Placeholders.single("https://x/{{ resetUrl }}")).isEmpty();
+    }
+
+    @Test
+    void localesHaveStrictAndLenientParsing() {
+        assertThat(EmailLocale.fromTag("es-MX")).contains(EmailLocale.ES_MX);
+        assertThat(EmailLocale.fromTag("es-mx")).isEmpty();
+        assertThat(EmailLocale.fromTag("es")).isEmpty();
+        assertThat(EmailLocale.normalize("en-GB")).isEqualTo(EmailLocale.EN);
+        assertThat(EmailLocale.normalize(null)).isEqualTo(EmailLocale.ES_MX);
     }
 }

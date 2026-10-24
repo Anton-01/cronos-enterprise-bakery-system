@@ -159,8 +159,11 @@ public final class ImageSanitizer {
         return buffer.toByteArray();
     }
 
-    /** Drops EXIF/XMP chunks, clears their VP8X flags and fixes the RIFF size; anything after the RIFF is discarded. */
-    static byte[] stripWebpMetadata(byte[] webp) {
+    /**
+     * Drops EXIF/XMP chunks, clears their VP8X flags and fixes the RIFF size; anything after the RIFF is discarded. Also
+     * used for email images (the JDK has no WebP writer to re-encode with).
+     */
+    public static byte[] stripWebpMetadata(byte[] webp) {
         ByteBuffer in = ByteBuffer.wrap(webp).order(ByteOrder.LITTLE_ENDIAN);
         long riffEnd = Math.min(webp.length, 8L + Integer.toUnsignedLong(in.getInt(4)));
         ByteArrayOutputStream out = new ByteArrayOutputStream(webp.length);

@@ -2,6 +2,7 @@ package com.ninsky.cronos.mail.domain;
 
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -15,6 +16,8 @@ import java.util.stream.Collectors;
 public final class Placeholders {
 
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{\\{\\s*([A-Za-z][A-Za-z0-9_]*)\\s*}}");
+    /** Any {@code {{ … }}} run, well-formed or not (an editor typo must not slip through as literal text). */
+    private static final Pattern ANY_BRACES = Pattern.compile("\\{\\{(.*?)}}");
 
     private Placeholders() {
     }
@@ -40,6 +43,26 @@ public final class Placeholders {
             return Set.of();
         }
         return PLACEHOLDER.matcher(text).results().map(result -> result.group(1)).collect(Collectors.toUnmodifiableSet());
+    }
+
+    /**
+     * Every {@code {{ … }}} of {@code text} as written, trimmed: a valid name, or garbage such as {@code "user name"}
+     * that the caller reports as an unknown variable.
+     */
+    public static Set<String> referencedLoosely(String text) {
+        if (text == null) {
+            return Set.of();
+        }
+        return ANY_BRACES.matcher(text).results().map(result -> result.group(1).strip()).collect(Collectors.toUnmodifiableSet());
+    }
+
+    /** The variable name when {@code text} is exactly one placeholder ({@code "{{ resetUrl }}"}), otherwise empty. */
+    public static Optional<String> single(String text) {
+        if (text == null) {
+            return Optional.empty();
+        }
+        Matcher matcher = PLACEHOLDER.matcher(text.strip());
+        return matcher.matches() ? Optional.of(matcher.group(1)) : Optional.empty();
     }
 
     /** True when any placeholder remains (a programming error once variables are applied). */

@@ -27,7 +27,7 @@ public record SystemRole(String code, String nameEs, String descriptionEs, Strin
             PermissionCatalog.matching("IAM", "USER", null),
             PermissionCatalog.matching("IAM", "REGISTRATION", null),
             Set.of(IAM_ROLE_READ, IAM_PERMISSION_GROUP_READ, IAM_AUDIT_READ),
-            Set.of(NOTIFICATION_EMAIL_TEMPLATE_READ, NOTIFICATION_EMAIL_TEMPLATE_TEST_SEND),
+            Set.of(NOTIFICATION_EMAIL_TEMPLATE_READ, NOTIFICATION_EMAIL_TEMPLATE_TEST_SEND, NOTIFICATION_EMAIL_TEMPLATE_MANAGE),
             PermissionCatalog.matching("CATALOG", null, null),
             financeReads(),
             business(),

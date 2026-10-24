@@ -91,6 +91,7 @@ public final class Permissions {
     /** Transactional email catalog and system announcements (§7, §10). */
     public static final String NOTIFICATION_EMAIL_TEMPLATE_READ = "NOTIFICATION.EMAIL_TEMPLATE.READ";
     public static final String NOTIFICATION_EMAIL_TEMPLATE_TEST_SEND = "NOTIFICATION.EMAIL_TEMPLATE.TEST_SEND";
+    public static final String NOTIFICATION_EMAIL_TEMPLATE_MANAGE = "NOTIFICATION.EMAIL_TEMPLATE.MANAGE";
     public static final String NOTIFICATION_BROADCAST_SEND = "NOTIFICATION.BROADCAST.SEND";
 
     /** Transitional alias kept in the token while the SPA still checks it (spec §1.4.4). */
