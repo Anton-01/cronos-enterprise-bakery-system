@@ -25,3 +25,18 @@ groups:
           severity: warning
         annotations:
           summary: "{{ $labels.method }} {{ $labels.uri }} p95 above 350 ms"
+  - name: cronos-mail
+    rules:
+      # email-template-customization §5.1: the effective template is read on every outgoing email; a low hit ratio
+      # means evictions are too broad or the cache is undersized, and the dispatcher is hitting the database.
+      - alert: EmailEffectiveCacheHitRatioLow
+        expr: |
+          sum(rate(cache_gets_total{cache="email.effective",result="hit"}[15m]))
+            / clamp_min(sum(rate(cache_gets_total{cache="email.effective"}[15m])), 1e-9) < 0.95
+          and sum(rate(cache_gets_total{cache="email.effective"}[15m])) > 0.01
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "email.effective cache hit ratio below 95 %"
+          description: "Hit ratio = {{ $value | humanizePercentage }}. Check eviction volume (cache_evictions_total) and the cache size."

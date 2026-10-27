@@ -104,6 +104,15 @@ app:
       max-size: 500
   mail:
     sender-address: "no-reply@antonlogic.com"
+    # Defaults until an administrator saves the email settings (PUT /admin/email-templates/settings).
+    # A From outside these domains (plus the sender-address domain) is refused: SPF/DKIM must be aligned at the provider.
+    verified-domains: ${MAIL_VERIFIED_DOMAINS:}
+    assets:
+      storage: ${MAIL_ASSET_STORAGE:local}          # local | gcs
+      # Absolute, anonymous prefix of every email image URL. Default: served by the API under /public/mail-assets/**.
+      public-base-url: ${MAIL_ASSET_PUBLIC_BASE_URL:http://localhost:9191/api/v1/public/mail-assets}
+      local-directory: ${MAIL_ASSET_LOCAL_DIR:./uploads}
+      enforce-host: false
   # Account settings (profile / avatar / fiscal)
   avatars:
     storage: ${AVATAR_STORAGE:local}            # local | gcs

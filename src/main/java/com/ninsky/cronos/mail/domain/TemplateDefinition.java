@@ -1,5 +1,7 @@
 package com.ninsky.cronos.mail.domain;
 
+import java.util.Collections;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -8,23 +10,23 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * One entry of the email catalog (§7.1).
+ * One built-in template of {@code mail/catalog.json}: the read-only default. Administrators' edits are stored as
+ * overrides per locale; the effective content is {@code override ?? default}. Variables are not editable: they are the
+ * contract between the domain event and the template.
  *
- * @param category      the key prefix ({@code auth}, {@code admin}, {@code quote}, {@code calendar}, {@code recipe}); groups
- *                      the catalog screen
  * @param transactional true for mail the user must receive (account, security, a client's own quote); those
  *                      ignore the EMAIL preference and carry no {@code List-Unsubscribe}
  * @param trigger       the domain event that sends it (documentation for the catalog screen)
- * @param content       by language: {@code es} and {@code en}
+ * @param content       the default content of every {@link EmailLocale}
  */
-public record EmailTemplate(String key, String category, MailAudience audience, boolean transactional, String trigger,
-                            String description, List<TemplateVariable> variables, Map<String, LocalizedEmail> content) {
+public record TemplateDefinition(String key, EmailCategory category, MailAudience audience, boolean transactional, String trigger,
+                                 LocalizedText description, List<TemplateVariable> variables, Map<EmailLocale, LocalizedEmail> content) {
 
-    public EmailTemplate {
+    public TemplateDefinition {
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(audience, "audience");
         variables = variables == null ? List.of() : List.copyOf(variables);
-        content = content == null ? Map.of() : Map.copyOf(content);
+        content = content == null || content.isEmpty() ? Map.of() : Collections.unmodifiableMap(new EnumMap<>(content));
     }
 
     /** Names of the declared variables. */
@@ -38,10 +40,10 @@ public record EmailTemplate(String key, String category, MailAudience audience, 
                 .collect(Collectors.toUnmodifiableSet());
     }
 
-    /** The content of {@code locale}, falling back to Spanish (the tenant language). */
-    public LocalizedEmail content(String locale) {
-        return Optional.ofNullable(content.get(MailLocales.contentKey(locale)))
-                .or(() -> Optional.ofNullable(content.get(MailLocales.SPANISH_CONTENT)))
+    /** The default content of {@code locale}, falling back to Spanish (the tenant language). */
+    public LocalizedEmail content(EmailLocale locale) {
+        return Optional.ofNullable(content.get(locale))
+                .or(() -> Optional.ofNullable(content.get(EmailLocale.ES_MX)))
                 .orElseThrow(() -> new IllegalStateException("Template " + key + " has no content"));
     }
 

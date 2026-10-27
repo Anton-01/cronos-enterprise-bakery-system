@@ -68,6 +68,12 @@ class ArchitectureRulesTest {
             .should().dependOnClassesThat().haveSimpleNameEndingWith("CustomRepository")
             .because("controllers are thin: they call application services");
 
+    /** email-template-customization §10: the mail web layer talks to application services and ports only. */
+    @ArchTest
+    static final ArchRule mailWebDoesNotReachInfrastructure = noClasses().that().resideInAPackage("com.ninsky.cronos.mail.api..")
+            .should().dependOnClassesThat().resideInAPackage("com.ninsky.cronos.mail.infrastructure..")
+            .because("controllers and DTOs go through application services (storage is the EmailAssetStorage port)");
+
     /** R4: side effects through the outbox. */
     @ArchTest
     static final ArchRule eventsAreRecords = classes().that().implement(DomainEvent.class).and().areNotInterfaces()

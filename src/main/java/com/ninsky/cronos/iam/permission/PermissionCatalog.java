@@ -109,6 +109,7 @@ public final class PermissionCatalog {
 
             PermissionDefinition.of(NOTIFICATION_EMAIL_TEMPLATE_READ, LOW),
             PermissionDefinition.of(NOTIFICATION_EMAIL_TEMPLATE_TEST_SEND, MEDIUM),
+            PermissionDefinition.of(NOTIFICATION_EMAIL_TEMPLATE_MANAGE, HIGH),
             PermissionDefinition.standalone(NOTIFICATION_BROADCAST_SEND, HIGH)
     ).sorted(PermissionDefinition.CANONICAL_ORDER).toList();
 

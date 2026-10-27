@@ -32,6 +32,9 @@ public class SmtpMailGateway implements MailGateway {
             MimeMessageHelper helper = new MimeMessageHelper(message, MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED,
                     StandardCharsets.UTF_8.name());
             helper.setFrom(mail.fromAddress(), mail.fromName());
+            if (mail.replyTo() != null) {
+                helper.setReplyTo(mail.replyTo());
+            }
             helper.setTo(mail.to());
             helper.setSubject(mail.subject());
             helper.setText(mail.text(), mail.html());

@@ -16,6 +16,8 @@ public enum NotificationType {
     PASSWORD_CHANGED(NotificationCategory.ACCOUNT, NotificationSeverity.INFO),
     NEW_SIGN_IN(NotificationCategory.SECURITY, NotificationSeverity.WARNING),
     ACCOUNT_LOCKED(NotificationCategory.SECURITY, NotificationSeverity.CRITICAL),
+    /** The From address or Reply-To of every email changed (phishing-relevant): told to the other administrators. */
+    EMAIL_SENDER_CHANGED(NotificationCategory.SECURITY, NotificationSeverity.WARNING),
     SYSTEM_ANNOUNCEMENT(NotificationCategory.SYSTEM, NotificationSeverity.INFO);
 
     private final NotificationCategory category;

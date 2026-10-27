@@ -5,6 +5,8 @@ import com.ninsky.cronos.eventing.domain.EventType;
 import com.ninsky.cronos.eventing.domain.RetrySchedule;
 import com.ninsky.cronos.eventing.domain.Sensitive;
 
+import com.ninsky.cronos.mail.domain.LocalizedEmail;
+
 import java.util.Map;
 import java.util.UUID;
 
@@ -15,10 +17,12 @@ import java.util.UUID;
  *
  * @param recipientUserId the account the email goes to, null for clients without an account
  * @param test            administrator test send: subject prefixed with {@code [TEST]}
+ * @param draft           test sends of an unsaved, already validated draft: rendered instead of the effective content
  */
 @EventType(value = "mail.requested", retry = RetrySchedule.MAIL)
 public record MailRequested(UUID messageId, String templateKey, String locale, @Sensitive String to,
-                            @Sensitive Map<String, String> variables, UUID recipientUserId, boolean test)
+                            @Sensitive Map<String, String> variables, UUID recipientUserId, boolean test,
+                            LocalizedEmail draft)
         implements DomainEvent {
 
     public MailRequested {

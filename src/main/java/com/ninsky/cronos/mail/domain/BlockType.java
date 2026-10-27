@@ -5,7 +5,7 @@ import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.Locale;
 
-/** Building blocks of a catalog email; each has one HTML fragment and one plain-text form. */
+/** Building blocks of a catalog email; each has one HTML fragment and one plain-text form (the {@code type} JSON value). */
 public enum BlockType {
     HEADING,
     PARAGRAPH,
@@ -14,6 +14,7 @@ public enum BlockType {
     DETAILS,
     CALLOUT,
     LIST,
+    IMAGE,
     DIVIDER,
     SIGNATURE;
 

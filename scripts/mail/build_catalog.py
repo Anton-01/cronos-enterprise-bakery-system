@@ -3,9 +3,14 @@
 
 Edit the TEMPLATES list below and re-run: `python3 scripts/mail/build_catalog.py`.
 The UI keeps a copy at src/assets/email-templates/catalog.json; keep both in sync.
+These are the read-only defaults: administrators' edits are stored as overrides in the database
+(docs/email-template-customization.md). Bump VERSION whenever a default text changes.
 """
 import json
 import pathlib
+
+VERSION = "2026-10-24"
+ES_MX = "es-MX"
 
 # Spanish text of every variable description, keyed by the English one (the same name can mean different things).
 ES_DESCRIPTIONS = {
@@ -59,7 +64,7 @@ ES_DESCRIPTIONS = {
 }
 
 def v(name, description, sample, kind="text"):
-    return {"name": name, "description": {"es": ES_DESCRIPTIONS[description], "en": description}, "sample": sample, "kind": kind}
+    return {"name": name, "description": {ES_MX: ES_DESCRIPTIONS[description], "en": description}, "sample": sample, "kind": kind}
 
 def heading(t): return {"type": "heading", "text": t}
 def p(t): return {"type": "paragraph", "text": t}
@@ -79,10 +84,66 @@ EN_IGNORE = p("If this wasn't you, ignore this message or write to {{ supportEma
 def fallback_es(var): return p("Si el botón no funciona, copia este enlace en tu navegador: {{ " + var + " }}")
 def fallback_en(var): return p("If the button does not work, paste this link into your browser: {{ " + var + " }}")
 
+# The UI groups the list by category; stored as the enum value, never derived from the key at runtime.
+CATEGORIES = {
+    "ACCOUNT": ["auth.registration-received", "auth.email-verification", "auth.account-approved", "auth.account-rejected",
+                "auth.invitation"],
+    "SECURITY": ["auth.password-reset", "auth.password-changed", "auth.account-locked", "auth.new-sign-in",
+                 "auth.temporary-password", "auth.email-changed", "auth.two-factor-disabled", "auth.recovery-code-used",
+                 "auth.registration-attempt"],
+    "ADMIN": ["admin.registration-pending"],
+    "QUOTES": ["quote.sent-to-client", "quote.accepted-baker", "quote.accepted-client", "quote.expiring-reminder"],
+    "ORDERS": ["calendar.order-reminder", "calendar.order-scheduled-client"],
+    "RECIPES": ["recipe.shared"],
+}
+CATEGORY_OF = {key: category for category, keys in CATEGORIES.items() for key in keys}
+
+# Spanish text of every template description, keyed by the English one.
+ES_TEMPLATE_DESCRIPTIONS = {
+    "Confirms a self-registration and explains that an administrator reviews it.":
+        "Confirma un autorregistro y explica que un administrador lo revisa.",
+    "Single-use link (24 h) that confirms the address belongs to the user.":
+        "Enlace de un solo uso (24 h) que confirma que la dirección pertenece al usuario.",
+    "Tells reviewers that a registration waits for a decision.":
+        "Avisa a los revisores que un registro espera una decisión.",
+    "Welcome email once an administrator approves the account.":
+        "Correo de bienvenida cuando un administrador aprueba la cuenta.",
+    "Sent only when the reviewer chose to notify the applicant.":
+        "Se envía solo cuando el revisor decidió notificar al solicitante.",
+    "Single-use password recovery link.": "Enlace de un solo uso para recuperar la contraseña.",
+    "Security notice after any password change or reset.":
+        "Aviso de seguridad después de cualquier cambio o restablecimiento de contraseña.",
+    "Too many failed sign-ins locked the account temporarily.":
+        "Demasiados inicios de sesión fallidos bloquearon la cuenta temporalmente.",
+    "Sign-in from a device not seen in the last 90 days.":
+        "Inicio de sesión desde un dispositivo no visto en los últimos 90 días.",
+    "The baker's quote, with the public link, for their client.":
+        "La cotización del repostero, con el enlace público, para su cliente.",
+    "The client accepted from the public link; the baker should schedule the order.":
+        "El cliente aceptó desde el enlace público; el repostero debe agendar el pedido.",
+    "Confirms to the client that the quote was accepted.": "Confirma al cliente que la cotización fue aceptada.",
+    "An open quote expires in two days or less.": "Una cotización abierta vence en dos días o menos.",
+    "Reminder before an order, with the production sheet link.":
+        "Recordatorio antes de un pedido, con el enlace a la hoja de producción.",
+    "Tells the client the date and place of their order.": "Informa al cliente la fecha y el lugar de su pedido.",
+    "An administrator created the account; the link sets the first password.":
+        "Un administrador creó la cuenta; el enlace define la primera contraseña.",
+    "An administrator assigned a temporary password that must be changed at sign-in.":
+        "Un administrador asignó una contraseña temporal que debe cambiarse al iniciar sesión.",
+    "Notice to the previous address that the account email changed.":
+        "Aviso a la dirección anterior de que el correo de la cuenta cambió.",
+    "Two-step verification was turned off and other sessions were closed.":
+        "Se desactivó la verificación en dos pasos y se cerraron las demás sesiones.",
+    "Someone signed in with a recovery code.": "Alguien inició sesión con un código de respaldo.",
+    "Someone tried to register with an address that already has an account (never revealed to them).":
+        "Alguien intentó registrarse con una dirección que ya tiene cuenta (nunca se le revela).",
+    "A recipe was shared with an email recipient.": "Se compartió una receta con un destinatario por correo.",
+}
+
 def tpl(key, audience, transactional, trigger, description, variables, es, en):
-    return {"key": key, "category": key.split(".")[0], "audience": audience, "transactional": transactional,
-            "trigger": trigger, "description": description, "variables": variables,
-            "content": {"es": es, "en": en}}
+    return {"key": key, "category": CATEGORY_OF[key], "audience": audience, "transactional": transactional,
+            "trigger": trigger, "description": {ES_MX: ES_TEMPLATE_DESCRIPTIONS[description], "en": description},
+            "variables": variables, "content": {ES_MX: es, "en": en}}
 
 def content(subject, preheader, blocks):
     return {"subject": subject, "preheader": preheader, "blocks": blocks}
@@ -413,7 +474,8 @@ TEMPLATES = [
             fallback_en("shareUrl"), EN_SIG])),
 ]
 
-catalog = {"version": 1, "templates": TEMPLATES}
+assert sorted(CATEGORY_OF) == sorted(t["key"] for t in TEMPLATES), "every template needs exactly one category"
+catalog = {"version": VERSION, "templates": TEMPLATES}
 target = pathlib.Path(__file__).resolve().parents[2] / "src/main/resources/mail/catalog.json"
 target.parent.mkdir(parents=True, exist_ok=True)
 target.write_text(json.dumps(catalog, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

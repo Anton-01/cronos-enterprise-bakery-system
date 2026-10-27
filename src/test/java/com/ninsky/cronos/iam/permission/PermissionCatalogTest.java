@@ -12,7 +12,7 @@ class PermissionCatalogTest {
     void catalogIsAValidDagInCanonicalOrder() {
         PermissionCatalog.validate();
         assertThat(PermissionCatalog.all()).isSortedAccordingTo(PermissionDefinition.CANONICAL_ORDER);
-        assertThat(PermissionCatalog.codes()).hasSize(66);
+        assertThat(PermissionCatalog.codes()).hasSize(67);
     }
 
     @Test
